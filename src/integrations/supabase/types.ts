@@ -114,6 +114,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          payment_id: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           session_id: string | null
@@ -126,6 +127,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          payment_id?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           session_id?: string | null
@@ -138,6 +140,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          payment_id?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           session_id?: string | null
@@ -146,6 +149,56 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          email: string
+          google_drive_link: string | null
+          id: string
+          mobile_number: string | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          status: string | null
+          verified_at: string | null
+          whatsapp_sent: boolean | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          email: string
+          google_drive_link?: string | null
+          id?: string
+          mobile_number?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string | null
+          verified_at?: string | null
+          whatsapp_sent?: boolean | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          email?: string
+          google_drive_link?: string | null
+          id?: string
+          mobile_number?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string | null
+          verified_at?: string | null
+          whatsapp_sent?: boolean | null
         }
         Relationships: []
       }

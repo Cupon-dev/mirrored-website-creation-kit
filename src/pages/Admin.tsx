@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { ArrowLeft, Plus, Save, Eye, Edit, Trash2, Package, ShoppingCart, Users 
 import { useCategories, useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ImageUpload from "@/components/ImageUpload";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ const Admin = () => {
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [currentView, setCurrentView] = useState<"dashboard" | "products" | "categories">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "products" | "categories" | "payments">("dashboard");
   
   const [productForm, setProductForm] = useState({
     name: "",
@@ -276,106 +276,131 @@ const Admin = () => {
                   <span>Add New Product</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Product Name</Label>
-                    <Input
-                      id="name"
-                      value={productForm.name}
-                      onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-                      placeholder="Enter product name"
-                    />
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="name">Product Name</Label>
+                      <Input
+                        id="name"
+                        value={productForm.name}
+                        onChange={(e) => setProductForm({...productForm, name: e.target.value})}
+                        placeholder="Enter product name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="brand">Brand</Label>
+                      <Input
+                        id="brand"
+                        value={productForm.brand}
+                        onChange={(e) => setProductForm({...productForm, brand: e.target.value})}
+                        placeholder="Enter brand name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="price">Price</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        value={productForm.price}
+                        onChange={(e) => setProductForm({...productForm, price: e.target.value})}
+                        placeholder="Enter price"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="original_price">Original Price</Label>
+                      <Input
+                        id="original_price"
+                        type="number"
+                        value={productForm.original_price}
+                        onChange={(e) => setProductForm({...productForm, original_price: e.target.value})}
+                        placeholder="Enter original price"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="discount">Discount %</Label>
+                      <Input
+                        id="discount"
+                        type="number"
+                        value={productForm.discount_percentage}
+                        onChange={(e) => setProductForm({...productForm, discount_percentage: e.target.value})}
+                        placeholder="Enter discount percentage"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="stock">Stock Quantity</Label>
+                      <Input
+                        id="stock"
+                        type="number"
+                        value={productForm.stock_quantity}
+                        onChange={(e) => setProductForm({...productForm, stock_quantity: e.target.value})}
+                        placeholder="Enter stock quantity"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="brand">Brand</Label>
-                    <Input
-                      id="brand"
-                      value={productForm.brand}
-                      onChange={(e) => setProductForm({...productForm, brand: e.target.value})}
-                      placeholder="Enter brand name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="price">Price</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={productForm.price}
-                      onChange={(e) => setProductForm({...productForm, price: e.target.value})}
-                      placeholder="Enter price"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="original_price">Original Price</Label>
-                    <Input
-                      id="original_price"
-                      type="number"
-                      value={productForm.original_price}
-                      onChange={(e) => setProductForm({...productForm, original_price: e.target.value})}
-                      placeholder="Enter original price"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="discount">Discount %</Label>
-                    <Input
-                      id="discount"
-                      type="number"
-                      value={productForm.discount_percentage}
-                      onChange={(e) => setProductForm({...productForm, discount_percentage: e.target.value})}
-                      placeholder="Enter discount percentage"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="stock">Stock Quantity</Label>
-                    <Input
-                      id="stock"
-                      type="number"
-                      value={productForm.stock_quantity}
-                      onChange={(e) => setProductForm({...productForm, stock_quantity: e.target.value})}
-                      placeholder="Enter stock quantity"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="rating">Rating</Label>
-                    <Input
-                      id="rating"
-                      type="number"
-                      step="0.1"
-                      max="5"
-                      value={productForm.rating}
-                      onChange={(e) => setProductForm({...productForm, rating: e.target.value})}
-                      placeholder="Enter rating (0-5)"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="review_count">Review Count</Label>
-                    <Input
-                      id="review_count"
-                      type="number"
-                      value={productForm.review_count}
-                      onChange={(e) => setProductForm({...productForm, review_count: e.target.value})}
-                      placeholder="Enter review count"
-                    />
+
+                  {/* Right Column */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="rating">Rating</Label>
+                      <Input
+                        id="rating"
+                        type="number"
+                        step="0.1"
+                        max="5"
+                        value={productForm.rating}
+                        onChange={(e) => setProductForm({...productForm, rating: e.target.value})}
+                        placeholder="Enter rating (0-5)"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="review_count">Review Count</Label>
+                      <Input
+                        id="review_count"
+                        type="number"
+                        value={productForm.review_count}
+                        onChange={(e) => setProductForm({...productForm, review_count: e.target.value})}
+                        placeholder="Enter review count"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="category">Category</Label>
+                      <Select value={productForm.category_id} onValueChange={(value) => setProductForm({...productForm, category_id: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.icon} {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="razorpay_link">Razorpay Payment Link</Label>
+                      <Input
+                        id="razorpay_link"
+                        value={productForm.razorpay_link}
+                        onChange={(e) => setProductForm({...productForm, razorpay_link: e.target.value})}
+                        placeholder="Enter Razorpay payment link"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="tags">Tags (comma separated)</Label>
+                      <Input
+                        id="tags"
+                        value={productForm.tags}
+                        onChange={(e) => setProductForm({...productForm, tags: e.target.value})}
+                        placeholder="Enter tags separated by commas"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={productForm.category_id} onValueChange={(value) => setProductForm({...productForm, category_id: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.icon} {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
+                {/* Full Width Fields */}
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -387,54 +412,34 @@ const Admin = () => {
                   />
                 </div>
 
+                {/* Image Upload Section */}
                 <div>
-                  <Label htmlFor="image_url">Main Image URL</Label>
-                  <Input
-                    id="image_url"
-                    value={productForm.image_url}
-                    onChange={(e) => setProductForm({...productForm, image_url: e.target.value})}
-                    placeholder="Enter main image URL"
+                  <Label>Main Product Image</Label>
+                  <ImageUpload
+                    currentImage={productForm.image_url}
+                    onImageUpload={(url) => setProductForm({...productForm, image_url: url})}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="gallery_images">Gallery Images (comma separated URLs)</Label>
+                  <Label htmlFor="gallery_images">Additional Gallery Images (comma separated URLs)</Label>
                   <Textarea
                     id="gallery_images"
                     value={productForm.gallery_images}
                     onChange={(e) => setProductForm({...productForm, gallery_images: e.target.value})}
-                    placeholder="Enter gallery image URLs separated by commas"
+                    placeholder="Enter additional image URLs separated by commas"
                     rows={2}
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="razorpay_link">Razorpay Payment Link</Label>
-                  <Input
-                    id="razorpay_link"
-                    value={productForm.razorpay_link}
-                    onChange={(e) => setProductForm({...productForm, razorpay_link: e.target.value})}
-                    placeholder="Enter Razorpay payment link"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="tags">Tags (comma separated)</Label>
-                  <Input
-                    id="tags"
-                    value={productForm.tags}
-                    onChange={(e) => setProductForm({...productForm, tags: e.target.value})}
-                    placeholder="Enter tags separated by commas"
-                  />
-                </div>
-
-                <Button onClick={handleAddProduct} className="w-full">
+                <Button onClick={handleAddProduct} className="w-full bg-green-600 hover:bg-green-700">
                   <Save className="w-4 h-4 mr-2" />
                   Add Product
                 </Button>
               </CardContent>
             </Card>
 
+            {/* Existing Products */}
             <Card>
               <CardHeader>
                 <CardTitle>Existing Products</CardTitle>
@@ -496,7 +501,7 @@ const Admin = () => {
                     placeholder="Enter emoji icon"
                   />
                 </div>
-                <Button onClick={handleAddCategory} className="w-full">
+                <Button onClick={handleAddCategory} className="w-full bg-green-600 hover:bg-green-700">
                   <Save className="w-4 h-4 mr-2" />
                   Add Category
                 </Button>
