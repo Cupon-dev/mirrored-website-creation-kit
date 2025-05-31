@@ -27,6 +27,8 @@ export const useCart = () => {
           products (
             name,
             price,
+            original_price,
+            discount_percentage,
             image_url,
             razorpay_link
           )
@@ -108,12 +110,40 @@ export const useCart = () => {
     },
   });
 
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
+      if (quantity <= 0) {
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('id', itemId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity })
+          .eq('id', itemId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+
+  const isProductInCart = (productId: string) => {
+    return cartQuery.data?.some(item => item.product_id === productId) || false;
+  };
+
   return {
     cart: cartQuery.data || [],
     isLoading: cartQuery.isLoading,
     addToCart: addToCartMutation.mutate,
     removeFromCart: removeFromCartMutation.mutate,
+    updateQuantity: updateQuantityMutation.mutate,
+    isProductInCart,
     cartTotal: cartQuery.data?.reduce((total, item) => total + (item.products?.price || 0) * item.quantity, 0) || 0,
     cartCount: cartQuery.data?.reduce((total, item) => total + item.quantity, 0) || 0,
+    originalTotal: cartQuery.data?.reduce((total, item) => total + (item.products?.original_price || item.products?.price || 0) * item.quantity, 0) || 0,
   };
 };

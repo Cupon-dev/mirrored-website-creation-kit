@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, Zap, TrendingUp } from "lucide-react";
@@ -15,7 +14,7 @@ const Index = () => {
   
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
-  const { addToCart, cartCount } = useCart();
+  const { addToCart, cartCount, isProductInCart } = useCart();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -41,7 +40,11 @@ const Index = () => {
 
   const handleAddToCart = (productId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    addToCart({ productId });
+    if (!isProductInCart(productId)) {
+      addToCart({ productId });
+    } else {
+      navigate('/cart');
+    }
   };
 
   if (isLoading) {
@@ -92,8 +95,8 @@ const Index = () => {
         {/* Hero Banner */}
         <div className="bg-gradient-to-r from-lime-200 to-green-300 rounded-xl md:rounded-2xl p-4 md:p-6 mb-6 md:mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">Flash Sale Alert! 🔥</h2>
-            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">Limited Time Offer - Ends Today!</p>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">🔥 Digital Products Sale!</h2>
+            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">Instant delivery via WhatsApp!</p>
             <div className="flex items-center space-x-2 mb-3 md:mb-4">
               <span className="text-3xl md:text-4xl font-bold text-red-500">50</span>
               <div className="text-xs md:text-sm">
@@ -163,101 +166,108 @@ const Index = () => {
 
         {/* Product Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
-          {products.map((product) => (
-            <div 
-              key={product.id} 
-              className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02]"
-              onClick={() => handleProductClick(product.id)}
-            >
-              <div className="relative">
-                <img 
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-32 md:h-48 object-cover"
-                />
-                <div className="absolute top-2 md:top-3 left-2 md:left-3">
-                  {product.discount_percentage > 0 && (
-                    <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
-                      -{product.discount_percentage}% OFF
+          {products.map((product) => {
+            const inCart = isProductInCart(product.id);
+            return (
+              <div 
+                key={product.id} 
+                className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02]"
+                onClick={() => handleProductClick(product.id)}
+              >
+                <div className="relative">
+                  <img 
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-32 md:h-48 object-cover"
+                  />
+                  <div className="absolute top-2 md:top-3 left-2 md:left-3">
+                    {product.discount_percentage > 0 && (
+                      <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
+                        -{product.discount_percentage}% OFF
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWishlist(product.id);
+                    }}
+                  >
+                    <Heart 
+                      className={`w-3 h-3 md:w-4 md:h-4 ${
+                        wishlist.includes(product.id) 
+                          ? "fill-red-500 text-red-500" 
+                          : "text-gray-400"
+                      }`}
+                    />
+                  </Button>
+                  {product.stock_quantity <= 20 && (
+                    <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
+                      Only {product.stock_quantity} left!
                     </Badge>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleWishlist(product.id);
-                  }}
-                >
-                  <Heart 
-                    className={`w-3 h-3 md:w-4 md:h-4 ${
-                      wishlist.includes(product.id) 
-                        ? "fill-red-500 text-red-500" 
-                        : "text-gray-400"
-                    }`}
-                  />
-                </Button>
-                {product.stock_quantity <= 20 && (
-                  <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
-                    Only {product.stock_quantity} left!
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="p-2 md:p-4">
-                <div className="flex items-center space-x-1 mb-1 md:mb-2">
-                  <span className="text-xs text-gray-600">{product.brand}</span>
-                  <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs font-medium">{product.rating}</span>
-                  <span className="text-xs text-gray-500">({product.review_count})</span>
-                </div>
                 
-                <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
-                  {product.name}
-                </h4>
-                
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <span className="font-bold text-gray-900 text-sm md:text-base">${product.price}</span>
-                    {product.original_price && (
-                      <span className="text-xs text-gray-500 line-through">${product.original_price}</span>
-                    )}
+                <div className="p-2 md:p-4">
+                  <div className="flex items-center space-x-1 mb-1 md:mb-2">
+                    <span className="text-xs text-gray-600">{product.brand}</span>
+                    <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="text-xs font-medium">{product.rating}</span>
+                    <span className="text-xs text-gray-500">({product.review_count})</span>
+                  </div>
+                  
+                  <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
+                    {product.name}
+                  </h4>
+                  
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-1 md:space-x-2">
+                      <span className="font-bold text-gray-900 text-sm md:text-base">${product.price}</span>
+                      {product.original_price && (
+                        <span className="text-xs text-gray-500 line-through">${product.original_price}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-1 md:space-x-2">
+                    <Button 
+                      size="sm" 
+                      onClick={(e) => handleBuyNow(product, e)}
+                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105"
+                    >
+                      <Zap className="w-3 h-3 mr-1" />
+                      Buy Now
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={inCart ? "default" : "outline"}
+                      onClick={(e) => handleAddToCart(product.id, e)}
+                      className={`rounded-lg px-2 md:px-3 text-xs ${
+                        inCart 
+                          ? "bg-green-500 text-white hover:bg-green-600" 
+                          : "border-lime-400 text-lime-700 hover:bg-lime-50"
+                      }`}
+                    >
+                      {inCart ? "Selected" : "Add"}
+                    </Button>
                   </div>
                 </div>
-                
-                <div className="flex space-x-1 md:space-x-2">
-                  <Button 
-                    size="sm" 
-                    onClick={(e) => handleBuyNow(product, e)}
-                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105"
-                  >
-                    <Zap className="w-3 h-3 mr-1" />
-                    Buy Now
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={(e) => handleAddToCart(product.id, e)}
-                    className="border-lime-400 text-lime-700 hover:bg-lime-50 rounded-lg px-2 md:px-3 text-xs"
-                  >
-                    Add
-                  </Button>
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Floating Cart Summary */}
         {cartCount > 0 && (
           <div 
-            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all"
+            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all animate-pulse"
             onClick={() => navigate('/cart')}
           >
             <span className="font-medium text-sm md:text-base">View Cart</span>
-            <Badge className="bg-white text-gray-800 rounded-full text-xs">
+            <Badge className="bg-white text-gray-800 rounded-full text-xs animate-bounce">
               {cartCount}
             </Badge>
           </div>
