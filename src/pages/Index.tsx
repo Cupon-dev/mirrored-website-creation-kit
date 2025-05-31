@@ -1,15 +1,23 @@
 
 import { useState } from "react";
-import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, Zap, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useProducts, useCategories } from "@/hooks/useProducts";
+import { useCart } from "@/hooks/useCart";
 
 const Index = () => {
-  const [wishlist, setWishlist] = useState<number[]>([]);
-  const [cartItems, setCartItems] = useState(0);
+  const navigate = useNavigate();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  
+  const { data: categories = [] } = useCategories();
+  const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
+  const { addToCart, cartCount } = useCart();
 
-  const toggleWishlist = (productId: number) => {
+  const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
       prev.includes(productId) 
         ? prev.filter(id => id !== productId)
@@ -17,64 +25,28 @@ const Index = () => {
     );
   };
 
-  const addToCart = () => {
-    setCartItems(prev => prev + 1);
+  const handleProductClick = (productId: string) => {
+    navigate(`/product/${productId}`);
   };
 
-  const categories = [
-    { name: "All", active: true },
-    { name: "Clothing", icon: "👕" },
-    { name: "Bag", icon: "👜" },
-    { name: "Lamp", icon: "💡" },
-    { name: "Wallets", icon: "👛" }
-  ];
-
-  const featuredProducts = [
-    {
-      id: 1,
-      name: "Roadstar Men Self Fit T-shirt",
-      price: 130,
-      originalPrice: 150,
-      discount: 12,
-      rating: 4.6,
-      reviews: 124,
-      image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop",
-      inStock: 32
-    },
-    {
-      id: 2,
-      name: "Levis Neck Half Sleeve Tsh",
-      price: 150,
-      originalPrice: 175,
-      discount: 8,
-      rating: 4.8,
-      reviews: 326,
-      image: "https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=400&h=400&fit=crop",
-      inStock: 127
-    },
-    {
-      id: 3,
-      name: "Premium Cotton Casual Wear",
-      price: 88,
-      originalPrice: 110,
-      discount: 12,
-      rating: 4.5,
-      reviews: 89,
-      image: "https://images.unsplash.com/photo-1603252109360-909baaf261c7?w=400&h=400&fit=crop",
-      inStock: 15
-    },
-    {
-      id: 4,
-      name: "Urban Style Light Tee",
-      price: 95,
-      originalPrice: 120,
-      discount: 8,
-      rating: 4.7,
-      reviews: 201,
-      image: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&h=400&fit=crop",
-      inStock: 43
+  const handleBuyNow = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (product.razorpay_link) {
+      window.open(product.razorpay_link, '_blank');
+    } else {
+      addToCart({ productId: product.id });
+      navigate('/cart');
     }
-  ];
+  };
+
+  const handleAddToCart = (productId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToCart({ productId });
+  };
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
@@ -90,14 +62,18 @@ const Index = () => {
               <p className="font-semibold text-gray-900 text-sm md:text-base">Siren.uix 👋</p>
             </div>
           </div>
-          <div className="relative">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/cart')}
+            className="relative p-2"
+          >
             <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
-            {cartItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center">
-                {cartItems}
+            {cartCount > 0 && (
+              <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {cartCount}
               </Badge>
             )}
-          </div>
+          </Button>
         </div>
       </header>
 
@@ -116,24 +92,20 @@ const Index = () => {
         {/* Hero Banner */}
         <div className="bg-gradient-to-r from-lime-200 to-green-300 rounded-xl md:rounded-2xl p-4 md:p-6 mb-6 md:mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">Good Regulation</h2>
-            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">For Jan 2025</p>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">Flash Sale Alert! 🔥</h2>
+            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">Limited Time Offer - Ends Today!</p>
             <div className="flex items-center space-x-2 mb-3 md:mb-4">
               <span className="text-3xl md:text-4xl font-bold text-red-500">50</span>
               <div className="text-xs md:text-sm">
                 <span className="text-gray-600">% OFF</span>
               </div>
             </div>
-            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base">
+            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base transform transition hover:scale-105">
               🛍️ Shop Now
             </Button>
           </div>
           <div className="absolute right-2 md:right-4 top-2 md:top-4 w-20 h-20 md:w-32 md:h-32 opacity-20">
-            <img 
-              src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop"
-              alt="Featured Product"
-              className="w-full h-full object-cover rounded-full"
-            />
+            <TrendingUp className="w-full h-full text-white" />
           </div>
         </div>
 
@@ -141,15 +113,26 @@ const Index = () => {
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between mb-3 md:mb-4">
             <h3 className="text-base md:text-lg font-semibold text-gray-900">Categories</h3>
-            <Button variant="ghost" size="sm" className="text-xs md:text-sm">•••</Button>
           </div>
           <div className="flex space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
-            {categories.map((category, index) => (
+            <Button
+              variant={selectedCategory === 'all' ? "default" : "outline"}
+              onClick={() => setSelectedCategory('all')}
+              className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap ${
+                selectedCategory === 'all'
+                  ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
+                  : "border-gray-200 hover:border-lime-400"
+              }`}
+            >
+              🛍️ All
+            </Button>
+            {categories.map((category) => (
               <Button
-                key={index}
-                variant={category.active ? "default" : "outline"}
+                key={category.id}
+                variant={selectedCategory === category.id ? "default" : "outline"}
+                onClick={() => setSelectedCategory(category.id)}
                 className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap ${
-                  category.active 
+                  selectedCategory === category.id
                     ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
                     : "border-gray-200 hover:border-lime-400"
                 }`}
@@ -163,7 +146,7 @@ const Index = () => {
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-3">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900">Men's Fashion</h3>
+          <h3 className="text-base md:text-lg font-semibold text-gray-900">Trending Products</h3>
           <div className="flex items-center space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
             <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
               <Filter className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
@@ -173,34 +156,40 @@ const Index = () => {
               Ratings
             </Button>
             <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
-              Size
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
-              Color
+              Price
             </Button>
           </div>
         </div>
 
         {/* Product Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
-          {featuredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+          {products.map((product) => (
+            <div 
+              key={product.id} 
+              className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02]"
+              onClick={() => handleProductClick(product.id)}
+            >
               <div className="relative">
                 <img 
-                  src={product.image}
+                  src={product.image_url}
                   alt={product.name}
                   className="w-full h-32 md:h-48 object-cover"
                 />
                 <div className="absolute top-2 md:top-3 left-2 md:left-3">
-                  <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs">
-                    -{product.discount}%
-                  </Badge>
+                  {product.discount_percentage > 0 && (
+                    <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
+                      -{product.discount_percentage}% OFF
+                    </Badge>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0"
-                  onClick={() => toggleWishlist(product.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleWishlist(product.id);
+                  }}
                 >
                   <Heart 
                     className={`w-3 h-3 md:w-4 md:h-4 ${
@@ -210,34 +199,48 @@ const Index = () => {
                     }`}
                   />
                 </Button>
+                {product.stock_quantity <= 20 && (
+                  <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
+                    Only {product.stock_quantity} left!
+                  </Badge>
+                )}
               </div>
+              
               <div className="p-2 md:p-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-gray-500 mb-1 md:mb-2 p-0 h-auto hidden md:flex"
-                >
-                  ❤️ Wishlist
-                </Button>
-                <p className="text-xs text-gray-500 mb-1">{product.inStock} Stocks Left</p>
                 <div className="flex items-center space-x-1 mb-1 md:mb-2">
-                  <span className="text-xs">H&M</span>
+                  <span className="text-xs text-gray-600">{product.brand}</span>
                   <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-yellow-400 text-yellow-400" />
                   <span className="text-xs font-medium">{product.rating}</span>
-                  <span className="text-xs text-gray-500">({product.reviews})</span>
+                  <span className="text-xs text-gray-500">({product.review_count})</span>
                 </div>
+                
                 <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
                   {product.name}
                 </h4>
-                <div className="flex items-center justify-between">
+                
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-1 md:space-x-2">
                     <span className="font-bold text-gray-900 text-sm md:text-base">${product.price}</span>
-                    <span className="text-xs text-gray-500 line-through">${product.originalPrice}</span>
+                    {product.original_price && (
+                      <span className="text-xs text-gray-500 line-through">${product.original_price}</span>
+                    )}
                   </div>
+                </div>
+                
+                <div className="flex space-x-1 md:space-x-2">
                   <Button 
                     size="sm" 
-                    className="bg-lime-400 text-gray-800 hover:bg-lime-500 rounded-lg px-2 md:px-3 text-xs"
-                    onClick={addToCart}
+                    onClick={(e) => handleBuyNow(product, e)}
+                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105"
+                  >
+                    <Zap className="w-3 h-3 mr-1" />
+                    Buy Now
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={(e) => handleAddToCart(product.id, e)}
+                    className="border-lime-400 text-lime-700 hover:bg-lime-50 rounded-lg px-2 md:px-3 text-xs"
                   >
                     Add
                   </Button>
@@ -247,14 +250,16 @@ const Index = () => {
           ))}
         </div>
 
-        {/* Cart Floating Action */}
-        {cartItems > 0 && (
-          <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4">
-            <span className="font-medium text-sm md:text-base">View your cart</span>
+        {/* Floating Cart Summary */}
+        {cartCount > 0 && (
+          <div 
+            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all"
+            onClick={() => navigate('/cart')}
+          >
+            <span className="font-medium text-sm md:text-base">View Cart</span>
             <Badge className="bg-white text-gray-800 rounded-full text-xs">
-              {cartItems}x
+              {cartCount}
             </Badge>
-            <span className="font-bold text-sm md:text-base">$88.79</span>
           </div>
         )}
       </div>
