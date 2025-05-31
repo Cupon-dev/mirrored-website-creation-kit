@@ -77,23 +77,23 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       {/* Header */}
-      <header className="bg-white px-4 py-3 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-lime-400 to-green-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-lime-400 to-green-500 flex items-center justify-center">
+              <span className="text-white font-bold text-xs md:text-sm">S</span>
             </div>
-            <div>
+            <div className="hidden sm:block">
               <p className="text-xs text-gray-500">Welcome Back</p>
-              <p className="font-semibold text-gray-900">Siren.uix 👋</p>
+              <p className="font-semibold text-gray-900 text-sm md:text-base">Siren.uix 👋</p>
             </div>
           </div>
           <div className="relative">
-            <ShoppingBag className="w-6 h-6 text-gray-600" />
+            <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
             {cartItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center">
                 {cartItems}
               </Badge>
             )}
@@ -102,33 +102,33 @@ const Index = () => {
       </header>
 
       {/* Search Bar */}
-      <div className="px-4 py-4 bg-white border-b">
-        <div className="max-w-6xl mx-auto relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+      <div className="px-4 py-3 md:py-4 bg-white border-b">
+        <div className="max-w-7xl mx-auto relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
           <Input 
             placeholder="What's on your list?" 
-            className="pl-10 pr-4 py-3 rounded-xl border-gray-200 focus:border-lime-400"
+            className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-lime-400 text-sm md:text-base"
           />
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         {/* Hero Banner */}
-        <div className="bg-gradient-to-r from-lime-200 to-green-300 rounded-2xl p-6 mb-8 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-lime-200 to-green-300 rounded-xl md:rounded-2xl p-4 md:p-6 mb-6 md:mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Good Regulation</h2>
-            <p className="text-gray-700 mb-4">For Jan 2025</p>
-            <div className="flex items-center space-x-2 mb-4">
-              <span className="text-4xl font-bold text-red-500">50</span>
-              <div className="text-sm">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">Good Regulation</h2>
+            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">For Jan 2025</p>
+            <div className="flex items-center space-x-2 mb-3 md:mb-4">
+              <span className="text-3xl md:text-4xl font-bold text-red-500">50</span>
+              <div className="text-xs md:text-sm">
                 <span className="text-gray-600">% OFF</span>
               </div>
             </div>
-            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-6">
+            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base">
               🛍️ Shop Now
             </Button>
           </div>
-          <div className="absolute right-4 top-4 w-32 h-32 opacity-20">
+          <div className="absolute right-2 md:right-4 top-2 md:top-4 w-20 h-20 md:w-32 md:h-32 opacity-20">
             <img 
               src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop"
               alt="Featured Product"
@@ -138,23 +138,23 @@ const Index = () => {
         </div>
 
         {/* Categories */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Categories</h3>
-            <Button variant="ghost" size="sm">•••</Button>
+        <div className="mb-6 md:mb-8">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">Categories</h3>
+            <Button variant="ghost" size="sm" className="text-xs md:text-sm">•••</Button>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
             {categories.map((category, index) => (
               <Button
                 key={index}
                 variant={category.active ? "default" : "outline"}
-                className={`rounded-full px-4 py-2 ${
+                className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap ${
                   category.active 
                     ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
                     : "border-gray-200 hover:border-lime-400"
                 }`}
               >
-                {category.icon && <span className="mr-2">{category.icon}</span>}
+                {category.icon && <span className="mr-1 md:mr-2">{category.icon}</span>}
                 {category.name}
               </Button>
             ))}
@@ -162,48 +162,48 @@ const Index = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Men's Fashion</h3>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm" className="rounded-lg">
-              <Filter className="w-4 h-4 mr-2" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-3">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900">Men's Fashion</h3>
+          <div className="flex items-center space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
+              <Filter className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
               Filter
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
               Ratings
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
               Size
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
               Color
             </Button>
           </div>
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
           {featuredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            <div key={product.id} className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
               <div className="relative">
                 <img 
                   src={product.image}
                   alt={product.name}
-                  className="w-full h-48 object-cover"
+                  className="w-full h-32 md:h-48 object-cover"
                 />
-                <div className="absolute top-3 left-3">
-                  <Badge className="bg-red-500 text-white rounded-lg px-2 py-1">
+                <div className="absolute top-2 md:top-3 left-2 md:left-3">
+                  <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs">
                     -{product.discount}%
                   </Badge>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white"
+                  className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0"
                   onClick={() => toggleWishlist(product.id)}
                 >
                   <Heart 
-                    className={`w-4 h-4 ${
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
                       wishlist.includes(product.id) 
                         ? "fill-red-500 text-red-500" 
                         : "text-gray-400"
@@ -211,32 +211,32 @@ const Index = () => {
                   />
                 </Button>
               </div>
-              <div className="p-4">
+              <div className="p-2 md:p-4">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-gray-500 mb-2 p-0 h-auto"
+                  className="text-xs text-gray-500 mb-1 md:mb-2 p-0 h-auto hidden md:flex"
                 >
                   ❤️ Wishlist
                 </Button>
                 <p className="text-xs text-gray-500 mb-1">{product.inStock} Stocks Left</p>
-                <div className="flex items-center space-x-1 mb-2">
+                <div className="flex items-center space-x-1 mb-1 md:mb-2">
                   <span className="text-xs">H&M</span>
-                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                  <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-yellow-400 text-yellow-400" />
                   <span className="text-xs font-medium">{product.rating}</span>
                   <span className="text-xs text-gray-500">({product.reviews})</span>
                 </div>
-                <h4 className="font-medium text-gray-900 text-sm mb-3 leading-tight">
+                <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
                   {product.name}
                 </h4>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-gray-900">${product.price}</span>
+                  <div className="flex items-center space-x-1 md:space-x-2">
+                    <span className="font-bold text-gray-900 text-sm md:text-base">${product.price}</span>
                     <span className="text-xs text-gray-500 line-through">${product.originalPrice}</span>
                   </div>
                   <Button 
                     size="sm" 
-                    className="bg-lime-400 text-gray-800 hover:bg-lime-500 rounded-lg px-3"
+                    className="bg-lime-400 text-gray-800 hover:bg-lime-500 rounded-lg px-2 md:px-3 text-xs"
                     onClick={addToCart}
                   >
                     Add
@@ -249,23 +249,23 @@ const Index = () => {
 
         {/* Cart Floating Action */}
         {cartItems > 0 && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-6 py-3 rounded-full shadow-lg flex items-center space-x-3 z-50">
-            <span className="font-medium">View your cart</span>
-            <Badge className="bg-white text-gray-800 rounded-full">
+          <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4">
+            <span className="font-medium text-sm md:text-base">View your cart</span>
+            <Badge className="bg-white text-gray-800 rounded-full text-xs">
               {cartItems}x
             </Badge>
-            <span className="font-bold">$88.79</span>
+            <span className="font-bold text-sm md:text-base">$88.79</span>
           </div>
         )}
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div className="max-w-6xl mx-auto flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 md:hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-around">
           <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
             <Home className="w-5 h-5 text-gray-800" />
             <span className="text-xs text-gray-800 font-medium">Home</span>
-            <div className="w-8 h-1 bg-gray-800 rounded-full"></div>
+            <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>
           </Button>
           <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
             <Compass className="w-5 h-5 text-gray-400" />
