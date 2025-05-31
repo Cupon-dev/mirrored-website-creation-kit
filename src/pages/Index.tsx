@@ -61,29 +61,30 @@ const Index = () => {
               <span className="text-white font-bold text-xs md:text-sm">P</span>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-500">Welcome back!</p>
-              <p className="font-semibold text-gray-900 text-sm md:text-base">{user?.name} 👋</p>
+              <p className="text-xs text-gray-500">Welcome to</p>
+              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🛍️</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"
               onClick={() => navigate('/cart')}
-              className="relative p-2"
+              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
               {cartCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                   {cartCount}
                 </Badge>
               )}
             </Button>
             <Button
               variant="ghost"
-              onClick={logout}
-              className="p-2"
+              onClick={() => navigate('/admin')}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Admin Panel"
             >
-              <LogOut className="w-5 h-5 text-gray-600" />
+              <User className="w-5 h-5 text-gray-600" />
             </Button>
           </div>
         </div>
@@ -95,7 +96,7 @@ const Index = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
           <Input 
             placeholder="What's on your list?" 
-            className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-lime-400 text-sm md:text-base"
+            className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-lime-400 text-sm md:text-base transition-all"
           />
         </div>
       </div>
@@ -112,7 +113,7 @@ const Index = () => {
                 <span className="text-gray-600">% OFF</span>
               </div>
             </div>
-            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base transform transition hover:scale-105">
+            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base transform transition hover:scale-105 active:scale-95">
               🛍️ Shop Now
             </Button>
           </div>
@@ -130,10 +131,10 @@ const Index = () => {
             <Button
               variant={selectedCategory === 'all' ? "default" : "outline"}
               onClick={() => setSelectedCategory('all')}
-              className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap ${
+              className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
                 selectedCategory === 'all'
                   ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
-                  : "border-gray-200 hover:border-lime-400"
+                  : "border-gray-200 hover:border-lime-400 hover:bg-lime-50"
               }`}
             >
               🛍️ All
@@ -143,10 +144,10 @@ const Index = () => {
                 key={category.id}
                 variant={selectedCategory === category.id ? "default" : "outline"}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap ${
+                className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
                   selectedCategory === category.id
                     ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
-                    : "border-gray-200 hover:border-lime-400"
+                    : "border-gray-200 hover:border-lime-400 hover:bg-lime-50"
                 }`}
               >
                 {category.icon && <span className="mr-1 md:mr-2">{category.icon}</span>}
@@ -160,14 +161,14 @@ const Index = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-3">
           <h3 className="text-base md:text-lg font-semibold text-gray-900">Trending Products</h3>
           <div className="flex items-center space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
               <Filter className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
               Filter
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
               Ratings
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
               Price
             </Button>
           </div>
@@ -180,7 +181,7 @@ const Index = () => {
             return (
               <div 
                 key={product.id} 
-                className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02]"
+                className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => handleProductClick(product.id)}
               >
                 <div className="relative">
@@ -199,14 +200,14 @@ const Index = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0"
+                    className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleWishlist(product.id);
                     }}
                   >
                     <Heart 
-                      className={`w-3 h-3 md:w-4 md:h-4 ${
+                      className={`w-3 h-3 md:w-4 md:h-4 transition-all ${
                         wishlist.includes(product.id) 
                           ? "fill-red-500 text-red-500" 
                           : "text-gray-400"
@@ -245,7 +246,7 @@ const Index = () => {
                     <Button 
                       size="sm" 
                       onClick={(e) => handleBuyNow(product.id, e)}
-                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105"
+                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105 active:scale-95"
                     >
                       <Zap className="w-3 h-3 mr-1" />
                       Buy Now
@@ -254,7 +255,7 @@ const Index = () => {
                       size="sm" 
                       variant={inCart ? "default" : "outline"}
                       onClick={(e) => handleAddToCart(product.id, e)}
-                      className={`rounded-lg px-2 md:px-3 text-xs ${
+                      className={`rounded-lg px-2 md:px-3 text-xs transition-all active:scale-95 ${
                         inCart 
                           ? "bg-green-500 text-white hover:bg-green-600" 
                           : "border-lime-400 text-lime-700 hover:bg-lime-50"
@@ -272,7 +273,7 @@ const Index = () => {
         {/* Floating Cart Summary */}
         {cartCount > 0 && (
           <div 
-            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all animate-pulse"
+            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all animate-pulse active:scale-95"
             onClick={() => navigate('/cart')}
           >
             <span className="font-medium text-sm md:text-base">View Cart</span>
@@ -286,22 +287,26 @@ const Index = () => {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 md:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-around">
-          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
+          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
             <Home className="w-5 h-5 text-gray-800" />
             <span className="text-xs text-gray-800 font-medium">Home</span>
             <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>
           </Button>
-          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
+          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
             <Compass className="w-5 h-5 text-gray-400" />
             <span className="text-xs text-gray-400">Explore</span>
           </Button>
-          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
+          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
             <Bell className="w-5 h-5 text-gray-400" />
             <span className="text-xs text-gray-400">Notification</span>
           </Button>
-          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2">
+          <Button 
+            variant="ghost" 
+            className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
+            onClick={() => navigate('/admin')}
+          >
             <User className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-gray-400">Profile</span>
+            <span className="text-xs text-gray-400">Admin</span>
           </Button>
         </div>
       </nav>
