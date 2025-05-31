@@ -47,11 +47,11 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     setStep("payment");
   };
 
-  const handlePaymentComplete = async () => {
+  const initiateRazorpayPayment = async () => {
     try {
       setIsProcessing(true);
 
-      // Create payment record
+      // Create payment record first
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert([{
@@ -66,6 +66,39 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
       if (paymentError) throw paymentError;
 
+      // Check if any cart item has a razorpay_link
+      const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
+      
+      if (razorpayProduct?.products?.razorpay_link) {
+        // Use existing Razorpay link from product
+        console.log('Opening Razorpay link:', razorpayProduct.products.razorpay_link);
+        window.open(razorpayProduct.products.razorpay_link, '_blank');
+        
+        // Show instructions to user
+        toast({
+          title: "Payment Gateway Opened",
+          description: "Complete payment in the new tab, then return here to confirm.",
+        });
+      } else {
+        // Fallback: simulate payment completion for testing
+        console.log('No Razorpay link found, simulating payment...');
+        setTimeout(() => {
+          handlePaymentSuccess(payment.id);
+        }, 2000);
+      }
+    } catch (error: any) {
+      setIsProcessing(false);
+      console.error('Payment initiation error:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    try {
       // Format phone number (remove spaces, dashes, etc.)
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       
@@ -109,7 +142,7 @@ Thank you for choosing us! 🚀`;
           verified_at: new Date().toISOString(),
           whatsapp_sent: true
         })
-        .eq('id', payment.id);
+        .eq('id', paymentId);
       
       setTimeout(() => {
         setIsProcessing(false);
@@ -118,15 +151,23 @@ Thank you for choosing us! 🚀`;
           title: "Order completed!",
           description: "WhatsApp message sent with your download link.",
         });
-      }, 2000);
+      }, 1000);
     } catch (error: any) {
       setIsProcessing(false);
+      console.error('Payment success handling error:', error);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive"
       });
     }
+  };
+
+  const confirmPaymentManually = () => {
+    if (isProcessing) return;
+    
+    // For manual confirmation after external payment
+    handlePaymentSuccess('manual-confirmation');
   };
 
   if (step === "details") {
@@ -198,8 +239,8 @@ Thank you for choosing us! 🚀`;
   return (
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Payment Required</h3>
-        <p className="text-gray-600">Complete payment to receive your download link</p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
+        <p className="text-gray-600">Pay securely via Razorpay to receive your download link</p>
       </div>
 
       <div className="space-y-4">
@@ -218,27 +259,43 @@ Thank you for choosing us! 🚀`;
           </div>
         </div>
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Payment Instructions:</strong><br/>
-            1. Complete payment via Razorpay<br/>
-            2. Return to this page after payment<br/>
-            3. Click "Confirm Payment" below<br/>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>Next Steps:</strong><br/>
+            1. Click "Pay with Razorpay" below<br/>
+            2. Complete payment in the new tab<br/>
+            3. Return here and click "I've Completed Payment"<br/>
             4. Receive instant WhatsApp delivery
           </p>
         </div>
 
         <Button
-          onClick={handlePaymentComplete}
+          onClick={initiateRazorpayPayment}
           disabled={isProcessing}
-          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+        >
+          {isProcessing ? (
+            "Opening Payment Gateway..."
+          ) : (
+            <>
+              <CreditCard className="w-5 h-5 mr-2" />
+              Pay with Razorpay
+            </>
+          )}
+        </Button>
+
+        <Button
+          onClick={confirmPaymentManually}
+          disabled={isProcessing}
+          variant="outline"
+          className="w-full py-3 text-lg"
         >
           {isProcessing ? (
             "Processing..."
           ) : (
             <>
               <MessageCircle className="w-5 h-5 mr-2" />
-              Confirm Payment & Get Download Link
+              I've Completed Payment - Send Download Link
             </>
           )}
         </Button>
@@ -252,7 +309,7 @@ Thank you for choosing us! 🚀`;
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          Click above after completing payment to receive your WhatsApp download link
+          Complete payment via Razorpay, then click "I've Completed Payment" to receive your WhatsApp download link
         </p>
       </div>
     </div>
