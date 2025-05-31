@@ -223,12 +223,86 @@ export type Database = {
           },
         ]
       }
+      user_sessions: {
+        Row: {
+          id: string
+          ip_address: string | null
+          session_start: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          ip_address?: string | null
+          session_start?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          ip_address?: string | null
+          session_start?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_verified: boolean | null
+          last_visit: string | null
+          mobile_number: string | null
+          name: string
+          razorpay_payment_id: string | null
+          updated_at: string
+          visit_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_verified?: boolean | null
+          last_visit?: string | null
+          mobile_number?: string | null
+          name: string
+          razorpay_payment_id?: string | null
+          updated_at?: string
+          visit_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_verified?: boolean | null
+          last_visit?: string | null
+          mobile_number?: string | null
+          name?: string
+          razorpay_payment_id?: string | null
+          updated_at?: string
+          visit_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_user_access: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

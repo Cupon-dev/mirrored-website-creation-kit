@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, Zap, TrendingUp } from "lucide-react";
+import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, Zap, TrendingUp, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Index = () => {
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
   const { addToCart, cartCount, isProductInCart } = useCart();
+  const { user, logout } = useAuth();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -28,14 +30,12 @@ const Index = () => {
     navigate(`/product/${productId}`);
   };
 
-  const handleBuyNow = (product: any, e: React.MouseEvent) => {
+  const handleBuyNow = (productId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (product.razorpay_link) {
-      window.open(product.razorpay_link, '_blank');
-    } else {
-      addToCart({ productId: product.id });
-      navigate('/cart');
+    if (!isProductInCart(productId)) {
+      addToCart({ productId });
     }
+    navigate('/cart');
   };
 
   const handleAddToCart = (productId: string, e: React.MouseEvent) => {
@@ -58,25 +58,34 @@ const Index = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-lime-400 to-green-500 flex items-center justify-center">
-              <span className="text-white font-bold text-xs md:text-sm">S</span>
+              <span className="text-white font-bold text-xs md:text-sm">P</span>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-500">Welcome!</p>
-              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks 👋</p>
+              <p className="text-xs text-gray-500">Welcome back!</p>
+              <p className="font-semibold text-gray-900 text-sm md:text-base">{user?.name} 👋</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/cart')}
-            className="relative p-2"
-          >
-            <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
-            {cartCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {cartCount}
-              </Badge>
-            )}
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/cart')}
+              className="relative p-2"
+            >
+              <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
+              {cartCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartCount}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={logout}
+              className="p-2"
+            >
+              <LogOut className="w-5 h-5 text-gray-600" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -235,7 +244,7 @@ const Index = () => {
                   <div className="flex space-x-1 md:space-x-2">
                     <Button 
                       size="sm" 
-                      onClick={(e) => handleBuyNow(product, e)}
+                      onClick={(e) => handleBuyNow(product.id, e)}
                       className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105"
                     >
                       <Zap className="w-3 h-3 mr-1" />
