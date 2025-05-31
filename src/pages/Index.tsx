@@ -58,8 +58,8 @@ const Index = () => {
               <span className="text-white font-bold text-xs md:text-sm">S</span>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-500">Welcome Back</p>
-              <p className="font-semibold text-gray-900 text-sm md:text-base">Siren.uix 👋</p>
+              <p className="text-xs text-gray-500">Welcome!</p>
+              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks 👋</p>
             </div>
           </div>
           <Button
