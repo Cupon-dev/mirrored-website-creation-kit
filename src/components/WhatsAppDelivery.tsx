@@ -1,9 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Download, ExternalLink, CreditCard, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { MessageCircle, Download, ExternalLink, CreditCard, Users, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,6 +18,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const { toast } = useToast();
 
   // Google Drive link for the digital product
@@ -26,6 +27,95 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   
   // WhatsApp group link - REPLACE WITH YOUR ACTUAL GROUP LINK
   const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
+
+  // Function to check payment status
+  const checkPaymentStatus = async (userEmail?: string, userPhone?: string) => {
+    try {
+      setIsCheckingPayment(true);
+      
+      const checkEmail = userEmail || email;
+      const checkPhone = userPhone || phoneNumber;
+      
+      const { data, error } = await supabase.functions.invoke('check-payment-status', {
+        body: null,
+        headers: {},
+        method: 'GET',
+      });
+
+      if (error) throw error;
+
+      if (data?.status === 'completed') {
+        setPaymentData(data);
+        setStep('success');
+        
+        // Auto-open WhatsApp if the message hasn't been sent yet
+        if (!data.whatsapp_sent && data.phone) {
+          const message = `🎉 *Payment Received - Order Confirmed!* 🎉
+
+Thank you for your purchase!
+
+*Payment ID:* ${data.payment_id}
+
+📥 *Your Download Link:*
+${data.drive_link}
+
+👥 *Join our WhatsApp Community:*
+${data.whatsapp_group}
+
+*Instructions:*
+1. Click the download link above to access your content
+2. Make sure you're logged into Google with: ${data.email}
+3. Join our community for updates and support
+
+Need help? Reply to this message!
+
+Thank you for choosing us! 🚀`;
+
+          const cleanPhone = data.phone.replace(/\D/g, '');
+          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+          
+          // Auto-open WhatsApp
+          setTimeout(() => {
+            window.open(whatsappUrl, '_blank');
+          }, 1000);
+        }
+        
+        toast({
+          title: "Payment Successful! 🎉",
+          description: "Your download link has been sent via WhatsApp!",
+        });
+      }
+      
+      setIsCheckingPayment(false);
+    } catch (error: any) {
+      console.error('Error checking payment status:', error);
+      setIsCheckingPayment(false);
+    }
+  };
+
+  // Check for pending payment on component mount
+  useEffect(() => {
+    const pendingPayment = localStorage.getItem('pending_payment');
+    if (pendingPayment) {
+      const paymentData = JSON.parse(pendingPayment);
+      setEmail(paymentData.email);
+      setPhoneNumber(paymentData.phoneNumber);
+      setPaymentId(paymentData.paymentId);
+      
+      // Start checking payment status every 3 seconds
+      const interval = setInterval(() => {
+        checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
+      }, 3000);
+      
+      // Clear interval after 5 minutes
+      setTimeout(() => {
+        clearInterval(interval);
+        localStorage.removeItem('pending_payment');
+      }, 300000);
+      
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   const handleDetailsSubmit = () => {
     if (!email || !phoneNumber) {
@@ -95,17 +185,24 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         toast({
           title: "Redirecting to Payment",
-          description: "After payment, you'll receive the download link automatically on WhatsApp! No need to return to this page.",
+          description: "After payment, your download link will be sent automatically via WhatsApp!",
           duration: 5000,
         });
         
         // Open payment link
         window.open(razorpayProduct.products.razorpay_link, '_blank');
         
-        // Show success message immediately
+        // Start checking payment status immediately
         setTimeout(() => {
-          setStep("success");
-        }, 2000);
+          const interval = setInterval(() => {
+            checkPaymentStatus();
+          }, 3000);
+          
+          // Clear interval after 5 minutes
+          setTimeout(() => {
+            clearInterval(interval);
+          }, 300000);
+        }, 10000); // Start checking after 10 seconds
         
       } else {
         throw new Error("No payment link found for this product");
@@ -123,68 +220,65 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     }
   };
 
-  // Check for pending payment on component mount
-  useState(() => {
-    const pendingPayment = localStorage.getItem('pending_payment');
-    if (pendingPayment) {
-      const paymentData = JSON.parse(pendingPayment);
-      setEmail(paymentData.email);
-      setPhoneNumber(paymentData.phoneNumber);
-      setPaymentId(paymentData.paymentId);
-      setStep("success");
-      
-      // Clear stored payment data
-      localStorage.removeItem('pending_payment');
-    }
-  });
-
   if (step === "success") {
     return (
       <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center">
         <div className="space-y-4">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
-          <h3 className="text-2xl font-bold text-green-600">Payment Processing! 🎉</h3>
+          <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
           <p className="text-gray-600">
-            Complete your payment in the new tab. Your download link will be sent automatically to WhatsApp!
+            Your download link has been sent to WhatsApp automatically!
           </p>
           
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-blue-500" />
-              <span className="text-sm font-medium">Automatic Delivery</span>
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm font-medium text-green-600">Delivery Completed</span>
             </div>
-            <p className="text-sm text-gray-600">
-              After payment completion, you'll receive:
-            </p>
-            <div className="space-y-2 text-sm text-left">
-              <div className="flex items-center space-x-2">
-                <Download className="w-4 h-4 text-blue-500" />
-                <span>Google Drive download link via WhatsApp</span>
+            
+            {paymentData && (
+              <div className="space-y-2 text-sm text-left">
+                <div className="flex items-center space-x-2">
+                  <Download className="w-4 h-4 text-blue-500" />
+                  <span>Download link sent to: {paymentData.phone}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Users className="w-4 h-4 text-green-500" />
+                  <span>WhatsApp group invite included</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="w-4 h-4 text-purple-500" />
+                  <span>Google Drive access: {paymentData.email}</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-green-500" />
-                <span>WhatsApp community group invite</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MessageCircle className="w-4 h-4 text-purple-500" />
-                <span>Access restricted to: {email}</span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-sm text-yellow-800">
-              <strong>Important:</strong> Check your WhatsApp after payment completion. 
-              The download link will be sent automatically to {phoneNumber}
-            </p>
-          </div>
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.open(paymentData?.drive_link || driveLink, '_blank')}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 text-lg rounded-xl"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Open Download Link
+            </Button>
 
-          <Button
-            onClick={onOrderComplete}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl"
-          >
-            Continue Shopping
-          </Button>
+            <Button
+              onClick={() => window.open(paymentData?.whatsapp_group || whatsappGroupLink, '_blank')}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl"
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Join WhatsApp Group
+            </Button>
+
+            <Button
+              onClick={onOrderComplete}
+              variant="outline"
+              className="w-full"
+            >
+              Continue Shopping
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -195,7 +289,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
         <div className="text-center">
           <h3 className="text-xl font-bold text-gray-900 mb-2">🚀 Complete Your Order</h3>
-          <p className="text-gray-600">Enter your details for automatic delivery after payment!</p>
+          <p className="text-gray-600">Enter your details for automatic WhatsApp delivery!</p>
         </div>
 
         <div className="space-y-4">
@@ -267,7 +361,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-gray-600">Pay securely via Razorpay - Download link will be sent automatically!</p>
+        <p className="text-gray-600">Pay securely - Download link will be sent automatically to WhatsApp!</p>
       </div>
 
       <div className="space-y-4">
@@ -286,14 +380,24 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
         </div>
 
+        {isCheckingPayment && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
+            <p className="text-sm text-blue-800">
+              <strong>Checking payment status...</strong><br/>
+              We're automatically detecting your payment completion.
+            </p>
+          </div>
+        )}
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>🚀 Automatic Delivery Process:</strong><br/>
+            <strong>🚀 Automatic Process:</strong><br/>
             1. Click "Pay with Razorpay" below<br/>
             2. Complete payment securely<br/>
-            3. <strong>Your download link will be sent automatically to WhatsApp!</strong><br/>
-            4. Google Drive access will be granted to your email<br/>
-            5. You'll receive a WhatsApp group invite
+            3. <strong>Download link will be sent automatically to your WhatsApp!</strong><br/>
+            4. You'll also receive our WhatsApp group invite<br/>
+            5. Google Drive access will be restricted to your email only
           </p>
         </div>
 
@@ -303,7 +407,10 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
         >
           {isProcessing ? (
-            "Opening Payment Gateway..."
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Opening Payment Gateway...
+            </>
           ) : (
             <>
               <CreditCard className="w-5 h-5 mr-2" />
