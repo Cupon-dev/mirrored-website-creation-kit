@@ -18,9 +18,19 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const url = new URL(req.url);
-    const email = url.searchParams.get('email');
-    const phoneNumber = url.searchParams.get('phone');
+    let email = null;
+    let phoneNumber = null;
+
+    // Handle both GET and POST requests
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      email = url.searchParams.get('email');
+      phoneNumber = url.searchParams.get('phone');
+    } else if (req.method === 'POST') {
+      const body = await req.json();
+      email = body.email;
+      phoneNumber = body.phone;
+    }
 
     console.log('Checking payment status for:', { email, phoneNumber });
 
@@ -60,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
     const latestPayment = payments?.[0];
 
     if (latestPayment) {
-      // WhatsApp group link - REPLACE WITH YOUR ACTUAL GROUP LINK
+      // WhatsApp group link
       const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
       
       return new Response(JSON.stringify({
@@ -70,7 +80,9 @@ const handler = async (req: Request): Promise<Response> => {
         whatsapp_group: whatsappGroupLink,
         email: latestPayment.email,
         phone: latestPayment.mobile_number,
-        whatsapp_sent: latestPayment.whatsapp_sent
+        whatsapp_sent: latestPayment.whatsapp_sent,
+        delivery_method: latestPayment.delivery_method,
+        whatsapp_url: latestPayment.whatsapp_url
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

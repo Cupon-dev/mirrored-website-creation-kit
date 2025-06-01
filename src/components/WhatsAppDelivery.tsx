@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +20,13 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [checkingAttempts, setCheckingAttempts] = useState(0);
   const { toast } = useToast();
 
   // Google Drive link for the digital product
   const driveLink = "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link";
   
-  // WhatsApp group link - REPLACE WITH YOUR ACTUAL GROUP LINK
+  // WhatsApp group link
   const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
   // Function to check payment status
@@ -35,72 +37,78 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const checkEmail = userEmail || email;
       const checkPhone = userPhone || phoneNumber;
       
-      console.log('Checking payment status for:', { checkEmail, checkPhone });
+      console.log('Checking payment status for:', { checkEmail, checkPhone, attempt: checkingAttempts + 1 });
 
-      const params = new URLSearchParams();
-      if (checkEmail) params.append('email', checkEmail);
-      if (checkPhone) params.append('phone', checkPhone);
+      if (!checkEmail && !checkPhone) {
+        console.log('No email or phone to check');
+        setIsCheckingPayment(false);
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('check-payment-status', {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: checkEmail,
+          phone: checkPhone
+        })
       });
 
       console.log('Payment status response:', data, error);
+      setCheckingAttempts(prev => prev + 1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error checking payment status:', error);
+        setIsCheckingPayment(false);
+        return;
+      }
 
       if (data?.status === 'completed') {
+        console.log('Payment confirmed! Processing delivery...');
         setPaymentData(data);
         setStep('success');
         
-        // Auto-open WhatsApp if the message hasn't been sent yet
-        if (data.phone) {
-          const message = `🎉 *Payment Received - Order Confirmed!* 🎉
+        // Clear pending payment from localStorage
+        localStorage.removeItem('pending_payment');
+        
+        // Show success message
+        toast({
+          title: "Payment Successful! 🎉",
+          description: "Your download link is ready! Check WhatsApp for instant delivery.",
+          duration: 6000,
+        });
+        
+        // Auto-open WhatsApp if we have a phone number
+        if (data.phone && data.whatsapp_url) {
+          console.log('Opening WhatsApp automatically...');
+          setTimeout(() => {
+            window.open(data.whatsapp_url, '_blank');
+          }, 2000);
+        } else if (data.phone) {
+          // Fallback: create manual WhatsApp link
+          const message = `🎉 Payment Confirmed! 
 
-Thank you for your purchase!
+Download Link: ${data.drive_link}
+WhatsApp Group: ${data.whatsapp_group}
 
-*Payment ID:* ${data.payment_id}
-
-📥 *Your Download Link:*
-${data.drive_link}
-
-👥 *Join our WhatsApp Community:*
-${data.whatsapp_group}
-
-*Instructions:*
-1. Click the download link above to access your content
-2. Make sure you're logged into Google with: ${data.email}
-3. Join our community for updates and support
-
-Need help? Reply to this message!
-
-Thank you for choosing us! 🚀`;
-
+Payment ID: ${data.payment_id}`;
+          
           const cleanPhone = data.phone.replace(/\D/g, '');
           const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
           
-          // Auto-open WhatsApp
           setTimeout(() => {
             window.open(whatsappUrl, '_blank');
-          }, 1000);
+          }, 2000);
         }
-        
-        toast({
-          title: "Payment Successful! 🎉",
-          description: "Your download link has been sent via WhatsApp!",
-        });
-        
-        // Clear pending payment from localStorage
-        localStorage.removeItem('pending_payment');
       }
       
       setIsCheckingPayment(false);
     } catch (error: any) {
       console.error('Error checking payment status:', error);
       setIsCheckingPayment(false);
+      setCheckingAttempts(prev => prev + 1);
     }
   };
 
@@ -116,16 +124,17 @@ Thank you for choosing us! 🚀`;
         
         console.log('Found pending payment:', paymentData);
         
-        // Start checking payment status every 3 seconds
+        // Start checking payment status every 2 seconds
         const interval = setInterval(() => {
           checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
-        }, 3000);
+        }, 2000);
         
-        // Clear interval after 5 minutes
+        // Clear interval after 10 minutes
         setTimeout(() => {
           clearInterval(interval);
           localStorage.removeItem('pending_payment');
-        }, 300000);
+          console.log('Payment checking timeout reached');
+        }, 600000);
         
         return () => clearInterval(interval);
       } catch (error) {
@@ -218,14 +227,15 @@ Thank you for choosing us! 🚀`;
         
         // Start checking payment status immediately
         setTimeout(() => {
+          setCheckingAttempts(0);
           const interval = setInterval(() => {
             checkPaymentStatus();
-          }, 2000);
+          }, 3000);
           
-          // Clear interval after 5 minutes
+          // Clear interval after 10 minutes
           setTimeout(() => {
             clearInterval(interval);
-          }, 300000);
+          }, 600000);
         }, 5000); // Start checking after 5 seconds
         
       } else {
@@ -251,7 +261,7 @@ Thank you for choosing us! 🚀`;
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
           <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
           <p className="text-gray-600">
-            Your download link has been sent to WhatsApp automatically!
+            Your download link has been processed automatically!
           </p>
           
           <div className="bg-white rounded-xl p-4 space-y-3">
@@ -264,15 +274,15 @@ Thank you for choosing us! 🚀`;
               <div className="space-y-2 text-sm text-left">
                 <div className="flex items-center space-x-2">
                   <Download className="w-4 h-4 text-blue-500" />
-                  <span>Download link sent to: {paymentData.phone}</span>
+                  <span>Download access: {paymentData.email}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Users className="w-4 h-4 text-green-500" />
-                  <span>WhatsApp group invite included</span>
+                  <span>WhatsApp group invite sent</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MessageCircle className="w-4 h-4 text-purple-500" />
-                  <span>Google Drive access: {paymentData.email}</span>
+                  <span>Delivery: {paymentData.delivery_method || 'automatic'}</span>
                 </div>
               </div>
             )}
@@ -294,6 +304,16 @@ Thank you for choosing us! 🚀`;
               <Users className="w-5 h-5 mr-2" />
               Join WhatsApp Group
             </Button>
+
+            {paymentData?.whatsapp_url && (
+              <Button
+                onClick={() => window.open(paymentData.whatsapp_url, '_blank')}
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 text-lg rounded-xl"
+              >
+                <MessageCircle className="w-5 h-5 mr-2" />
+                Open WhatsApp Message
+              </Button>
+            )}
 
             <Button
               onClick={onOrderComplete}
@@ -409,7 +429,7 @@ Thank you for choosing us! 🚀`;
             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
             <p className="text-sm text-blue-800">
               <strong>Checking payment status...</strong><br/>
-              We're automatically detecting your payment completion.
+              Attempt {checkingAttempts} - We're automatically detecting your payment completion.
             </p>
           </div>
         )}

@@ -39,23 +39,24 @@ interface RazorpayWebhookPayload {
 // Function to send WhatsApp message using Twilio WhatsApp API
 async function sendWhatsAppMessage(phoneNumber: string, message: string) {
   try {
-    const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN') || '8ff9d826cc26d4f5427030cf828e5d8a';
+    const twilioToken = '8ff9d826cc26d4f5427030cf828e5d8a';
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     
-    if (!twilioAccountSid || !twilioToken) {
-      console.error('Twilio credentials not found');
-      return { success: false, error: 'Twilio credentials missing' };
+    if (!twilioAccountSid) {
+      console.error('TWILIO_ACCOUNT_SID not found in environment variables');
+      return { success: false, error: 'Twilio Account SID missing' };
     }
 
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
     
-    console.log('Sending WhatsApp message to:', formattedPhone);
+    console.log('Attempting to send WhatsApp message to:', formattedPhone);
+    console.log('Using Twilio Account SID:', twilioAccountSid.substring(0, 10) + '...');
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
     
     const body = new URLSearchParams({
-      From: 'whatsapp:+12344373192', // Your Twilio WhatsApp number
+      From: 'whatsapp:+12344373192',
       To: `whatsapp:${formattedPhone}`,
       Body: message
     });
@@ -72,29 +73,31 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string) {
     const result = await response.json();
     
     if (response.ok) {
-      console.log('WhatsApp message sent successfully:', result.sid);
-      return { success: true, sid: result.sid };
+      console.log('WhatsApp message sent successfully via Twilio:', result.sid);
+      return { success: true, sid: result.sid, method: 'twilio' };
     } else {
-      console.error('Failed to send WhatsApp message:', result);
-      return { success: false, error: result.message };
+      console.error('Twilio WhatsApp API failed:', result);
+      return { success: false, error: result.message, method: 'twilio' };
     }
   } catch (error) {
-    console.error('Error sending WhatsApp message:', error);
-    return { success: false, error: error.message };
+    console.error('Error with Twilio WhatsApp API:', error);
+    return { success: false, error: error.message, method: 'twilio' };
   }
 }
 
-// Function to send email notification as backup
-async function sendEmailNotification(email: string, driveLink: string, whatsappGroupLink: string) {
+// Fallback function to create WhatsApp web link
+function createWhatsAppWebLink(phoneNumber: string, message: string) {
   try {
-    console.log(`Email notification would be sent to: ${email}`);
-    console.log(`Drive link: ${driveLink}`);
-    console.log(`WhatsApp group: ${whatsappGroupLink}`);
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
     
-    return { success: true };
+    console.log('Created WhatsApp web link for:', formattedPhone);
+    return { success: true, url: whatsappUrl, method: 'web_link' };
   } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error: error.message };
+    console.error('Error creating WhatsApp web link:', error);
+    return { success: false, error: error.message, method: 'web_link' };
   }
 }
 
@@ -107,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Received webhook request');
     
     const webhookPayload: RazorpayWebhookPayload = await req.json();
-    console.log('Webhook payload:', JSON.stringify(webhookPayload, null, 2));
+    console.log('Webhook payload received for event:', webhookPayload.event);
 
     if (webhookPayload.event !== 'payment.captured') {
       console.log('Ignoring non-payment.captured event:', webhookPayload.event);
@@ -127,6 +130,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     let paymentRecord = null;
 
+    // First try to find by order ID
     const { data: orderRecord, error: orderError } = await supabase
       .from('payments')
       .select('*')
@@ -135,8 +139,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (orderRecord && !orderError) {
       paymentRecord = orderRecord;
+      console.log('Found payment record by order ID:', paymentRecord.id);
     } else {
-      console.log('Order ID not found, searching by email and amount...');
+      console.log('Order ID not found, searching by email...');
       
       if (paymentEmail) {
         const { data: emailRecord, error: emailError } = await supabase
@@ -207,9 +212,10 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    if (!paymentRecord.whatsapp_sent) {
-      const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
-      
+    // Always try to send WhatsApp message (even if already sent before)
+    const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
+    
+    if (cleanPhone) {
       const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
       const message = `🎉 *Payment Received - Order Confirmed!* 🎉
@@ -234,44 +240,65 @@ Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-      // Send WhatsApp message using Twilio
-      const whatsappResult = await sendWhatsAppMessage(cleanPhone, message);
-      console.log('WhatsApp sending result:', whatsappResult);
+      // Try Twilio first, fallback to web link
+      const twilioResult = await sendWhatsAppMessage(cleanPhone, message);
+      let deliveryMethod = 'failed';
+      let deliveryUrl = null;
 
-      // Send email notification as backup
-      const emailResult = await sendEmailNotification(
-        paymentRecord.email, 
-        paymentRecord.google_drive_link, 
-        whatsappGroupLink
-      );
-      console.log('Email sending result:', emailResult);
+      if (twilioResult.success) {
+        deliveryMethod = 'twilio';
+        console.log('WhatsApp message sent successfully via Twilio');
+      } else {
+        console.log('Twilio failed, creating WhatsApp web link as fallback');
+        const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
+        if (webLinkResult.success) {
+          deliveryMethod = 'web_link';
+          deliveryUrl = webLinkResult.url;
+          console.log('WhatsApp web link created successfully');
+        }
+      }
 
-      // Mark WhatsApp as sent
+      // Update payment record with delivery status
       await supabase
         .from('payments')
         .update({ 
           whatsapp_sent: true,
+          delivery_method: deliveryMethod,
+          whatsapp_url: deliveryUrl
         })
         .eq('id', paymentRecord.id);
 
-      console.log('Payment processed successfully. Automatic delivery initiated.');
+      console.log('Payment processed successfully. Delivery method:', deliveryMethod);
 
       return new Response(JSON.stringify({ 
         message: 'Payment processed and delivered successfully',
         payment_id: payment.id,
-        whatsapp_sent: whatsappResult.success,
-        email_sent: emailResult.success,
+        delivery_method: deliveryMethod,
+        whatsapp_url: deliveryUrl,
         email: paymentRecord.email,
-        drive_link: paymentRecord.google_drive_link
+        drive_link: paymentRecord.google_drive_link,
+        whatsapp_group: whatsappGroupLink
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } else {
-      console.log('WhatsApp already sent for this payment');
+      console.log('No phone number available for WhatsApp delivery');
+      
+      // Mark as completed even without WhatsApp
+      await supabase
+        .from('payments')
+        .update({ 
+          whatsapp_sent: false,
+          delivery_method: 'no_phone'
+        })
+        .eq('id', paymentRecord.id);
+
       return new Response(JSON.stringify({ 
-        message: 'Payment already processed and delivered',
-        payment_id: payment.id
+        message: 'Payment processed successfully (no WhatsApp delivery - missing phone)',
+        payment_id: payment.id,
+        email: paymentRecord.email,
+        drive_link: paymentRecord.google_drive_link
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
