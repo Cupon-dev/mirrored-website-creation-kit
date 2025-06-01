@@ -55,7 +55,11 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     try {
       setIsProcessing(true);
 
-      // Create payment record first
+      // Generate a unique order ID for Razorpay
+      const orderIdSuffix = Math.random().toString(36).substring(2, 8);
+      const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
+
+      // Create payment record first with razorpay_order_id
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert([{
@@ -63,6 +67,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           mobile_number: phoneNumber,
           amount: cartTotal,
           google_drive_link: driveLink,
+          razorpay_order_id: razorpayOrderId,
           status: 'pending'
         }])
         .select()
@@ -84,16 +89,29 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           email,
           phoneNumber,
           cartTotal,
-          driveLink
+          driveLink,
+          razorpayOrderId
         }));
         
-        // Open payment link
-        window.open(razorpayProduct.products.razorpay_link, '_blank', 'noopener,noreferrer');
+        // Try to open in new window first
+        const newWindow = window.open(razorpayProduct.products.razorpay_link, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
         
-        toast({
-          title: "Payment Gateway Opened",
-          description: "After completing payment, return to this page and click 'Payment Complete'",
-        });
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+          // Popup blocked, redirect in same tab
+          toast({
+            title: "Redirecting to Payment",
+            description: "Please complete your payment and you'll receive the download link automatically on WhatsApp",
+          });
+          
+          setTimeout(() => {
+            window.location.href = razorpayProduct.products.razorpay_link;
+          }, 2000);
+        } else {
+          toast({
+            title: "Payment Gateway Opened",
+            description: "Complete your payment in the new tab. You'll receive the download link automatically on WhatsApp after payment!",
+          });
+        }
       } else {
         throw new Error("No payment link found for this product");
       }
@@ -203,7 +221,7 @@ Thank you for choosing us! 🚀`;
       
       toast({
         title: "Payment in progress",
-        description: "We found your pending payment. Complete it and click 'Payment Complete'",
+        description: "Complete your payment and you'll receive the download link automatically on WhatsApp!",
       });
     }
   });
@@ -245,7 +263,7 @@ Thank you for choosing us! 🚀`;
       <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
         <div className="text-center">
           <h3 className="text-xl font-bold text-gray-900 mb-2">🚀 Complete Your Order</h3>
-          <p className="text-gray-600">Enter your details to receive instant digital delivery!</p>
+          <p className="text-gray-600">Enter your details for automatic delivery after payment!</p>
         </div>
 
         <div className="space-y-4">
@@ -285,7 +303,7 @@ Thank you for choosing us! 🚀`;
             
             <div className="flex items-center space-x-2">
               <Download className="w-4 h-4 text-blue-500" />
-              <span className="text-sm text-gray-600">Instant WhatsApp delivery</span>
+              <span className="text-sm text-gray-600">Automatic WhatsApp delivery</span>
             </div>
             
             <div className="flex items-center space-x-2">
@@ -310,7 +328,7 @@ Thank you for choosing us! 🚀`;
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-gray-600">Pay securely via Razorpay to receive your download link</p>
+        <p className="text-gray-600">Pay securely via Razorpay - Download link will be sent automatically!</p>
       </div>
 
       <div className="space-y-4">
@@ -331,11 +349,11 @@ Thank you for choosing us! 🚀`;
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>Important:</strong><br/>
+            <strong>Automatic Delivery:</strong><br/>
             1. Click "Pay with Razorpay" below<br/>
-            2. Complete payment in the new tab<br/>
-            3. <strong>Return to this page (keep this tab open!)</strong><br/>
-            4. Click "Payment Complete" to get your download link
+            2. Complete payment securely<br/>
+            3. <strong>Your download link will be sent automatically to WhatsApp!</strong><br/>
+            4. No need to return to this page
           </p>
         </div>
 
@@ -357,14 +375,15 @@ Thank you for choosing us! 🚀`;
         <Button
           onClick={handlePaymentSuccess}
           disabled={isProcessing || !paymentId}
-          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl"
+          variant="outline"
+          className="w-full"
         >
           {isProcessing ? (
             "Sending Download Link..."
           ) : (
             <>
               <MessageCircle className="w-5 h-5 mr-2" />
-              Payment Complete - Send Download Link
+              Manual: Send Download Link (if webhook failed)
             </>
           )}
         </Button>
@@ -378,7 +397,7 @@ Thank you for choosing us! 🚀`;
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          After payment, click "Payment Complete" to receive your WhatsApp download link and community invite
+          After payment, your download link and community invite will be sent automatically to WhatsApp
         </p>
       </div>
     </div>
