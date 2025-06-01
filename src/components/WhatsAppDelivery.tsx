@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +19,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
-  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-  const [checkingAttempts, setCheckingAttempts] = useState(0);
   const { toast } = useToast();
 
   // Google Drive link for the digital product
@@ -28,19 +27,16 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   // WhatsApp group link
   const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
-  // Function to check payment status
+  // Function to check payment status (called only when needed)
   const checkPaymentStatus = async (userEmail?: string, userPhone?: string) => {
     try {
-      setIsCheckingPayment(true);
-      
       const checkEmail = userEmail || email;
       const checkPhone = userPhone || phoneNumber;
       
-      console.log('Checking payment status for:', { checkEmail, checkPhone, attempt: checkingAttempts + 1 });
+      console.log('Checking payment status for:', { checkEmail, checkPhone });
 
       if (!checkEmail && !checkPhone) {
         console.log('No email or phone to check');
-        setIsCheckingPayment(false);
         return;
       }
 
@@ -56,11 +52,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       });
 
       console.log('Payment status response:', data, error);
-      setCheckingAttempts(prev => prev + 1);
 
       if (error) {
         console.error('Error checking payment status:', error);
-        setIsCheckingPayment(false);
         return;
       }
 
@@ -91,12 +85,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           }, 2000);
         }
       }
-      
-      setIsCheckingPayment(false);
     } catch (error: any) {
       console.error('Error checking payment status:', error);
-      setIsCheckingPayment(false);
-      setCheckingAttempts(prev => prev + 1);
     }
   };
 
@@ -112,19 +102,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         console.log('Found pending payment:', paymentData);
         
-        // Start checking payment status every 2 seconds
-        const interval = setInterval(() => {
-          checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
-        }, 2000);
+        // Check payment status once immediately, then let backend handle the rest
+        checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
         
-        // Clear interval after 10 minutes
-        setTimeout(() => {
-          clearInterval(interval);
-          localStorage.removeItem('pending_payment');
-          console.log('Payment checking timeout reached');
-        }, 600000);
-        
-        return () => clearInterval(interval);
       } catch (error) {
         console.error('Error parsing pending payment:', error);
         localStorage.removeItem('pending_payment');
@@ -206,25 +186,12 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         toast({
           title: "Redirecting to Payment",
-          description: "After payment, WhatsApp link will be created automatically for instant messaging!",
+          description: "Complete your payment and we'll send you the WhatsApp link automatically!",
           duration: 5000,
         });
         
         // Open payment link
         window.open(razorpayProduct.products.razorpay_link, '_blank');
-        
-        // Start checking payment status immediately
-        setTimeout(() => {
-          setCheckingAttempts(0);
-          const interval = setInterval(() => {
-            checkPaymentStatus();
-          }, 3000);
-          
-          // Clear interval after 10 minutes
-          setTimeout(() => {
-            clearInterval(interval);
-          }, 600000);
-        }, 5000); // Start checking after 5 seconds
         
       } else {
         throw new Error("No payment link found for this product");
@@ -254,10 +221,10 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           <div className="bg-blue-100 rounded-xl p-4 border border-blue-300">
             <MessageCircle className="w-8 h-8 text-blue-600 mx-auto mb-2" />
             <p className="text-blue-800 font-medium">
-              ✅ WhatsApp link created for instant messaging!
+              {isDirectMessage ? "✅ WhatsApp message sent directly to your phone!" : "✅ WhatsApp link created for instant messaging!"}
             </p>
             <p className="text-blue-700 text-sm mt-1">
-              Click the WhatsApp button below to send yourself the download link instantly.
+              {isDirectMessage ? "Check your WhatsApp for the download link and group invite." : "Click the WhatsApp button below to send yourself the download link instantly."}
             </p>
           </div>
           
@@ -273,7 +240,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               </div>
               <div className="flex items-center space-x-2">
                 <MessageCircle className="w-4 h-4 text-purple-500" />
-                <span>Instant WhatsApp delivery ready</span>
+                <span>{isDirectMessage ? "Message delivered to WhatsApp" : "Instant WhatsApp delivery ready"}</span>
               </div>
             </div>
           </div>
@@ -295,7 +262,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               Join WhatsApp Group
             </Button>
 
-            {paymentData?.whatsapp_url && (
+            {paymentData?.whatsapp_url && paymentData?.delivery_method !== 'twilio_whatsapp' && (
               <Button
                 onClick={() => window.open(paymentData.whatsapp_url, '_blank')}
                 className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 text-lg rounded-xl animate-pulse"
@@ -395,7 +362,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-gray-600">Pay securely - WhatsApp link will be created automatically!</p>
+        <p className="text-gray-600">Pay securely - WhatsApp delivery happens automatically!</p>
       </div>
 
       <div className="space-y-4">
@@ -414,25 +381,13 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
         </div>
 
-        {isCheckingPayment && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-            <p className="text-sm text-blue-800">
-              <strong>Checking payment status...</strong><br/>
-              Attempt {checkingAttempts} - We're automatically detecting your payment completion.
-            </p>
-          </div>
-        )}
-
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
-            <strong>🚀 Instant WhatsApp Delivery:</strong><br/>
-            1. Click "Pay with Razorpay" below<br/>
-            2. Complete payment securely<br/>
-            3. <strong>WhatsApp link will be created instantly!</strong><br/>
-            4. Click the WhatsApp button to send message to +91{phoneNumber}<br/>
-            5. Message includes download link and group invite<br/>
-            6. Google Drive access restricted to {email}
+            <strong>🚀 Automatic WhatsApp Delivery:</strong><br/>
+            1. Click "Buy" below to complete payment<br/>
+            2. Our system automatically sends WhatsApp message to +91{phoneNumber}<br/>
+            3. Message includes download link and group invite<br/>
+            4. Google Drive access restricted to {email}
           </p>
         </div>
 
@@ -449,7 +404,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           ) : (
             <>
               <CreditCard className="w-5 h-5 mr-2" />
-              Pay with Razorpay - Instant WhatsApp Link
+              Buy
             </>
           )}
         </Button>
@@ -463,7 +418,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          🔒 Secure payment • 📱 Instant WhatsApp link • 🎯 Restricted Google Drive access
+          🔒 Secure payment • 📱 Automatic WhatsApp delivery • 🎯 Restricted Google Drive access
         </p>
       </div>
     </div>

@@ -27,9 +27,24 @@ const handler = async (req: Request): Promise<Response> => {
       email = url.searchParams.get('email');
       phoneNumber = url.searchParams.get('phone');
     } else if (req.method === 'POST') {
-      const body = await req.json();
-      email = body.email;
-      phoneNumber = body.phone;
+      // Check if there's actually a body to parse
+      const contentType = req.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const bodyText = await req.text();
+        if (bodyText && bodyText.trim()) {
+          try {
+            const body = JSON.parse(bodyText);
+            email = body.email;
+            phoneNumber = body.phone;
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError, 'Body:', bodyText);
+            return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+      }
     }
 
     console.log('Checking payment status for:', { email, phoneNumber });
