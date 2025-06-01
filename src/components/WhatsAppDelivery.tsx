@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,30 +75,15 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         // Show success message
         toast({
           title: "Payment Successful! 🎉",
-          description: "Your download link is ready! Check WhatsApp for instant delivery.",
+          description: "Your download link is ready! WhatsApp message will open automatically.",
           duration: 6000,
         });
         
-        // Auto-open WhatsApp if we have a phone number
-        if (data.phone && data.whatsapp_url) {
+        // Auto-open WhatsApp link if available
+        if (data.whatsapp_url) {
           console.log('Opening WhatsApp automatically...');
           setTimeout(() => {
             window.open(data.whatsapp_url, '_blank');
-          }, 2000);
-        } else if (data.phone) {
-          // Fallback: create manual WhatsApp link
-          const message = `🎉 Payment Confirmed! 
-
-Download Link: ${data.drive_link}
-WhatsApp Group: ${data.whatsapp_group}
-
-Payment ID: ${data.payment_id}`;
-          
-          const cleanPhone = data.phone.replace(/\D/g, '');
-          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-          
-          setTimeout(() => {
-            window.open(whatsappUrl, '_blank');
           }, 2000);
         }
       }
@@ -261,13 +245,13 @@ Payment ID: ${data.payment_id}`;
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
           <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
           <p className="text-gray-600">
-            Your download link has been processed automatically!
+            Your download link is ready! WhatsApp message opened automatically.
           </p>
           
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm font-medium text-green-600">Delivery Completed</span>
+              <span className="text-sm font-medium text-green-600">WhatsApp Link Created</span>
             </div>
             
             {paymentData && (
@@ -278,11 +262,11 @@ Payment ID: ${data.payment_id}`;
                 </div>
                 <div className="flex items-center space-x-2">
                   <Users className="w-4 h-4 text-green-500" />
-                  <span>WhatsApp group invite sent</span>
+                  <span>WhatsApp group invite included</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MessageCircle className="w-4 h-4 text-purple-500" />
-                  <span>Delivery: {paymentData.delivery_method || 'automatic'}</span>
+                  <span>WhatsApp link created automatically</span>
                 </div>
               </div>
             )}

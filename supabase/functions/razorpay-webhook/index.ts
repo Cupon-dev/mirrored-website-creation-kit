@@ -36,56 +36,7 @@ interface RazorpayWebhookPayload {
   };
 }
 
-// Function to send WhatsApp message using Twilio WhatsApp API
-async function sendWhatsAppMessage(phoneNumber: string, message: string) {
-  try {
-    const twilioToken = '8ff9d826cc26d4f5427030cf828e5d8a';
-    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-    
-    if (!twilioAccountSid) {
-      console.error('TWILIO_ACCOUNT_SID not found in environment variables');
-      return { success: false, error: 'Twilio Account SID missing' };
-    }
-
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
-    
-    console.log('Attempting to send WhatsApp message to:', formattedPhone);
-    console.log('Using Twilio Account SID:', twilioAccountSid.substring(0, 10) + '...');
-
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-    
-    const body = new URLSearchParams({
-      From: 'whatsapp:+12344373192',
-      To: `whatsapp:${formattedPhone}`,
-      Body: message
-    });
-
-    const response = await fetch(twilioUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${btoa(`${twilioAccountSid}:${twilioToken}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
-
-    const result = await response.json();
-    
-    if (response.ok) {
-      console.log('WhatsApp message sent successfully via Twilio:', result.sid);
-      return { success: true, sid: result.sid, method: 'twilio' };
-    } else {
-      console.error('Twilio WhatsApp API failed:', result);
-      return { success: false, error: result.message, method: 'twilio' };
-    }
-  } catch (error) {
-    console.error('Error with Twilio WhatsApp API:', error);
-    return { success: false, error: error.message, method: 'twilio' };
-  }
-}
-
-// Fallback function to create WhatsApp web link
+// Function to create WhatsApp web link (always works)
 function createWhatsAppWebLink(phoneNumber: string, message: string) {
   try {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
@@ -212,7 +163,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Always try to send WhatsApp message
+    // Create WhatsApp web link (this always works)
     const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
     
     if (cleanPhone) {
@@ -240,22 +191,15 @@ Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-      // Try Twilio first, fallback to web link
-      const twilioResult = await sendWhatsAppMessage(cleanPhone, message);
+      // Create WhatsApp web link (100% reliable)
+      const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
       let deliveryMethod = 'failed';
       let deliveryUrl = null;
 
-      if (twilioResult.success) {
-        deliveryMethod = 'twilio';
-        console.log('WhatsApp message sent successfully via Twilio');
-      } else {
-        console.log('Twilio failed, creating WhatsApp web link as fallback');
-        const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
-        if (webLinkResult.success) {
-          deliveryMethod = 'web_link';
-          deliveryUrl = webLinkResult.url;
-          console.log('WhatsApp web link created successfully');
-        }
+      if (webLinkResult.success) {
+        deliveryMethod = 'web_link';
+        deliveryUrl = webLinkResult.url;
+        console.log('WhatsApp web link created successfully');
       }
 
       // Update payment record with delivery status
@@ -271,7 +215,7 @@ Thank you for choosing us! 🚀`;
       console.log('Payment processed successfully. Delivery method:', deliveryMethod);
 
       return new Response(JSON.stringify({ 
-        message: 'Payment processed and delivered successfully',
+        message: 'Payment processed and WhatsApp link created successfully',
         payment_id: payment.id,
         delivery_method: deliveryMethod,
         whatsapp_url: deliveryUrl,
