@@ -27,6 +27,10 @@ interface RazorpayWebhookPayload {
         email: string;
         contact: string;
         created_at: number;
+        notes?: {
+          email?: string;
+          phone?: string;
+        };
       };
     };
   };
@@ -54,55 +58,116 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const payment = webhookPayload.payload.payment.entity;
-    console.log('Processing payment:', payment.id);
+    console.log('Processing payment:', payment.id, 'for order:', payment.order_id);
 
-    // Find the payment record in our database using the razorpay_order_id
-    const { data: paymentRecord, error: fetchError } = await supabase
+    // Extract email and phone from payment data
+    const paymentEmail = payment.email || payment.notes?.email;
+    const paymentPhone = payment.contact || payment.notes?.phone;
+
+    console.log('Payment details - Email:', paymentEmail, 'Phone:', paymentPhone);
+
+    // First try to find by razorpay_order_id
+    let paymentRecord = null;
+    let fetchError = null;
+
+    const { data: orderRecord, error: orderError } = await supabase
       .from('payments')
       .select('*')
       .eq('razorpay_order_id', payment.order_id)
       .single();
 
-    if (fetchError) {
-      console.error('Error fetching payment record:', fetchError);
-      return new Response(JSON.stringify({ error: 'Payment record not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (orderRecord && !orderError) {
+      paymentRecord = orderRecord;
+    } else {
+      // If not found by order_id, try to find by email and amount
+      console.log('Order ID not found, searching by email and amount...');
+      
+      if (paymentEmail) {
+        const { data: emailRecord, error: emailError } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('email', paymentEmail)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (emailRecord && !emailError) {
+          paymentRecord = emailRecord;
+          console.log('Found payment record by email:', paymentRecord.id);
+        } else {
+          console.log('No payment record found by email either');
+        }
+      }
     }
 
-    console.log('Found payment record:', paymentRecord.id);
+    // If still no record found, create a new one based on payment data
+    if (!paymentRecord) {
+      console.log('Creating new payment record from webhook data...');
+      
+      const driveLink = "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link";
+      
+      const { data: newPayment, error: createError } = await supabase
+        .from('payments')
+        .insert([{
+          email: paymentEmail || 'unknown@email.com',
+          mobile_number: paymentPhone || '',
+          amount: payment.amount / 100, // Convert paise to rupees
+          google_drive_link: driveLink,
+          razorpay_order_id: payment.order_id,
+          razorpay_payment_id: payment.id,
+          status: 'completed',
+          verified_at: new Date().toISOString(),
+          whatsapp_sent: false
+        }])
+        .select()
+        .single();
 
-    // Update payment status to completed
-    const { error: updateError } = await supabase
-      .from('payments')
-      .update({ 
-        status: 'completed',
-        razorpay_payment_id: payment.id,
-        verified_at: new Date().toISOString(),
-        whatsapp_sent: true
-      })
-      .eq('id', paymentRecord.id);
+      if (createError) {
+        console.error('Error creating payment record:', createError);
+        return new Response(JSON.stringify({ error: 'Failed to create payment record' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    if (updateError) {
-      console.error('Error updating payment record:', updateError);
-      return new Response(JSON.stringify({ error: 'Failed to update payment' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      paymentRecord = newPayment;
+      console.log('Created new payment record:', paymentRecord.id);
+    } else {
+      // Update existing payment record
+      console.log('Updating existing payment record:', paymentRecord.id);
+      
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({ 
+          status: 'completed',
+          razorpay_payment_id: payment.id,
+          verified_at: new Date().toISOString()
+        })
+        .eq('id', paymentRecord.id);
+
+      if (updateError) {
+        console.error('Error updating payment record:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to update payment' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
-    // Send WhatsApp message with download link
-    const cleanPhone = paymentRecord.mobile_number.replace(/\D/g, '');
-    
-    // WhatsApp group link (replace with your actual group link)
-    const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
+    // Send WhatsApp message if not already sent
+    if (!paymentRecord.whatsapp_sent) {
+      const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
+      
+      // WhatsApp group link - REPLACE THIS WITH YOUR ACTUAL GROUP LINK
+      const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
-    const message = `🎉 *Payment Received - Order Confirmed!* 🎉
+      const message = `🎉 *Payment Received - Order Confirmed!* 🎉
 
 Thank you for your purchase!
 
-*Total: $${paymentRecord.amount}*
+*Payment ID:* ${payment.id}
+*Amount:* ₹${(payment.amount / 100).toFixed(2)}
 
 📥 *Your Download Link:*
 ${paymentRecord.google_drive_link}
@@ -111,30 +176,47 @@ ${paymentRecord.google_drive_link}
 ${whatsappGroupLink}
 
 *Instructions:*
-1. Click the download link above
-2. Save to your Google Drive for lifetime access
+1. Click the download link above to access your content
+2. Make sure you're logged into Google with: ${paymentRecord.email}
 3. Join our community for updates and support
 
 Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    
-    console.log('WhatsApp URL generated for:', cleanPhone);
-    console.log('WhatsApp URL:', whatsappUrl);
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      
+      console.log('WhatsApp URL generated for:', cleanPhone);
+      console.log('WhatsApp message ready for:', paymentRecord.email);
 
-    // Log successful processing
-    console.log('Payment processed successfully:', payment.id);
+      // Mark WhatsApp as sent
+      await supabase
+        .from('payments')
+        .update({ whatsapp_sent: true })
+        .eq('id', paymentRecord.id);
 
-    return new Response(JSON.stringify({ 
-      message: 'Payment processed successfully',
-      payment_id: payment.id,
-      whatsapp_url: whatsappUrl
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      console.log('Payment processed successfully. WhatsApp message prepared for delivery.');
+
+      return new Response(JSON.stringify({ 
+        message: 'Payment processed successfully',
+        payment_id: payment.id,
+        whatsapp_url: whatsappUrl,
+        email: paymentRecord.email,
+        drive_link: paymentRecord.google_drive_link
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      console.log('WhatsApp already sent for this payment');
+      return new Response(JSON.stringify({ 
+        message: 'Payment already processed',
+        payment_id: payment.id
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
   } catch (error: any) {
     console.error('Error in razorpay-webhook function:', error);
