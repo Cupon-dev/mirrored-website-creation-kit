@@ -36,7 +36,48 @@ interface RazorpayWebhookPayload {
   };
 }
 
-// Function to create WhatsApp web link (always works)
+// Function to send WhatsApp message using Twilio
+async function sendWhatsAppMessage(phoneNumber: string, message: string) {
+  try {
+    const twilioAccountSid = 'SK87d5a9205c449c02c5b09e3b42350883';
+    const twilioAuthToken = 'K7g3bMkRTXdJUE8hYz1yQ7BaFqZeS7RE';
+    const twilioWhatsAppNumber = '+12344373192';
+    
+    // Clean and format phone number
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
+    
+    console.log('Sending WhatsApp message to:', formattedPhone);
+    
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/ACc8ff9d826cc26d4f5427030cf828e5d8a/Messages.json`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        From: `whatsapp:${twilioWhatsAppNumber}`,
+        To: `whatsapp:${formattedPhone}`,
+        Body: message,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      console.log('WhatsApp message sent successfully:', result.sid);
+      return { success: true, sid: result.sid, method: 'twilio_whatsapp' };
+    } else {
+      console.error('Twilio API error:', result);
+      throw new Error(`Twilio error: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    return { success: false, error: error.message, method: 'twilio_whatsapp_failed' };
+  }
+}
+
+// Function to create WhatsApp web link (fallback)
 function createWhatsAppWebLink(phoneNumber: string, message: string) {
   try {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
@@ -163,7 +204,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Create WhatsApp web link (this always works)
+    // Now send WhatsApp message
     const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
     
     if (cleanPhone) {
@@ -191,15 +232,23 @@ Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-      // Create WhatsApp web link (100% reliable)
-      const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
+      // Try to send WhatsApp message via Twilio first
+      const twilioResult = await sendWhatsAppMessage(cleanPhone, message);
       let deliveryMethod = 'failed';
       let deliveryUrl = null;
 
-      if (webLinkResult.success) {
-        deliveryMethod = 'web_link';
-        deliveryUrl = webLinkResult.url;
-        console.log('WhatsApp web link created successfully');
+      if (twilioResult.success) {
+        deliveryMethod = 'twilio_whatsapp';
+        console.log('WhatsApp message sent via Twilio successfully');
+      } else {
+        console.log('Twilio failed, creating web link fallback');
+        // Fallback to WhatsApp web link
+        const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
+        if (webLinkResult.success) {
+          deliveryMethod = 'web_link';
+          deliveryUrl = webLinkResult.url;
+          console.log('WhatsApp web link created successfully');
+        }
       }
 
       // Update payment record with delivery status
@@ -215,13 +264,14 @@ Thank you for choosing us! 🚀`;
       console.log('Payment processed successfully. Delivery method:', deliveryMethod);
 
       return new Response(JSON.stringify({ 
-        message: 'Payment processed and WhatsApp link created successfully',
+        message: 'Payment processed and WhatsApp message sent successfully',
         payment_id: payment.id,
         delivery_method: deliveryMethod,
         whatsapp_url: deliveryUrl,
         email: paymentRecord.email,
         drive_link: paymentRecord.google_drive_link,
-        whatsapp_group: whatsappGroupLink
+        whatsapp_group: whatsappGroupLink,
+        twilio_result: twilioResult
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
