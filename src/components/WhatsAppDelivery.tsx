@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,11 +35,20 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const checkEmail = userEmail || email;
       const checkPhone = userPhone || phoneNumber;
       
+      console.log('Checking payment status for:', { checkEmail, checkPhone });
+
+      const params = new URLSearchParams();
+      if (checkEmail) params.append('email', checkEmail);
+      if (checkPhone) params.append('phone', checkPhone);
+
       const { data, error } = await supabase.functions.invoke('check-payment-status', {
-        body: null,
-        headers: {},
         method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
+
+      console.log('Payment status response:', data, error);
 
       if (error) throw error;
 
@@ -49,7 +57,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         setStep('success');
         
         // Auto-open WhatsApp if the message hasn't been sent yet
-        if (!data.whatsapp_sent && data.phone) {
+        if (data.phone) {
           const message = `🎉 *Payment Received - Order Confirmed!* 🎉
 
 Thank you for your purchase!
@@ -84,6 +92,9 @@ Thank you for choosing us! 🚀`;
           title: "Payment Successful! 🎉",
           description: "Your download link has been sent via WhatsApp!",
         });
+        
+        // Clear pending payment from localStorage
+        localStorage.removeItem('pending_payment');
       }
       
       setIsCheckingPayment(false);
@@ -97,23 +108,30 @@ Thank you for choosing us! 🚀`;
   useEffect(() => {
     const pendingPayment = localStorage.getItem('pending_payment');
     if (pendingPayment) {
-      const paymentData = JSON.parse(pendingPayment);
-      setEmail(paymentData.email);
-      setPhoneNumber(paymentData.phoneNumber);
-      setPaymentId(paymentData.paymentId);
-      
-      // Start checking payment status every 3 seconds
-      const interval = setInterval(() => {
-        checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
-      }, 3000);
-      
-      // Clear interval after 5 minutes
-      setTimeout(() => {
-        clearInterval(interval);
+      try {
+        const paymentData = JSON.parse(pendingPayment);
+        setEmail(paymentData.email);
+        setPhoneNumber(paymentData.phoneNumber);
+        setPaymentId(paymentData.paymentId);
+        
+        console.log('Found pending payment:', paymentData);
+        
+        // Start checking payment status every 3 seconds
+        const interval = setInterval(() => {
+          checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
+        }, 3000);
+        
+        // Clear interval after 5 minutes
+        setTimeout(() => {
+          clearInterval(interval);
+          localStorage.removeItem('pending_payment');
+        }, 300000);
+        
+        return () => clearInterval(interval);
+      } catch (error) {
+        console.error('Error parsing pending payment:', error);
         localStorage.removeItem('pending_payment');
-      }, 300000);
-      
-      return () => clearInterval(interval);
+      }
     }
   }, []);
 
@@ -149,6 +167,8 @@ Thank you for choosing us! 🚀`;
       const orderIdSuffix = Math.random().toString(36).substring(2, 8);
       const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
 
+      console.log('Creating payment record with order ID:', razorpayOrderId);
+
       // Create payment record first with razorpay_order_id
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
@@ -163,8 +183,12 @@ Thank you for choosing us! 🚀`;
         .select()
         .single();
 
-      if (paymentError) throw paymentError;
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError);
+        throw paymentError;
+      }
 
+      console.log('Payment record created:', payment);
       setPaymentId(payment.id);
 
       // Check if any cart item has a razorpay_link
@@ -196,13 +220,13 @@ Thank you for choosing us! 🚀`;
         setTimeout(() => {
           const interval = setInterval(() => {
             checkPaymentStatus();
-          }, 3000);
+          }, 2000);
           
           // Clear interval after 5 minutes
           setTimeout(() => {
             clearInterval(interval);
           }, 300000);
-        }, 10000); // Start checking after 10 seconds
+        }, 5000); // Start checking after 5 seconds
         
       } else {
         throw new Error("No payment link found for this product");

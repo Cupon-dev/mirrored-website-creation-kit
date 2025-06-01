@@ -22,6 +22,8 @@ const handler = async (req: Request): Promise<Response> => {
     const email = url.searchParams.get('email');
     const phoneNumber = url.searchParams.get('phone');
 
+    console.log('Checking payment status for:', { email, phoneNumber });
+
     if (!email && !phoneNumber) {
       return new Response(JSON.stringify({ error: 'Email or phone number required' }), {
         status: 400,
@@ -53,10 +55,12 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    console.log('Found payments:', payments);
+
     const latestPayment = payments?.[0];
 
     if (latestPayment) {
-      // WhatsApp group link
+      // WhatsApp group link - REPLACE WITH YOUR ACTUAL GROUP LINK
       const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
       
       return new Response(JSON.stringify({
