@@ -36,26 +36,48 @@ interface RazorpayWebhookPayload {
   };
 }
 
-// Function to send WhatsApp message using WhatsApp Business API
+// Function to send WhatsApp message using Twilio WhatsApp API
 async function sendWhatsAppMessage(phoneNumber: string, message: string) {
   try {
-    // Using WhatsApp Business API (you'll need to get API credentials)
-    // For now, we'll create a direct WhatsApp link that opens automatically
+    const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN') || '8ff9d826cc26d4f5427030cf828e5d8a';
+    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+    
+    if (!twilioAccountSid || !twilioToken) {
+      console.error('Twilio credentials not found');
+      return { success: false, error: 'Twilio credentials missing' };
+    }
+
     const cleanPhone = phoneNumber.replace(/\D/g, '');
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    const formattedPhone = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
     
-    console.log('WhatsApp message URL generated:', whatsappUrl);
+    console.log('Sending WhatsApp message to:', formattedPhone);
+
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
     
-    // You can integrate with services like:
-    // 1. Twilio WhatsApp API
-    // 2. WhatsApp Business API
-    // 3. Ultramsg API
-    // 4. CallMeBot API
+    const body = new URLSearchParams({
+      From: 'whatsapp:+12344373192', // Your Twilio WhatsApp number
+      To: `whatsapp:${formattedPhone}`,
+      Body: message
+    });
+
+    const response = await fetch(twilioUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`${twilioAccountSid}:${twilioToken}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    const result = await response.json();
     
-    // For now, we'll use a simple HTTP request to a WhatsApp API service
-    // Replace this with your preferred WhatsApp API service
-    
-    return { success: true, url: whatsappUrl };
+    if (response.ok) {
+      console.log('WhatsApp message sent successfully:', result.sid);
+      return { success: true, sid: result.sid };
+    } else {
+      console.error('Failed to send WhatsApp message:', result);
+      return { success: false, error: result.message };
+    }
   } catch (error) {
     console.error('Error sending WhatsApp message:', error);
     return { success: false, error: error.message };
@@ -65,12 +87,10 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string) {
 // Function to send email notification as backup
 async function sendEmailNotification(email: string, driveLink: string, whatsappGroupLink: string) {
   try {
-    // You can integrate with email services like SendGrid, Resend, etc.
     console.log(`Email notification would be sent to: ${email}`);
     console.log(`Drive link: ${driveLink}`);
     console.log(`WhatsApp group: ${whatsappGroupLink}`);
     
-    // For now, just log - you can implement actual email sending
     return { success: true };
   } catch (error) {
     console.error('Error sending email:', error);
@@ -79,7 +99,6 @@ async function sendEmailNotification(email: string, driveLink: string, whatsappG
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -90,7 +109,6 @@ const handler = async (req: Request): Promise<Response> => {
     const webhookPayload: RazorpayWebhookPayload = await req.json();
     console.log('Webhook payload:', JSON.stringify(webhookPayload, null, 2));
 
-    // Only process payment.captured events
     if (webhookPayload.event !== 'payment.captured') {
       console.log('Ignoring non-payment.captured event:', webhookPayload.event);
       return new Response(JSON.stringify({ message: 'Event ignored' }), {
@@ -102,13 +120,11 @@ const handler = async (req: Request): Promise<Response> => {
     const payment = webhookPayload.payload.payment.entity;
     console.log('Processing payment:', payment.id, 'for order:', payment.order_id);
 
-    // Extract email and phone from payment data
     const paymentEmail = payment.email || payment.notes?.email;
     const paymentPhone = payment.contact || payment.notes?.phone;
 
     console.log('Payment details - Email:', paymentEmail, 'Phone:', paymentPhone);
 
-    // First try to find by razorpay_order_id
     let paymentRecord = null;
 
     const { data: orderRecord, error: orderError } = await supabase
@@ -120,7 +136,6 @@ const handler = async (req: Request): Promise<Response> => {
     if (orderRecord && !orderError) {
       paymentRecord = orderRecord;
     } else {
-      // If not found by order_id, try to find by email and amount
       console.log('Order ID not found, searching by email and amount...');
       
       if (paymentEmail) {
@@ -140,7 +155,6 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // If still no record found, create a new one based on payment data
     if (!paymentRecord) {
       console.log('Creating new payment record from webhook data...');
       
@@ -151,7 +165,7 @@ const handler = async (req: Request): Promise<Response> => {
         .insert([{
           email: paymentEmail || 'unknown@email.com',
           mobile_number: paymentPhone || '',
-          amount: payment.amount / 100, // Convert paise to rupees
+          amount: payment.amount / 100,
           google_drive_link: driveLink,
           razorpay_order_id: payment.order_id,
           razorpay_payment_id: payment.id,
@@ -173,7 +187,6 @@ const handler = async (req: Request): Promise<Response> => {
       paymentRecord = newPayment;
       console.log('Created new payment record:', paymentRecord.id);
     } else {
-      // Update existing payment record
       console.log('Updating existing payment record:', paymentRecord.id);
       
       const { error: updateError } = await supabase
@@ -194,11 +207,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Send WhatsApp message and email automatically
     if (!paymentRecord.whatsapp_sent) {
       const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
       
-      // WhatsApp group link - REPLACE THIS WITH YOUR ACTUAL GROUP LINK
       const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
       const message = `🎉 *Payment Received - Order Confirmed!* 🎉
@@ -223,7 +234,7 @@ Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-      // Send WhatsApp message
+      // Send WhatsApp message using Twilio
       const whatsappResult = await sendWhatsAppMessage(cleanPhone, message);
       console.log('WhatsApp sending result:', whatsappResult);
 
@@ -235,7 +246,7 @@ Thank you for choosing us! 🚀`;
       );
       console.log('Email sending result:', emailResult);
 
-      // Mark WhatsApp as sent and store the WhatsApp URL for frontend
+      // Mark WhatsApp as sent
       await supabase
         .from('payments')
         .update({ 
@@ -248,11 +259,10 @@ Thank you for choosing us! 🚀`;
       return new Response(JSON.stringify({ 
         message: 'Payment processed and delivered successfully',
         payment_id: payment.id,
-        whatsapp_url: whatsappResult.url,
-        email: paymentRecord.email,
-        drive_link: paymentRecord.google_drive_link,
         whatsapp_sent: whatsappResult.success,
-        email_sent: emailResult.success
+        email_sent: emailResult.success,
+        email: paymentRecord.email,
+        drive_link: paymentRecord.google_drive_link
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
