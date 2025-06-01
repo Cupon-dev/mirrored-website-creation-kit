@@ -96,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
     const cleanPhone = paymentRecord.mobile_number.replace(/\D/g, '');
     
     // WhatsApp group link (replace with your actual group link)
-    const whatsappGroupLink = "https://chat.whatsapp.com/YOUR_GROUP_LINK";
+    const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
     const message = `🎉 *Payment Received - Order Confirmed!* 🎉
 
