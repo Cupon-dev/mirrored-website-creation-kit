@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -49,6 +48,36 @@ function createWhatsAppWebLink(phoneNumber: string, message: string) {
   } catch (error) {
     console.error('Error creating WhatsApp web link:', error);
     return { success: false, error: error.message, method: 'web_link_failed' };
+  }
+}
+
+// New function to trigger Make.com automation
+async function triggerMakeAutomation(paymentData: any) {
+  try {
+    console.log('Triggering Make.com automation for payment:', paymentData.id);
+    
+    const { data, error } = await supabase.functions.invoke('make-webhook', {
+      body: {
+        email: paymentData.email,
+        phone: paymentData.mobile_number,
+        amount: paymentData.amount,
+        payment_id: paymentData.razorpay_payment_id,
+        drive_link: paymentData.google_drive_link,
+        customer_name: paymentData.email.split('@')[0]
+      }
+    });
+
+    if (error) {
+      console.error('Make.com automation failed:', error);
+      return { success: false, method: 'make_failed', error: error.message };
+    }
+
+    console.log('Make.com automation triggered successfully:', data);
+    return { success: true, method: 'make_automation' };
+    
+  } catch (error) {
+    console.error('Error triggering Make.com automation:', error);
+    return { success: false, method: 'make_error', error: error.message };
   }
 }
 
@@ -163,13 +192,25 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Generate WhatsApp link for delivery
+    // Try Make.com automation first, then fallback to WhatsApp web link
     const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
     
     if (cleanPhone) {
-      const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
+      let deliveryMethod = 'failed';
+      let deliveryUrl = null;
 
-      const message = `🎉 *Payment Received - Order Confirmed!* 🎉
+      // Try Make.com automation first
+      const makeResult = await triggerMakeAutomation(paymentRecord);
+      
+      if (makeResult.success) {
+        deliveryMethod = 'make_automation';
+        console.log('✅ Make.com automation triggered successfully');
+      } else {
+        console.log('⚠️ Make.com automation failed, falling back to WhatsApp web link');
+        
+        // Fallback to WhatsApp web link
+        const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
+        const message = `🎉 *Payment Received - Order Confirmed!* 🎉
 
 Thank you for your purchase!
 
@@ -191,24 +232,20 @@ Need help? Reply to this message!
 
 Thank you for choosing us! 🚀`;
 
-      const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
-      let deliveryMethod = 'web_link';
-      let deliveryUrl = null;
-
-      if (webLinkResult.success) {
-        deliveryMethod = 'web_link';
-        deliveryUrl = webLinkResult.url;
-        console.log('WhatsApp web link created successfully');
-      } else {
-        deliveryMethod = 'failed';
-        console.log('Failed to create WhatsApp link');
+        const webLinkResult = createWhatsAppWebLink(cleanPhone, message);
+        
+        if (webLinkResult.success) {
+          deliveryMethod = 'web_link';
+          deliveryUrl = webLinkResult.url;
+          console.log('✅ WhatsApp web link created as fallback');
+        }
       }
 
       // Update payment record with delivery status
       await supabase
         .from('payments')
         .update({ 
-          whatsapp_sent: webLinkResult.success,
+          whatsapp_sent: makeResult.success || deliveryMethod === 'web_link',
           delivery_method: deliveryMethod,
           whatsapp_url: deliveryUrl
         })
@@ -217,22 +254,23 @@ Thank you for choosing us! 🚀`;
       console.log('Payment processed successfully. Delivery method:', deliveryMethod);
 
       return new Response(JSON.stringify({ 
-        message: 'Payment processed and WhatsApp link generated',
+        message: 'Payment processed successfully',
         payment_id: payment.id,
         delivery_method: deliveryMethod,
         whatsapp_url: deliveryUrl,
         email: paymentRecord.email,
         drive_link: paymentRecord.google_drive_link,
-        whatsapp_group: whatsappGroupLink,
-        phone: cleanPhone
+        whatsapp_group: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X",
+        phone: cleanPhone,
+        make_automation: makeResult.success ? 'triggered' : 'failed'
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } else {
-      console.log('No phone number available for WhatsApp delivery');
+      console.log('No phone number available for delivery');
       
-      // Mark as completed even without WhatsApp
+      // Mark as completed even without phone
       await supabase
         .from('payments')
         .update({ 
@@ -242,7 +280,7 @@ Thank you for choosing us! 🚀`;
         .eq('id', paymentRecord.id);
 
       return new Response(JSON.stringify({ 
-        message: 'Payment processed successfully (no WhatsApp delivery - missing phone)',
+        message: 'Payment processed successfully (no phone delivery)',
         payment_id: payment.id,
         email: paymentRecord.email,
         drive_link: paymentRecord.google_drive_link
