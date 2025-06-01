@@ -18,6 +18,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<"details" | "payment">("details");
+  const [paymentId, setPaymentId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Google Drive link for the digital product
@@ -66,26 +67,42 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
       if (paymentError) throw paymentError;
 
+      setPaymentId(payment.id);
+
       // Check if any cart item has a razorpay_link
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        // Use existing Razorpay link from product
         console.log('Opening Razorpay link:', razorpayProduct.products.razorpay_link);
-        window.open(razorpayProduct.products.razorpay_link, '_blank');
         
-        // Show instructions to user
-        toast({
-          title: "Payment Gateway Opened",
-          description: "Complete payment in the new tab, then return here to confirm.",
-        });
+        // Try to open the payment link with better popup handling
+        const paymentWindow = window.open(razorpayProduct.products.razorpay_link, '_blank', 'noopener,noreferrer,width=800,height=600');
+        
+        if (!paymentWindow || paymentWindow.closed || typeof paymentWindow.closed == 'undefined') {
+          // Popup was blocked
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups for this site and try again, or click the link below.",
+            variant: "destructive"
+          });
+          
+          // Provide direct link as fallback
+          const linkElement = document.createElement('a');
+          linkElement.href = razorpayProduct.products.razorpay_link;
+          linkElement.target = '_blank';
+          linkElement.rel = 'noopener noreferrer';
+          linkElement.click();
+        } else {
+          toast({
+            title: "Payment Gateway Opened",
+            description: "Complete payment in the new tab, then return here to confirm.",
+          });
+        }
       } else {
-        // Fallback: simulate payment completion for testing
-        console.log('No Razorpay link found, simulating payment...');
-        setTimeout(() => {
-          handlePaymentSuccess(payment.id);
-        }, 2000);
+        throw new Error("No payment link found for this product");
       }
+      
+      setIsProcessing(false);
     } catch (error: any) {
       setIsProcessing(false);
       console.error('Payment initiation error:', error);
@@ -97,8 +114,19 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     }
   };
 
-  const handlePaymentSuccess = async (paymentId: string) => {
+  const handlePaymentSuccess = async () => {
+    if (!paymentId) {
+      toast({
+        title: "Error",
+        description: "Payment ID not found. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      setIsProcessing(true);
+      
       // Format phone number (remove spaces, dashes, etc.)
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       
@@ -285,8 +313,8 @@ Thank you for choosing us! 🚀`;
         </Button>
 
         <Button
-          onClick={confirmPaymentManually}
-          disabled={isProcessing}
+          onClick={handlePaymentSuccess}
+          disabled={isProcessing || !paymentId}
           variant="outline"
           className="w-full py-3 text-lg"
         >
