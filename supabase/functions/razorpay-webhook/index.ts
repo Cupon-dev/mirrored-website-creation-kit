@@ -212,7 +212,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Always try to send WhatsApp message (even if already sent before)
+    // Always try to send WhatsApp message
     const cleanPhone = (paymentRecord.mobile_number || paymentPhone || '').replace(/\D/g, '');
     
     if (cleanPhone) {
