@@ -164,6 +164,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          delivery_method: string | null
           email: string
           google_drive_link: string | null
           id: string
@@ -173,10 +174,12 @@ export type Database = {
           status: string | null
           verified_at: string | null
           whatsapp_sent: boolean | null
+          whatsapp_url: string | null
         }
         Insert: {
           amount: number
           created_at?: string
+          delivery_method?: string | null
           email: string
           google_drive_link?: string | null
           id?: string
@@ -186,10 +189,12 @@ export type Database = {
           status?: string | null
           verified_at?: string | null
           whatsapp_sent?: boolean | null
+          whatsapp_url?: string | null
         }
         Update: {
           amount?: number
           created_at?: string
+          delivery_method?: string | null
           email?: string
           google_drive_link?: string | null
           id?: string
@@ -199,6 +204,7 @@ export type Database = {
           status?: string | null
           verified_at?: string | null
           whatsapp_sent?: boolean | null
+          whatsapp_url?: string | null
         }
         Relationships: []
       }

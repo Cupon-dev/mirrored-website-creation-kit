@@ -72,16 +72,20 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         // Clear pending payment from localStorage
         localStorage.removeItem('pending_payment');
         
-        // Show success message
+        // Show success message based on delivery method
+        const deliveryMessage = data.delivery_method === 'twilio_whatsapp' 
+          ? "WhatsApp message sent directly to your phone!" 
+          : "WhatsApp link created for manual sending!";
+        
         toast({
           title: "Payment Successful! 🎉",
-          description: "Your download link is ready! WhatsApp message will open automatically.",
+          description: deliveryMessage,
           duration: 6000,
         });
         
-        // Auto-open WhatsApp link if available
-        if (data.whatsapp_url) {
-          console.log('Opening WhatsApp automatically...');
+        // Auto-open WhatsApp link if available and not Twilio delivery
+        if (data.whatsapp_url && data.delivery_method !== 'twilio_whatsapp') {
+          console.log('Opening WhatsApp link automatically...');
           setTimeout(() => {
             window.open(data.whatsapp_url, '_blank');
           }, 2000);
@@ -202,7 +206,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         toast({
           title: "Redirecting to Payment",
-          description: "After payment, your download link will be sent automatically via WhatsApp!",
+          description: "After payment, download link will be sent automatically via WhatsApp to your phone number!",
           duration: 5000,
         });
         
@@ -239,37 +243,51 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   };
 
   if (step === "success") {
+    const isDirectMessage = paymentData?.delivery_method === 'twilio_whatsapp';
+    
     return (
       <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center">
         <div className="space-y-4">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
           <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
-          <p className="text-gray-600">
-            Your download link is ready! WhatsApp message opened automatically.
-          </p>
+          
+          {isDirectMessage ? (
+            <div className="bg-green-100 rounded-xl p-4 border border-green-300">
+              <MessageCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+              <p className="text-green-800 font-medium">
+                ✅ WhatsApp message sent directly to +91{phoneNumber}!
+              </p>
+              <p className="text-green-700 text-sm mt-1">
+                Check your WhatsApp for the download link and group invite.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-blue-100 rounded-xl p-4 border border-blue-300">
+              <ExternalLink className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+              <p className="text-blue-800 font-medium">
+                WhatsApp link created for manual delivery
+              </p>
+              <p className="text-blue-700 text-sm mt-1">
+                Click the WhatsApp button below to send yourself the download link.
+              </p>
+            </div>
+          )}
           
           <div className="bg-white rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm font-medium text-green-600">WhatsApp Link Created</span>
-            </div>
-            
-            {paymentData && (
-              <div className="space-y-2 text-sm text-left">
-                <div className="flex items-center space-x-2">
-                  <Download className="w-4 h-4 text-blue-500" />
-                  <span>Download access: {paymentData.email}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-green-500" />
-                  <span>WhatsApp group invite included</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <MessageCircle className="w-4 h-4 text-purple-500" />
-                  <span>WhatsApp link created automatically</span>
-                </div>
+            <div className="space-y-2 text-sm text-left">
+              <div className="flex items-center space-x-2">
+                <Download className="w-4 h-4 text-blue-500" />
+                <span>Download access: {paymentData?.email}</span>
               </div>
-            )}
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4 text-green-500" />
+                <span>WhatsApp group invite included</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <MessageCircle className="w-4 h-4 text-purple-500" />
+                <span>Delivery method: {isDirectMessage ? 'Direct message' : 'Manual link'}</span>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -289,13 +307,13 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               Join WhatsApp Group
             </Button>
 
-            {paymentData?.whatsapp_url && (
+            {!isDirectMessage && paymentData?.whatsapp_url && (
               <Button
                 onClick={() => window.open(paymentData.whatsapp_url, '_blank')}
                 className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 text-lg rounded-xl"
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
-                Open WhatsApp Message
+                Send WhatsApp Message
               </Button>
             )}
 
@@ -341,12 +359,12 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
             </label>
             <Input
               type="tel"
-              placeholder="+1234567890"
+              placeholder="7339525425"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="text-center text-lg"
             />
-            <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +91 for India)</p>
+            <p className="text-xs text-gray-500 mt-1">Enter your 10-digit mobile number (without +91)</p>
           </div>
 
           <div className="bg-white rounded-xl p-4 space-y-3">
@@ -357,8 +375,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
             
             <div className="space-y-2 text-sm">
               <div className="flex items-center space-x-2">
-                <Download className="w-4 h-4 text-blue-500" />
-                <span className="text-gray-600">Automatic WhatsApp delivery</span>
+                <MessageCircle className="w-4 h-4 text-green-500" />
+                <span className="text-gray-600">Direct WhatsApp message to your phone</span>
               </div>
               
               <div className="flex items-center space-x-2">
@@ -400,7 +418,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-600">WhatsApp:</span>
-            <span className="font-medium">{phoneNumber}</span>
+            <span className="font-medium">+91{phoneNumber}</span>
           </div>
           <div className="flex items-center justify-between border-t pt-2">
             <span className="text-gray-600">Total Amount:</span>
@@ -418,14 +436,14 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
         )}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>🚀 Automatic Process:</strong><br/>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">
+            <strong>🚀 Automatic WhatsApp Delivery:</strong><br/>
             1. Click "Pay with Razorpay" below<br/>
             2. Complete payment securely<br/>
-            3. <strong>Download link will be sent automatically to your WhatsApp!</strong><br/>
-            4. You'll also receive our WhatsApp group invite<br/>
-            5. Google Drive access will be restricted to your email only
+            3. <strong>WhatsApp message will be sent directly to +91{phoneNumber}!</strong><br/>
+            4. Message includes download link and group invite<br/>
+            5. Google Drive access restricted to {email}
           </p>
         </div>
 
@@ -442,7 +460,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           ) : (
             <>
               <CreditCard className="w-5 h-5 mr-2" />
-              Pay with Razorpay - Auto Delivery
+              Pay with Razorpay - Auto WhatsApp Delivery
             </>
           )}
         </Button>
@@ -456,7 +474,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          🔒 Secure payment • 📱 Automatic WhatsApp delivery • 🎯 Restricted Google Drive access
+          🔒 Secure payment • 📱 Direct WhatsApp delivery • 🎯 Restricted Google Drive access
         </p>
       </div>
     </div>
