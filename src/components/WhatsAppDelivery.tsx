@@ -206,7 +206,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         toast({
           title: "Redirecting to Payment",
-          description: "After payment, download link will be sent automatically via WhatsApp to your phone number!",
+          description: "After payment, WhatsApp link will be created automatically for instant messaging!",
           duration: 5000,
         });
         
@@ -251,27 +251,15 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
           <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
           
-          {isDirectMessage ? (
-            <div className="bg-green-100 rounded-xl p-4 border border-green-300">
-              <MessageCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="text-green-800 font-medium">
-                ✅ WhatsApp message sent directly to +91{phoneNumber}!
-              </p>
-              <p className="text-green-700 text-sm mt-1">
-                Check your WhatsApp for the download link and group invite.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-blue-100 rounded-xl p-4 border border-blue-300">
-              <ExternalLink className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-blue-800 font-medium">
-                WhatsApp link created for manual delivery
-              </p>
-              <p className="text-blue-700 text-sm mt-1">
-                Click the WhatsApp button below to send yourself the download link.
-              </p>
-            </div>
-          )}
+          <div className="bg-blue-100 rounded-xl p-4 border border-blue-300">
+            <MessageCircle className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <p className="text-blue-800 font-medium">
+              ✅ WhatsApp link created for instant messaging!
+            </p>
+            <p className="text-blue-700 text-sm mt-1">
+              Click the WhatsApp button below to send yourself the download link instantly.
+            </p>
+          </div>
           
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div className="space-y-2 text-sm text-left">
@@ -285,7 +273,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               </div>
               <div className="flex items-center space-x-2">
                 <MessageCircle className="w-4 h-4 text-purple-500" />
-                <span>Delivery method: {isDirectMessage ? 'Direct message' : 'Manual link'}</span>
+                <span>Instant WhatsApp delivery ready</span>
               </div>
             </div>
           </div>
@@ -307,13 +295,13 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               Join WhatsApp Group
             </Button>
 
-            {!isDirectMessage && paymentData?.whatsapp_url && (
+            {paymentData?.whatsapp_url && (
               <Button
                 onClick={() => window.open(paymentData.whatsapp_url, '_blank')}
-                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 text-lg rounded-xl"
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold py-4 text-lg rounded-xl animate-pulse"
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
-                Send WhatsApp Message
+                Send WhatsApp Message Now! 🚀
               </Button>
             )}
 
@@ -407,7 +395,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-gray-600">Pay securely - Download link will be sent automatically to WhatsApp!</p>
+        <p className="text-gray-600">Pay securely - WhatsApp link will be created automatically!</p>
       </div>
 
       <div className="space-y-4">
@@ -438,12 +426,13 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
-            <strong>🚀 Automatic WhatsApp Delivery:</strong><br/>
+            <strong>🚀 Instant WhatsApp Delivery:</strong><br/>
             1. Click "Pay with Razorpay" below<br/>
             2. Complete payment securely<br/>
-            3. <strong>WhatsApp message will be sent directly to +91{phoneNumber}!</strong><br/>
-            4. Message includes download link and group invite<br/>
-            5. Google Drive access restricted to {email}
+            3. <strong>WhatsApp link will be created instantly!</strong><br/>
+            4. Click the WhatsApp button to send message to +91{phoneNumber}<br/>
+            5. Message includes download link and group invite<br/>
+            6. Google Drive access restricted to {email}
           </p>
         </div>
 
@@ -460,7 +449,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           ) : (
             <>
               <CreditCard className="w-5 h-5 mr-2" />
-              Pay with Razorpay - Auto WhatsApp Delivery
+              Pay with Razorpay - Instant WhatsApp Link
             </>
           )}
         </Button>
@@ -474,7 +463,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          🔒 Secure payment • 📱 Direct WhatsApp delivery • 🎯 Restricted Google Drive access
+          🔒 Secure payment • 📱 Instant WhatsApp link • 🎯 Restricted Google Drive access
         </p>
       </div>
     </div>
