@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ProductAnalytics {
@@ -12,6 +12,20 @@ export const useProductAnalytics = (productId: string) => {
     current_viewers: 0,
     total_purchases: 0
   });
+
+  const incrementViewer = useCallback(async () => {
+    await supabase.rpc('update_product_viewers', {
+      product_uuid: productId,
+      viewer_change: 1
+    });
+  }, [productId]);
+
+  const decrementViewer = useCallback(async () => {
+    await supabase.rpc('update_product_viewers', {
+      product_uuid: productId,
+      viewer_change: -1
+    });
+  }, [productId]);
 
   useEffect(() => {
     if (!productId) return;
@@ -49,22 +63,6 @@ export const useProductAnalytics = (productId: string) => {
       }
     };
 
-    // Increment viewer count when component mounts
-    const incrementViewer = async () => {
-      await supabase.rpc('update_product_viewers', {
-        product_uuid: productId,
-        viewer_change: 1
-      });
-    };
-
-    // Decrement viewer count when component unmounts
-    const decrementViewer = async () => {
-      await supabase.rpc('update_product_viewers', {
-        product_uuid: productId,
-        viewer_change: -1
-      });
-    };
-
     fetchAnalytics();
     incrementViewer();
 
@@ -99,7 +97,7 @@ export const useProductAnalytics = (productId: string) => {
       clearInterval(viewerInterval);
       clearInterval(purchaseInterval);
     };
-  }, [productId]);
+  }, [productId, incrementViewer, decrementViewer]);
 
-  return analytics;
+  return { analytics, incrementViewer, decrementViewer };
 };
