@@ -9,7 +9,7 @@ interface FOMOCounterProps {
 }
 
 const FOMOCounter = ({ productId }: FOMOCounterProps) => {
-  const analytics = useProductAnalytics(productId);
+  const { analytics } = useProductAnalytics(productId);
   const [animatedViewers, setAnimatedViewers] = useState(analytics.current_viewers);
   const [animatedPurchases, setAnimatedPurchases] = useState(analytics.total_purchases);
 

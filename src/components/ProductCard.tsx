@@ -38,7 +38,9 @@ const ProductCard = ({
 
   useEffect(() => {
     incrementViewer();
-    return () => decrementViewer();
+    return () => {
+      decrementViewer();
+    };
   }, [incrementViewer, decrementViewer]);
 
   const formatPrice = (price: number) => {
