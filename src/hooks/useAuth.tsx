@@ -151,9 +151,46 @@ export const useAuth = () => {
     }
   };
 
+  const verifyPayment = async (paymentId: string) => {
+    try {
+      const pendingUserId = localStorage.getItem('pending_user_id');
+      if (!pendingUserId) throw new Error('No pending registration found');
+
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          is_verified: true,
+          razorpay_payment_id: paymentId
+        })
+        .eq('id', pendingUserId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUser(data);
+      localStorage.setItem('user_email', data.email);
+      localStorage.removeItem('pending_user_id');
+      
+      toast({
+        title: "Welcome!",
+        description: "Your account has been verified successfully."
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message
+      });
+      return { success: false, error };
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user_email');
+    localStorage.removeItem('pending_user_id');
     toast({
       title: "Logged out",
       description: "You have been successfully logged out."
@@ -175,6 +212,7 @@ export const useAuth = () => {
     isLoading,
     registerUser,
     loginUser,
+    verifyPayment,
     logout,
     isVerified: user?.is_verified || false
   };
