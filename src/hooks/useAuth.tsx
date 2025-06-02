@@ -10,8 +10,8 @@ interface User {
   name: string;
   is_verified: boolean;
   visit_count: number;
-  login_streak: number;
-  last_login: string | null;
+  login_streak?: number;
+  last_login?: string | null;
 }
 
 export const useAuth = () => {
@@ -59,6 +59,42 @@ export const useAuth = () => {
     }
   };
 
+  const loginUser = async (identifier: string) => {
+    try {
+      // Try to find user by email or mobile
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${identifier},mobile_number.eq.${identifier}`)
+        .single();
+
+      if (error || !userData) {
+        toast({
+          title: "User not found",
+          description: "Please register first by making a purchase."
+        });
+        return { success: false, error: "User not found" };
+      }
+      
+      setUser(userData);
+      localStorage.setItem('user_email', userData.email);
+      
+      toast({
+        title: "Welcome back!",
+        description: `Hello ${userData.name}, you're now logged in.`
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Failed to login"
+      });
+      return { success: false, error };
+    }
+  };
+
   const registerUser = async (name: string, email: string, mobile: string) => {
     try {
       if (!mobile) {
@@ -67,6 +103,19 @@ export const useAuth = () => {
           description: "Please enter your mobile number to register."
         });
         return { success: false, error: "Mobile number required" };
+      }
+
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .or(`email.eq.${email},mobile_number.eq.${mobile}`)
+        .single();
+
+      if (existingUser) {
+        // User exists, just log them in
+        const loginResult = await loginUser(email);
+        return loginResult;
       }
 
       const { data, error } = await supabase
@@ -87,8 +136,8 @@ export const useAuth = () => {
       localStorage.setItem('user_email', data.email);
       
       toast({
-        title: "Welcome!",
-        description: "Registration successful! You now have access to the store."
+        title: "Registration successful!",
+        description: "You can now access your purchased products."
       });
       
       return { success: true, userId: data.id };
@@ -105,6 +154,10 @@ export const useAuth = () => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user_email');
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out."
+    });
   };
 
   const getClientIP = async () => {
@@ -121,6 +174,7 @@ export const useAuth = () => {
     user,
     isLoading,
     registerUser,
+    loginUser,
     logout,
     isVerified: user?.is_verified || false
   };

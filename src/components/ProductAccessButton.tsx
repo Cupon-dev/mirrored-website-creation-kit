@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Lock, ExternalLink, Sparkles } from 'lucide-react';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ProductAccessButtonProps {
   productId: string;
@@ -19,8 +20,9 @@ const ProductAccessButton = ({
   onPurchase 
 }: ProductAccessButtonProps) => {
   const { hasAccess } = useUserAccess();
+  const { user } = useAuth();
   const [isClicked, setIsClicked] = useState(false);
-  const userHasAccess = hasAccess(productId);
+  const userHasAccess = user && hasAccess(productId);
 
   const handleLinkClick = () => {
     if (userHasAccess && downloadLink) {

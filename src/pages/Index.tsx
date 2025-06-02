@@ -1,10 +1,11 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, LogOut } from "lucide-react";
+import { Search, ShoppingBag, Heart, Star, Home, Compass, Bell, User, LogOut, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,12 +18,28 @@ const Index = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
   const { addToCart, cartCount } = useCart();
-  const { user, logout } = useAuth();
+  const { user, logout, loginUser } = useAuth();
   const { hasAccess } = useUserAccess();
+
+  const handleLogin = async () => {
+    if (!loginIdentifier.trim()) return;
+    
+    setIsLoggingIn(true);
+    const result = await loginUser(loginIdentifier);
+    setIsLoggingIn(false);
+    
+    if (result.success) {
+      setShowLoginDialog(false);
+      setLoginIdentifier('');
+    }
+  };
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -56,7 +73,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Enhanced Header with User Info */}
+      {/* Enhanced Header */}
       <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -64,8 +81,14 @@ const Index = () => {
               <span className="text-white font-bold text-xs md:text-sm">P</span>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-500">Welcome back, {user?.name}</p>
-              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🔥</p>
+              {user ? (
+                <>
+                  <p className="text-xs text-gray-500">Welcome back, {user.name}</p>
+                  <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🔥</p>
+                </>
+              ) : (
+                <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🔥</p>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -81,17 +104,74 @@ const Index = () => {
                 </Badge>
               )}
             </Button>
-            <Button
-              variant="ghost"
-              onClick={logout}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5 text-gray-600" />
-            </Button>
+            
+            {user ? (
+              <Button
+                variant="ghost"
+                onClick={logout}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5 text-gray-600" />
+              </Button>
+            ) : (
+              <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Login"
+                  >
+                    <LogIn className="w-5 h-5 text-gray-600" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Quick Login</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      type="text"
+                      placeholder="Enter your email or mobile number"
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
+                      className="w-full"
+                    />
+                    <Button 
+                      onClick={handleLogin}
+                      disabled={isLoggingIn || !loginIdentifier.trim()}
+                      className="w-full bg-green-500 hover:bg-green-600"
+                    >
+                      {isLoggingIn ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Logging in...
+                        </>
+                      ) : (
+                        'Login'
+                      )}
+                    </Button>
+                    <p className="text-xs text-gray-500 text-center">
+                      New user? Register during your first purchase!
+                    </p>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </header>
+
+      {/* Login Helper Message */}
+      {!user && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+          <div className="max-w-7xl mx-auto text-center">
+            <p className="text-sm text-blue-700">
+              💡 <strong>Returning user?</strong> Click the login icon above and enter your email or mobile number to access your purchased products instantly!
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="px-4 py-3 md:py-4 bg-white border-b">
@@ -209,7 +289,7 @@ const Index = () => {
                       <span className="text-sm text-gray-500 line-through">${product.original_price}</span>
                     )}
                   </div>
-                  {hasAccess(product.id) && (
+                  {user && hasAccess(product.id) && (
                     <Badge className="bg-green-100 text-green-800">Owned ✓</Badge>
                   )}
                 </div>
@@ -227,24 +307,26 @@ const Index = () => {
           ))}
         </div>
 
-        {/* User Stats */}
-        <div className="bg-green-50 rounded-xl p-6 mb-8">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">Your Activity</h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-green-600">{user?.visit_count || 0}</p>
-              <p className="text-sm text-green-700">Total Visits</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">{user?.login_streak || 0}</p>
-              <p className="text-sm text-green-700">Login Streak</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">{products.filter(p => hasAccess(p.id)).length}</p>
-              <p className="text-sm text-green-700">Products Owned</p>
+        {/* User Stats - Only show if logged in */}
+        {user && (
+          <div className="bg-green-50 rounded-xl p-6 mb-8">
+            <h3 className="text-lg font-semibold text-green-900 mb-4">Your Activity</h3>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-green-600">{user.visit_count || 0}</p>
+                <p className="text-sm text-green-700">Total Visits</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-600">{user.login_streak || 0}</p>
+                <p className="text-sm text-green-700">Login Streak</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-600">{products.filter(p => hasAccess(p.id)).length}</p>
+                <p className="text-sm text-green-700">Products Owned</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -263,14 +345,25 @@ const Index = () => {
             <Bell className="w-5 h-5 text-gray-400" />
             <span className="text-xs text-gray-400">Updates</span>
           </Button>
-          <Button 
-            variant="ghost" 
-            className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
-            onClick={logout}
-          >
-            <LogOut className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-gray-400">Logout</span>
-          </Button>
+          {user ? (
+            <Button 
+              variant="ghost" 
+              className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
+              onClick={logout}
+            >
+              <LogOut className="w-5 h-5 text-gray-400" />
+              <span className="text-xs text-gray-400">Logout</span>
+            </Button>
+          ) : (
+            <Button 
+              variant="ghost" 
+              className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
+              onClick={() => setShowLoginDialog(true)}
+            >
+              <User className="w-5 h-5 text-gray-400" />
+              <span className="text-xs text-gray-400">Login</span>
+            </Button>
+          )}
         </div>
       </nav>
     </div>
