@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProduct } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
+import FOMOCounter from "@/components/FOMOCounter";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -81,7 +82,7 @@ const ProductDetail = () => {
                     src={image}
                     alt={`${product.name} ${index + 1}`}
                     className={`w-20 h-20 object-cover rounded-lg cursor-pointer transition-all ${
-                      selectedImage === index ? 'ring-2 ring-lime-400' : 'opacity-70'
+                      selectedImage === index ? 'ring-2 ring-green-400' : 'opacity-70'
                     }`}
                     onClick={() => setSelectedImage(index)}
                   />
@@ -92,6 +93,9 @@ const ProductDetail = () => {
 
           {/* Product Info */}
           <div className="space-y-6">
+            {/* FOMO Counter */}
+            <FOMOCounter productId={product.id} />
+
             <div>
               <div className="flex items-center space-x-2 mb-2">
                 <span className="text-sm text-gray-500">{product.brand}</span>
@@ -107,13 +111,13 @@ const ProductDetail = () => {
 
             {/* Price */}
             <div className="flex items-center space-x-3">
-              <span className="text-3xl font-bold text-gray-900">${product.price}</span>
+              <span className="text-3xl font-bold text-gray-900">₹{Number(product.price).toLocaleString('en-IN')}</span>
               {product.original_price && (
-                <span className="text-xl text-gray-500 line-through">${product.original_price}</span>
+                <span className="text-xl text-gray-500 line-through">₹{Number(product.original_price).toLocaleString('en-IN')}</span>
               )}
               {product.discount_percentage > 0 && (
                 <Badge className="bg-green-100 text-green-800">
-                  Save ${(Number(product.original_price) - Number(product.price)).toFixed(2)}
+                  Save ₹{(Number(product.original_price) - Number(product.price)).toLocaleString('en-IN')}
                 </Badge>
               )}
             </div>
@@ -121,8 +125,8 @@ const ProductDetail = () => {
             {/* Trust Signals */}
             <div className="grid grid-cols-3 gap-4 py-4 border-y">
               <div className="text-center">
-                <Truck className="w-6 h-6 mx-auto text-lime-500 mb-1" />
-                <span className="text-xs text-gray-600">Free Shipping</span>
+                <Truck className="w-6 h-6 mx-auto text-green-500 mb-1" />
+                <span className="text-xs text-gray-600">Free Delivery</span>
               </div>
               <div className="text-center">
                 <Shield className="w-6 h-6 mx-auto text-blue-500 mb-1" />
@@ -130,7 +134,7 @@ const ProductDetail = () => {
               </div>
               <div className="text-center">
                 <Zap className="w-6 h-6 mx-auto text-yellow-500 mb-1" />
-                <span className="text-xs text-gray-600">Fast Delivery</span>
+                <span className="text-xs text-gray-600">Instant Access</span>
               </div>
             </div>
 
@@ -163,15 +167,15 @@ const ProductDetail = () => {
               <div className="space-y-3">
                 <Button 
                   onClick={handleBuyNow}
-                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
                 >
                   <Zap className="w-5 h-5 mr-2" />
-                  BUY NOW - ${(Number(product.price) * quantity).toFixed(2)}
+                  BUY NOW - ₹{(Number(product.price) * quantity).toLocaleString('en-IN')}
                 </Button>
                 <Button 
                   onClick={() => addToCart({ productId: product.id, quantity })}
                   variant="outline"
-                  className="w-full border-2 border-lime-400 text-lime-700 hover:bg-lime-50 font-semibold py-4 text-lg rounded-xl"
+                  className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-4 text-lg rounded-xl"
                 >
                   <ShoppingBag className="w-5 h-5 mr-2" />
                   Add to Cart
@@ -180,9 +184,9 @@ const ProductDetail = () => {
             </div>
 
             {/* Social Proof */}
-            <div className="bg-lime-50 rounded-xl p-4">
-              <p className="text-sm text-lime-800 font-medium mb-1">🔥 Hot Item!</p>
-              <p className="text-sm text-lime-700">
+            <div className="bg-green-50 rounded-xl p-4">
+              <p className="text-sm text-green-800 font-medium mb-1">🔥 Hot Item!</p>
+              <p className="text-sm text-green-700">
                 {Math.floor(Math.random() * 50) + 10} people bought this in the last 24 hours
               </p>
             </div>

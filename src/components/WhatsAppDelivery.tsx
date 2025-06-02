@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   // WhatsApp group link
   const whatsappGroupLink = "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X";
 
-  // Function to check payment status (called only when needed)
+  // Function to check payment status
   const checkPaymentStatus = async (userEmail?: string, userPhone?: string) => {
     try {
       const checkEmail = userEmail || email;
@@ -66,24 +65,18 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         // Clear pending payment from localStorage
         localStorage.removeItem('pending_payment');
         
-        // Show success message based on delivery method
-        const deliveryMessage = data.delivery_method === 'twilio_whatsapp' 
-          ? "WhatsApp message sent directly to your phone!" 
-          : "WhatsApp link created for manual sending!";
-        
+        // Show success message
         toast({
           title: "Payment Successful! 🎉",
-          description: deliveryMessage,
+          description: "WhatsApp message sent! Redirecting to success page...",
           duration: 6000,
         });
         
-        // Auto-open WhatsApp link if available and not Twilio delivery
-        if (data.whatsapp_url && data.delivery_method !== 'twilio_whatsapp') {
-          console.log('Opening WhatsApp link automatically...');
-          setTimeout(() => {
-            window.open(data.whatsapp_url, '_blank');
-          }, 2000);
-        }
+        // Redirect to success page with payment details
+        setTimeout(() => {
+          const successUrl = `/payment-success?payment_id=${data.payment_id}&email=${checkEmail}&drive_link=${encodeURIComponent(data.drive_link || driveLink)}`;
+          window.location.href = successUrl;
+        }, 2000);
       }
     } catch (error: any) {
       console.error('Error checking payment status:', error);
@@ -101,8 +94,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         setPaymentId(paymentData.paymentId);
         
         console.log('Found pending payment:', paymentData);
-        
-        // Check payment status once immediately, then let backend handle the rest
         checkPaymentStatus(paymentData.email, paymentData.phoneNumber);
         
       } catch (error) {
@@ -184,14 +175,18 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           razorpayOrderId
         }));
         
+        // Create a payment success redirect URL
+        const successUrl = `${window.location.origin}/payment-success`;
+        const razorpayUrl = `${razorpayProduct.products.razorpay_link}&redirect_url=${encodeURIComponent(successUrl)}`;
+        
         toast({
           title: "Redirecting to Payment",
-          description: "Complete your payment and we'll send you the WhatsApp link automatically!",
+          description: "Complete your payment and you'll be redirected back automatically!",
           duration: 5000,
         });
         
         // Open payment link
-        window.open(razorpayProduct.products.razorpay_link, '_blank');
+        window.open(razorpayUrl, '_self'); // Use _self to redirect in same tab
         
       } else {
         throw new Error("No payment link found for this product");
@@ -325,7 +320,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Total Amount:</span>
-              <span className="text-2xl font-bold text-green-600">${cartTotal.toFixed(2)}</span>
+              <span className="text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
             </div>
             
             <div className="space-y-2 text-sm">
@@ -362,7 +357,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     <div className="space-y-6 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-gray-600">Pay securely - WhatsApp delivery happens automatically!</p>
+        <p className="text-gray-600">Pay securely - You'll be redirected back automatically!</p>
       </div>
 
       <div className="space-y-4">
@@ -377,17 +372,17 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
           <div className="flex items-center justify-between border-t pt-2">
             <span className="text-gray-600">Total Amount:</span>
-            <span className="text-2xl font-bold text-green-600">${cartTotal.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
-            <strong>🚀 Automatic WhatsApp Delivery:</strong><br/>
+            <strong>🚀 Automatic Process:</strong><br/>
             1. Click "Buy" below to complete payment<br/>
-            2. Our system automatically sends WhatsApp message to +91{phoneNumber}<br/>
-            3. Message includes download link and group invite<br/>
-            4. Google Drive access restricted to {email}
+            2. After payment, you'll be redirected back automatically<br/>
+            3. Your product access will be granted immediately<br/>
+            4. WhatsApp message with download link will be sent
           </p>
         </div>
 
@@ -404,7 +399,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           ) : (
             <>
               <CreditCard className="w-5 h-5 mr-2" />
-              Buy
+              Buy - ₹{cartTotal.toLocaleString('en-IN')}
             </>
           )}
         </Button>
@@ -418,7 +413,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          🔒 Secure payment • 📱 Automatic WhatsApp delivery • 🎯 Restricted Google Drive access
+          🔒 Secure payment • 🔄 Auto redirect after payment • 🎯 Instant access
         </p>
       </div>
     </div>

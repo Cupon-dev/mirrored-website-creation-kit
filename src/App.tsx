@@ -11,6 +11,7 @@ import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import AdminWhatsApp from "./pages/AdminWhatsApp";
 import NotFound from "./pages/NotFound";
+import PaymentSuccessHandler from "./components/PaymentSuccessHandler";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/payment-success" element={<PaymentSuccessHandler />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/whatsapp" element={<AdminWhatsApp />} />
             <Route path="*" element={<NotFound />} />

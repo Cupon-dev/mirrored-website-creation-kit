@@ -1,18 +1,14 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Star, Home, Compass, Bell, User, LogOut, LogIn } from "lucide-react";
+import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserAccess } from "@/hooks/useUserAccess";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
-import ProductAccessButton from "@/components/ProductAccessButton";
-import FOMOCounter from "@/components/FOMOCounter";
+import ProductCard from "@/components/ProductCard";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -26,7 +22,6 @@ const Index = () => {
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
   const { addToCart, cartCount } = useCart();
   const { user, logout, loginUser } = useAuth();
-  const { hasAccess } = useUserAccess();
 
   const handleLogin = async () => {
     if (!loginIdentifier.trim()) return;
@@ -49,15 +44,13 @@ const Index = () => {
     );
   };
 
-  const handleProductClick = (productId: string) => {
-    navigate(`/product/${productId}`);
-  };
-
-  const handlePurchase = (productId: string, price: number, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    // Add to cart and navigate to cart for payment
+  const handlePurchase = (productId: string) => {
     addToCart({ productId });
     navigate('/cart');
+  };
+
+  const handleAddToCart = (productId: string) => {
+    addToCart({ productId });
   };
 
   if (isLoading) {
@@ -73,7 +66,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Enhanced Header */}
+      {/* Header */}
       <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -223,91 +216,21 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Product Grid - Responsive: 2 columns on mobile, 4 on desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
+        {/* Product Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mb-8">
           {products.map((product) => (
-            <div 
-              key={product.id} 
-              className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
-              onClick={() => handleProductClick(product.id)}
-            >
-              <div className="relative">
-                <img 
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-32 md:h-48 object-cover"
-                />
-                <div className="absolute top-2 left-2">
-                  {product.discount_percentage > 0 && (
-                    <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
-                      -{product.discount_percentage}% OFF
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleWishlist(product.id);
-                  }}
-                >
-                  <Heart 
-                    className={`w-3 h-3 md:w-4 md:h-4 transition-all ${
-                      wishlist.includes(product.id) 
-                        ? "fill-red-500 text-red-500" 
-                        : "text-gray-400"
-                    }`}
-                  />
-                </Button>
-                {product.stock_quantity <= 20 && (
-                  <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded animate-bounce">
-                    Only {product.stock_quantity} left!
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="p-3 md:p-4">
-                <FOMOCounter productId={product.id} />
-                
-                <div className="flex items-center space-x-1 mb-2">
-                  <span className="text-xs text-gray-600">{product.brand}</span>
-                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs font-medium">{product.rating}</span>
-                  <span className="text-xs text-gray-500">({product.review_count})</span>
-                </div>
-                
-                <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
-                  {product.name}
-                </h4>
-                
-                <div className="flex items-center justify-between mb-3 md:mb-4">
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <span className="font-bold text-gray-900 text-sm md:text-lg">₹{Number(product.price).toLocaleString('en-IN')}</span>
-                    {product.original_price && (
-                      <span className="text-xs md:text-sm text-gray-500 line-through">₹{Number(product.original_price).toLocaleString('en-IN')}</span>
-                    )}
-                  </div>
-                  {user && hasAccess(product.id) && (
-                    <Badge className="bg-green-100 text-green-800 text-xs">Owned ✓</Badge>
-                  )}
-                </div>
-                
-                <div onClick={(e) => e.stopPropagation()}>
-                  <ProductAccessButton
-                    productId={product.id}
-                    downloadLink={product.download_link}
-                    price={Number(product.price)}
-                    onPurchase={() => handlePurchase(product.id, Number(product.price))}
-                  />
-                </div>
-              </div>
-            </div>
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={handleAddToCart}
+              onPurchase={handlePurchase}
+              onWishlistToggle={toggleWishlist}
+              isWishlisted={wishlist.includes(product.id)}
+            />
           ))}
         </div>
 
-        {/* User Stats - Only show if logged in */}
+        {/* User Stats */}
         {user && (
           <div className="bg-green-50 rounded-xl p-6 mb-8">
             <h3 className="text-lg font-semibold text-green-900 mb-4">Your Activity</h3>
@@ -321,8 +244,8 @@ const Index = () => {
                 <p className="text-sm text-green-700">Login Streak</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{products.filter(p => hasAccess(p.id)).length}</p>
-                <p className="text-sm text-green-700">Products Owned</p>
+                <p className="text-2xl font-bold text-green-600">{products.length}</p>
+                <p className="text-sm text-green-700">Products Available</p>
               </div>
             </div>
           </div>
@@ -366,6 +289,44 @@ const Index = () => {
           )}
         </div>
       </nav>
+
+      {/* Login Dialog */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogTrigger asChild>
+          <span />
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quick Login</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="text"
+              placeholder="Enter your email or mobile number"
+              value={loginIdentifier}
+              onChange={(e) => setLoginIdentifier(e.target.value)}
+              className="w-full"
+            />
+            <Button 
+              onClick={handleLogin}
+              disabled={isLoggingIn || !loginIdentifier.trim()}
+              className="w-full bg-green-500 hover:bg-green-600"
+            >
+              {isLoggingIn ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Logging in...
+                </>
+              ) : (
+                'Login'
+              )}
+            </Button>
+            <p className="text-xs text-gray-500 text-center">
+              New user? Register during your first purchase!
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
