@@ -5,9 +5,42 @@ import { Button } from '@/components/ui/button';
 import { Flame, Clock, Users, Zap, Star, ShoppingCart } from 'lucide-react';
 import { useFlashOffers } from '@/hooks/useFlashOffers';
 
+// Sample product offers for rotation
+const productOffers = [
+  { 
+    id: 1, 
+    name: "Premium Course Bundle", 
+    discount: "70% OFF", 
+    image: "🎓",
+    color: "from-purple-400 to-pink-500"
+  },
+  { 
+    id: 2, 
+    name: "Digital Marketing Kit", 
+    discount: "60% OFF", 
+    image: "📱",
+    color: "from-blue-400 to-cyan-500"
+  },
+  { 
+    id: 3, 
+    name: "Design Templates Pack", 
+    discount: "65% OFF", 
+    image: "🎨",
+    color: "from-green-400 to-emerald-500"
+  },
+  { 
+    id: 4, 
+    name: "Business Tools Suite", 
+    discount: "55% OFF", 
+    image: "💼",
+    color: "from-orange-400 to-red-500"
+  }
+];
+
 const FlashOfferBanner = () => {
   const { currentOffer, getTimeRemaining } = useFlashOffers();
   const [timeLeft, setTimeLeft] = useState<{hours: number, minutes: number, seconds: number} | null>(null);
+  const [currentProductIndex, setCurrentProductIndex] = useState(0);
 
   useEffect(() => {
     if (!currentOffer) return;
@@ -24,12 +57,23 @@ const FlashOfferBanner = () => {
     return () => clearInterval(timer);
   }, [currentOffer, getTimeRemaining]);
 
+  // Rotate product offers every 3 seconds
+  useEffect(() => {
+    const productRotationTimer = setInterval(() => {
+      setCurrentProductIndex((prev) => (prev + 1) % productOffers.length);
+    }, 3000);
+
+    return () => clearInterval(productRotationTimer);
+  }, []);
+
   const handleBuyNow = () => {
     // Navigate to products or specific offer
     window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
   };
 
   if (!currentOffer || !timeLeft) return null;
+
+  const currentProduct = productOffers[currentProductIndex];
 
   return (
     <div className="bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 relative overflow-hidden shadow-xl">
@@ -51,12 +95,35 @@ const FlashOfferBanner = () => {
         <Zap className="absolute bottom-6 left-12 w-5 h-5 text-white animate-bounce opacity-50" style={{animationDelay: '0.5s'}} />
       </div>
 
+      {/* Rotating Product Images Area */}
+      <div className="absolute top-2 sm:top-4 left-1/2 transform -translate-x-1/2 flex space-x-2 sm:space-x-4 z-10">
+        {productOffers.map((product, index) => (
+          <div
+            key={product.id}
+            className={`
+              transition-all duration-500 transform
+              ${index === currentProductIndex 
+                ? 'scale-110 opacity-100 animate-pulse' 
+                : 'scale-90 opacity-60'
+              }
+            `}
+          >
+            <div className={`w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br ${product.color} rounded-xl flex flex-col items-center justify-center shadow-lg`}>
+              <div className="text-lg sm:text-2xl">{product.image}</div>
+              <div className="text-xs font-bold text-white bg-black/30 px-1 rounded mt-1">
+                {product.discount}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Moving poster images */}
       <div className="absolute top-2 left-1/4 w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg opacity-30 animate-pulse" style={{animationDelay: '0.5s'}}></div>
       <div className="absolute top-6 right-1/4 w-6 h-6 sm:w-10 sm:h-10 bg-gradient-to-br from-pink-400 to-red-500 rounded-full opacity-40 animate-bounce" style={{animationDelay: '1s'}}></div>
       <div className="absolute bottom-4 left-1/3 w-10 h-6 sm:w-14 sm:h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg opacity-30 animate-pulse" style={{animationDelay: '1.5s'}}></div>
       
-      <div className="relative z-10">
+      <div className="relative z-10 mt-16 sm:mt-20">
         {/* Mobile Layout */}
         <div className="block lg:hidden">
           <div className="text-center mb-3 sm:mb-4">
@@ -78,7 +145,7 @@ const FlashOfferBanner = () => {
             </div>
             
             <p className="text-white font-bold text-sm sm:text-base mb-3 opacity-90">
-              🔥 LIMITED TIME DIGITAL PRODUCTS SALE 🔥
+              🔥 {currentProduct.name} 🔥
             </p>
           </div>
           
@@ -89,31 +156,31 @@ const FlashOfferBanner = () => {
                 <span className="font-bold">{currentOffer.current_purchases.toLocaleString('en-IN')} sold</span>
               </div>
               
-              <div className="flex items-center space-x-2 bg-black/20 rounded-full px-3 py-2">
-                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                <div className="flex space-x-1 font-mono font-bold">
-                  <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
-                    {timeLeft.hours.toString().padStart(2, '0')}
-                  </span>
-                  <span>:</span>
-                  <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
-                    {timeLeft.minutes.toString().padStart(2, '0')}
-                  </span>
-                  <span>:</span>
-                  <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
-                    {timeLeft.seconds.toString().padStart(2, '0')}
-                  </span>
-                </div>
+              <Button 
+                onClick={handleBuyNow}
+                className="bg-gradient-to-r from-yellow-400 to-orange-400 text-red-900 hover:from-yellow-300 hover:to-orange-300 font-black text-xs sm:text-sm px-4 py-2 rounded-lg shadow-lg transform transition hover:scale-105 active:scale-95"
+              >
+                <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 mr-1 animate-pulse" />
+                BUY NOW!
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-center space-x-2 bg-black/20 rounded-full px-3 py-2">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+              <div className="flex space-x-1 font-mono font-bold">
+                <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
+                  {timeLeft.hours.toString().padStart(2, '0')}
+                </span>
+                <span>:</span>
+                <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
+                  {timeLeft.minutes.toString().padStart(2, '0')}
+                </span>
+                <span>:</span>
+                <span className="bg-white text-red-600 px-2 py-1 rounded text-xs sm:text-sm">
+                  {timeLeft.seconds.toString().padStart(2, '0')}
+                </span>
               </div>
             </div>
-            
-            <Button 
-              onClick={handleBuyNow}
-              className="w-full bg-gradient-to-r from-yellow-400 to-orange-400 text-red-900 hover:from-yellow-300 hover:to-orange-300 font-black text-base sm:text-lg py-3 sm:py-4 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95"
-            >
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-pulse" />
-              BUY NOW - SAVE BIG! 🎯
-            </Button>
           </div>
         </div>
 
@@ -128,7 +195,7 @@ const FlashOfferBanner = () => {
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-yellow-300 text-yellow-300" />
                   ))}
-                  <span className="text-yellow-300 text-sm font-bold ml-2">Premium Quality ✨</span>
+                  <span className="text-yellow-300 text-sm font-bold ml-2">{currentProduct.name} ✨</span>
                 </div>
               </div>
             </div>

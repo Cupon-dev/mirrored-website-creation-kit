@@ -16,10 +16,10 @@ export const useProductAnalytics = (productId: string) => {
   useEffect(() => {
     if (!productId) return;
 
-    // Generate realistic initial values starting from lower numbers
+    // Generate realistic initial values within specified ranges
     const generateRealisticNumbers = () => {
-      const baseViewers = Math.floor(Math.random() * (2000) + 1500); // 1500-3500
-      const basePurchases = Math.floor(Math.random() * (2000) + 3000); // 3000-5000
+      const baseViewers = Math.floor(Math.random() * (14500 - 1500) + 1500); // 1500-14500
+      const basePurchases = Math.floor(Math.random() * (13500 - 1900) + 1900); // 1900-13500
       
       setAnalytics({
         current_viewers: baseViewers,
@@ -36,7 +36,14 @@ export const useProductAnalytics = (productId: string) => {
         .single();
 
       if (data) {
-        setAnalytics(data);
+        // Ensure database values are within our ranges
+        const clampedViewers = Math.max(1500, Math.min(14500, data.current_viewers));
+        const clampedPurchases = Math.max(1900, Math.min(13500, data.total_purchases));
+        
+        setAnalytics({
+          current_viewers: clampedViewers,
+          total_purchases: clampedPurchases
+        });
       } else {
         generateRealisticNumbers();
       }
@@ -61,25 +68,31 @@ export const useProductAnalytics = (productId: string) => {
     fetchAnalytics();
     incrementViewer();
 
-    // Very slow viewer fluctuations (every 30-45 seconds)
+    // Very slow viewer fluctuations (every 10-15 seconds)
     const viewerInterval = setInterval(() => {
-      const randomChange = Math.floor(Math.random() * 11) - 5; // -5 to +5
+      const randomChange = Math.random() < 0.6 
+        ? Math.floor(Math.random() * 20) + 10  // +10 to +29 (double digit increase)
+        : -(Math.floor(Math.random() * 9) + 1); // -1 to -9 (single digit decrease)
+      
       setAnalytics(prev => ({
         ...prev,
-        current_viewers: Math.max(1500, Math.min(9000, prev.current_viewers + randomChange))
+        current_viewers: Math.max(1500, Math.min(14500, prev.current_viewers + randomChange))
       }));
-    }, Math.random() * 15000 + 30000); // 30-45 seconds
+    }, Math.random() * 5000 + 10000); // 10-15 seconds
 
-    // Very slow purchase updates (every 60-90 seconds)
+    // Very slow purchase updates (every 10-20 seconds)
     const purchaseInterval = setInterval(() => {
-      if (Math.random() < 0.2) { // 20% chance
-        const purchaseIncrease = Math.floor(Math.random() * 2) + 1; // 1-2 purchases
+      if (Math.random() < 0.4) { // 40% chance
+        const purchaseChange = Math.random() < 0.7
+          ? Math.floor(Math.random() * 15) + 10  // +10 to +24 (double digit increase)
+          : -(Math.floor(Math.random() * 5) + 1); // -1 to -5 (single digit decrease)
+        
         setAnalytics(prev => ({
           ...prev,
-          total_purchases: Math.min(9000, prev.total_purchases + purchaseIncrease)
+          total_purchases: Math.max(1900, Math.min(13500, prev.total_purchases + purchaseChange))
         }));
       }
-    }, Math.random() * 30000 + 60000); // 60-90 seconds
+    }, Math.random() * 10000 + 10000); // 10-20 seconds
 
     return () => {
       decrementViewer();

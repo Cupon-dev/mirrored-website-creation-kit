@@ -38,8 +38,8 @@ export const useFlashOffers = () => {
         start_time: now.toISOString(),
         end_time: endTime.toISOString(),
         is_active: true,
-        max_purchases: Math.floor(Math.random() * 2000) + 8000, // 8k-10k max
-        current_purchases: Math.floor(Math.random() * 2000) + 4000 // 4k-6k current
+        max_purchases: Math.floor(Math.random() * (13500 - 10000) + 10000), // 10k-13.5k max
+        current_purchases: Math.floor(Math.random() * (13500 - 1900) + 1900) // 1900-13500 current
       };
       
       setCurrentOffer(offer);
@@ -55,7 +55,12 @@ export const useFlashOffers = () => {
 
       if (data && data.length > 0) {
         setOffers(data);
-        setCurrentOffer(data[0]);
+        // Ensure database values are within our ranges
+        const clampedOffer = {
+          ...data[0],
+          current_purchases: Math.max(1900, Math.min(13500, data[0].current_purchases))
+        };
+        setCurrentOffer(clampedOffer);
       } else {
         // Create a realistic offer if none exists in database
         createRealisticOffer();
@@ -64,22 +69,25 @@ export const useFlashOffers = () => {
 
     fetchActiveOffers();
 
-    // Simulate very slow purchase updates every 2-3 minutes
+    // Simulate very slow purchase updates every 10-15 seconds
     const purchaseUpdateInterval = setInterval(() => {
       setCurrentOffer(prev => {
         if (!prev) return prev;
         
-        // Random chance of new purchases (15% chance)
-        if (Math.random() < 0.15) {
-          const newPurchases = Math.floor(Math.random() * 3) + 1; // 1-3 new purchases
+        // Random chance of new purchases (25% chance)
+        if (Math.random() < 0.25) {
+          const purchaseChange = Math.random() < 0.7
+            ? Math.floor(Math.random() * 18) + 12  // +12 to +29 (double digit increase)
+            : -(Math.floor(Math.random() * 6) + 1); // -1 to -6 (single digit decrease)
+          
           return {
             ...prev,
-            current_purchases: Math.min(prev.max_purchases, prev.current_purchases + newPurchases)
+            current_purchases: Math.max(1900, Math.min(13500, prev.current_purchases + purchaseChange))
           };
         }
         return prev;
       });
-    }, Math.random() * 60000 + 120000); // 2-3 minutes
+    }, Math.random() * 5000 + 10000); // 10-15 seconds
 
     return () => clearInterval(purchaseUpdateInterval);
   }, []);
