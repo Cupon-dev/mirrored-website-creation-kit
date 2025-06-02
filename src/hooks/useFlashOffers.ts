@@ -25,21 +25,21 @@ export const useFlashOffers = () => {
     // Create a realistic flash offer if none exists
     const createRealisticOffer = () => {
       const now = new Date();
-      const endTime = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // 6 hours from now
+      const endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 8 hours from now
       
       const offer: FlashOffer = {
         id: 'flash-offer-1',
         product_id: 'digital-products',
         title: 'Digital Product Mega Sale',
         description: 'Limited time offer on all digital products',
-        discount_percentage: Math.floor(Math.random() * 30) + 40, // 40-70% off
+        discount_percentage: Math.floor(Math.random() * 25) + 45, // 45-70% off
         original_price: 2999,
-        offer_price: 1499,
+        offer_price: 1299,
         start_time: now.toISOString(),
         end_time: endTime.toISOString(),
         is_active: true,
-        max_purchases: Math.floor(Math.random() * 3000) + 7000, // 7k-10k max
-        current_purchases: Math.floor(Math.random() * 3000) + 3000 // 3k-6k current
+        max_purchases: Math.floor(Math.random() * 2000) + 8000, // 8k-10k max
+        current_purchases: Math.floor(Math.random() * 2000) + 4000 // 4k-6k current
       };
       
       setCurrentOffer(offer);
@@ -64,14 +64,14 @@ export const useFlashOffers = () => {
 
     fetchActiveOffers();
 
-    // Simulate realistic purchase updates every 45-60 seconds
+    // Simulate very slow purchase updates every 2-3 minutes
     const purchaseUpdateInterval = setInterval(() => {
       setCurrentOffer(prev => {
         if (!prev) return prev;
         
-        // Random chance of new purchases (30% chance)
-        if (Math.random() < 0.3) {
-          const newPurchases = Math.floor(Math.random() * 5) + 1; // 1-5 new purchases
+        // Random chance of new purchases (15% chance)
+        if (Math.random() < 0.15) {
+          const newPurchases = Math.floor(Math.random() * 3) + 1; // 1-3 new purchases
           return {
             ...prev,
             current_purchases: Math.min(prev.max_purchases, prev.current_purchases + newPurchases)
@@ -79,7 +79,7 @@ export const useFlashOffers = () => {
         }
         return prev;
       });
-    }, Math.random() * 15000 + 45000); // 45-60 seconds
+    }, Math.random() * 60000 + 120000); // 2-3 minutes
 
     return () => clearInterval(purchaseUpdateInterval);
   }, []);

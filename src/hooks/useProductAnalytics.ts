@@ -16,10 +16,10 @@ export const useProductAnalytics = (productId: string) => {
   useEffect(() => {
     if (!productId) return;
 
-    // Generate realistic initial values between 3k-9k
+    // Generate realistic initial values starting from lower numbers
     const generateRealisticNumbers = () => {
-      const baseViewers = Math.floor(Math.random() * (9000 - 3000) + 3000);
-      const basePurchases = Math.floor(Math.random() * (9000 - 3000) + 3000);
+      const baseViewers = Math.floor(Math.random() * (2000) + 1500); // 1500-3500
+      const basePurchases = Math.floor(Math.random() * (2000) + 3000); // 3000-5000
       
       setAnalytics({
         current_viewers: baseViewers,
@@ -61,25 +61,25 @@ export const useProductAnalytics = (productId: string) => {
     fetchAnalytics();
     incrementViewer();
 
-    // Realistic slow viewer fluctuations (every 8-12 seconds)
+    // Very slow viewer fluctuations (every 30-45 seconds)
     const viewerInterval = setInterval(() => {
-      const randomChange = Math.floor(Math.random() * 21) - 10; // -10 to +10
+      const randomChange = Math.floor(Math.random() * 11) - 5; // -5 to +5
       setAnalytics(prev => ({
         ...prev,
-        current_viewers: Math.max(3000, Math.min(9000, prev.current_viewers + randomChange))
+        current_viewers: Math.max(1500, Math.min(9000, prev.current_viewers + randomChange))
       }));
-    }, Math.random() * 4000 + 8000); // 8-12 seconds
+    }, Math.random() * 15000 + 30000); // 30-45 seconds
 
-    // Realistic purchase updates (every 15-25 seconds)
+    // Very slow purchase updates (every 60-90 seconds)
     const purchaseInterval = setInterval(() => {
-      if (Math.random() < 0.4) { // 40% chance
-        const purchaseIncrease = Math.floor(Math.random() * 3) + 1; // 1-3 purchases
+      if (Math.random() < 0.2) { // 20% chance
+        const purchaseIncrease = Math.floor(Math.random() * 2) + 1; // 1-2 purchases
         setAnalytics(prev => ({
           ...prev,
           total_purchases: Math.min(9000, prev.total_purchases + purchaseIncrease)
         }));
       }
-    }, Math.random() * 10000 + 15000); // 15-25 seconds
+    }, Math.random() * 30000 + 60000); // 60-90 seconds
 
     return () => {
       decrementViewer();

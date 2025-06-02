@@ -14,7 +14,7 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
   const [animatedPurchases, setAnimatedPurchases] = useState(analytics.total_purchases);
 
   useEffect(() => {
-    // Slow, realistic viewer count animation (every 200ms)
+    // Very slow, realistic viewer count animation (every 800ms)
     const viewerInterval = setInterval(() => {
       setAnimatedViewers(prev => {
         const diff = analytics.current_viewers - prev;
@@ -22,13 +22,13 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
         const step = Math.sign(diff);
         return prev + step;
       });
-    }, 200);
+    }, 800);
 
     return () => clearInterval(viewerInterval);
   }, [analytics.current_viewers]);
 
   useEffect(() => {
-    // Slow, realistic purchase count animation (every 300ms)
+    // Very slow, realistic purchase count animation (every 1200ms)
     const purchaseInterval = setInterval(() => {
       setAnimatedPurchases(prev => {
         const diff = analytics.total_purchases - prev;
@@ -36,7 +36,7 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
         const step = Math.sign(diff);
         return prev + step;
       });
-    }, 300);
+    }, 1200);
 
     return () => clearInterval(purchaseInterval);
   }, [analytics.total_purchases]);
@@ -53,7 +53,7 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
         <span className="font-medium">{animatedPurchases.toLocaleString('en-IN')} sold</span>
       </Badge>
 
-      {animatedViewers > 6000 && (
+      {animatedViewers > 2500 && (
         <Badge className="bg-red-100 text-red-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-bounce text-xs sm:text-xs md:text-sm whitespace-nowrap flex-shrink-0">
           <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
           <span className="font-medium hidden sm:inline">High Demand!</span>
