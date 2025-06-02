@@ -16,10 +16,10 @@ export const useProductAnalytics = (productId: string) => {
   useEffect(() => {
     if (!productId) return;
 
-    // Generate realistic initial values
+    // Generate realistic initial values between 3k-9k
     const generateRealisticNumbers = () => {
-      const baseViewers = Math.floor(Math.random() * (25000 - 15000) + 15000);
-      const basePurchases = Math.floor(Math.random() * (25000 - 5000) + 5000);
+      const baseViewers = Math.floor(Math.random() * (9000 - 3000) + 3000);
+      const basePurchases = Math.floor(Math.random() * (9000 - 3000) + 3000);
       
       setAnalytics({
         current_viewers: baseViewers,
@@ -61,29 +61,29 @@ export const useProductAnalytics = (productId: string) => {
     fetchAnalytics();
     incrementViewer();
 
-    // Simulate realistic viewer fluctuations for FOMO
-    const interval = setInterval(() => {
-      const randomChange = Math.floor(Math.random() * 100) - 50; // -50 to +50
+    // Realistic slow viewer fluctuations (every 8-12 seconds)
+    const viewerInterval = setInterval(() => {
+      const randomChange = Math.floor(Math.random() * 21) - 10; // -10 to +10
       setAnalytics(prev => ({
         ...prev,
-        current_viewers: Math.max(15000, Math.min(25000, prev.current_viewers + randomChange))
+        current_viewers: Math.max(3000, Math.min(9000, prev.current_viewers + randomChange))
       }));
-    }, 3000);
+    }, Math.random() * 4000 + 8000); // 8-12 seconds
 
-    // Simulate occasional purchases
+    // Realistic purchase updates (every 15-25 seconds)
     const purchaseInterval = setInterval(() => {
-      if (Math.random() < 0.3) { // 30% chance every 10 seconds
-        const purchaseIncrease = Math.floor(Math.random() * 5) + 1; // 1-5 purchases
+      if (Math.random() < 0.4) { // 40% chance
+        const purchaseIncrease = Math.floor(Math.random() * 3) + 1; // 1-3 purchases
         setAnalytics(prev => ({
           ...prev,
-          total_purchases: prev.total_purchases + purchaseIncrease
+          total_purchases: Math.min(9000, prev.total_purchases + purchaseIncrease)
         }));
       }
-    }, 10000);
+    }, Math.random() * 10000 + 15000); // 15-25 seconds
 
     return () => {
       decrementViewer();
-      clearInterval(interval);
+      clearInterval(viewerInterval);
       clearInterval(purchaseInterval);
     };
   }, [productId]);
