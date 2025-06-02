@@ -1,12 +1,17 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, Zap, TrendingUp, LogOut } from "lucide-react";
+import { Search, ShoppingBag, Heart, Filter, Star, Home, Compass, Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import FlashOfferBanner from "@/components/FlashOfferBanner";
+import ProductAccessButton from "@/components/ProductAccessButton";
+import FOMOCounter from "@/components/FOMOCounter";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -15,8 +20,9 @@ const Index = () => {
   
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
-  const { addToCart, cartCount, isProductInCart } = useCart();
+  const { addToCart, cartCount } = useCart();
   const { user, logout } = useAuth();
+  const { hasAccess } = useUserAccess();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -30,39 +36,36 @@ const Index = () => {
     navigate(`/product/${productId}`);
   };
 
-  const handleBuyNow = (productId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isProductInCart(productId)) {
-      addToCart({ productId });
-    }
+  const handlePurchase = (productId: string, price: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    // Add to cart and navigate to cart for payment
+    addToCart({ productId });
     navigate('/cart');
   };
 
-  const handleAddToCart = (productId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isProductInCart(productId)) {
-      addToCart({ productId });
-    } else {
-      navigate('/cart');
-    }
-  };
-
   if (isLoading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-green-700">Loading amazing products...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Header */}
+      {/* Enhanced Header with User Info */}
       <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-lime-400 to-green-500 flex items-center justify-center">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
               <span className="text-white font-bold text-xs md:text-sm">P</span>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-500">Welcome to</p>
-              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🛍️</p>
+              <p className="text-xs text-gray-500">Welcome back, {user?.name}</p>
+              <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🔥</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -80,11 +83,11 @@ const Index = () => {
             </Button>
             <Button
               variant="ghost"
-              onClick={() => navigate('/admin')}
+              onClick={logout}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Admin Panel"
+              title="Logout"
             >
-              <User className="w-5 h-5 text-gray-600" />
+              <LogOut className="w-5 h-5 text-gray-600" />
             </Button>
           </div>
         </div>
@@ -95,32 +98,15 @@ const Index = () => {
         <div className="max-w-7xl mx-auto relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
           <Input 
-            placeholder="What's on your list?" 
-            className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-lime-400 text-sm md:text-base transition-all"
+            placeholder="Find your next digital treasure..." 
+            className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-green-400 text-sm md:text-base transition-all"
           />
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
-        {/* Hero Banner */}
-        <div className="bg-gradient-to-r from-lime-200 to-green-300 rounded-xl md:rounded-2xl p-4 md:p-6 mb-6 md:mb-8 relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1 md:mb-2">🔥 Digital Products Sale!</h2>
-            <p className="text-sm md:text-base text-gray-700 mb-3 md:mb-4">Instant delivery via WhatsApp!</p>
-            <div className="flex items-center space-x-2 mb-3 md:mb-4">
-              <span className="text-3xl md:text-4xl font-bold text-red-500">50</span>
-              <div className="text-xs md:text-sm">
-                <span className="text-gray-600">% OFF</span>
-              </div>
-            </div>
-            <Button className="bg-white text-gray-800 hover:bg-gray-100 font-medium px-4 md:px-6 text-sm md:text-base transform transition hover:scale-105 active:scale-95">
-              🛍️ Shop Now
-            </Button>
-          </div>
-          <div className="absolute right-2 md:right-4 top-2 md:top-4 w-20 h-20 md:w-32 md:h-32 opacity-20">
-            <TrendingUp className="w-full h-full text-white" />
-          </div>
-        </div>
+        {/* Flash Offer Banner */}
+        <FlashOfferBanner />
 
         {/* Categories */}
         <div className="mb-6 md:mb-8">
@@ -133,11 +119,11 @@ const Index = () => {
               onClick={() => setSelectedCategory('all')}
               className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
                 selectedCategory === 'all'
-                  ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
-                  : "border-gray-200 hover:border-lime-400 hover:bg-lime-50"
+                  ? "bg-green-500 text-white hover:bg-green-600" 
+                  : "border-gray-200 hover:border-green-400 hover:bg-green-50"
               }`}
             >
-              🛍️ All
+              🛍️ All Products
             </Button>
             {categories.map((category) => (
               <Button
@@ -146,8 +132,8 @@ const Index = () => {
                 onClick={() => setSelectedCategory(category.id)}
                 className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
                   selectedCategory === category.id
-                    ? "bg-lime-400 text-gray-800 hover:bg-lime-500" 
-                    : "border-gray-200 hover:border-lime-400 hover:bg-lime-50"
+                    ? "bg-green-500 text-white hover:bg-green-600" 
+                    : "border-gray-200 hover:border-green-400 hover:bg-green-50"
                 }`}
               >
                 {category.icon && <span className="mr-1 md:mr-2">{category.icon}</span>}
@@ -157,131 +143,108 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 gap-3">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900">Trending Products</h3>
-          <div className="flex items-center space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
-              <Filter className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-              Filter
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
-              Ratings
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs whitespace-nowrap hover:bg-gray-50 active:scale-95 transition-all">
-              Price
-            </Button>
-          </div>
-        </div>
-
         {/* Product Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
-          {products.map((product) => {
-            const inCart = isProductInCart(product.id);
-            return (
-              <div 
-                key={product.id} 
-                className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
-                onClick={() => handleProductClick(product.id)}
-              >
-                <div className="relative">
-                  <img 
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-32 md:h-48 object-cover"
-                  />
-                  <div className="absolute top-2 md:top-3 left-2 md:left-3">
-                    {product.discount_percentage > 0 && (
-                      <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
-                        -{product.discount_percentage}% OFF
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 md:top-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleWishlist(product.id);
-                    }}
-                  >
-                    <Heart 
-                      className={`w-3 h-3 md:w-4 md:h-4 transition-all ${
-                        wishlist.includes(product.id) 
-                          ? "fill-red-500 text-red-500" 
-                          : "text-gray-400"
-                      }`}
-                    />
-                  </Button>
-                  {product.stock_quantity <= 20 && (
-                    <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
-                      Only {product.stock_quantity} left!
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {products.map((product) => (
+            <div 
+              key={product.id} 
+              className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+              onClick={() => handleProductClick(product.id)}
+            >
+              <div className="relative">
+                <img 
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full h-48 md:h-56 object-cover"
+                />
+                <div className="absolute top-3 left-3">
+                  {product.discount_percentage > 0 && (
+                    <Badge className="bg-red-500 text-white rounded-lg px-2 py-1 text-xs animate-pulse">
+                      -{product.discount_percentage}% OFF
                     </Badge>
                   )}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleWishlist(product.id);
+                  }}
+                >
+                  <Heart 
+                    className={`w-4 h-4 transition-all ${
+                      wishlist.includes(product.id) 
+                        ? "fill-red-500 text-red-500" 
+                        : "text-gray-400"
+                    }`}
+                  />
+                </Button>
+                {product.stock_quantity <= 20 && (
+                  <Badge className="absolute bottom-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
+                    Only {product.stock_quantity} left!
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="p-4">
+                <FOMOCounter productId={product.id} />
                 
-                <div className="p-2 md:p-4">
-                  <div className="flex items-center space-x-1 mb-1 md:mb-2">
-                    <span className="text-xs text-gray-600">{product.brand}</span>
-                    <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-xs font-medium">{product.rating}</span>
-                    <span className="text-xs text-gray-500">({product.review_count})</span>
+                <div className="flex items-center space-x-1 mb-2">
+                  <span className="text-xs text-gray-600">{product.brand}</span>
+                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                  <span className="text-xs font-medium">{product.rating}</span>
+                  <span className="text-xs text-gray-500">({product.review_count})</span>
+                </div>
+                
+                <h4 className="font-medium text-gray-900 text-sm md:text-base mb-3 leading-tight line-clamp-2">
+                  {product.name}
+                </h4>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-gray-900 text-lg">${product.price}</span>
+                    {product.original_price && (
+                      <span className="text-sm text-gray-500 line-through">${product.original_price}</span>
+                    )}
                   </div>
-                  
-                  <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
-                    {product.name}
-                  </h4>
-                  
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-1 md:space-x-2">
-                      <span className="font-bold text-gray-900 text-sm md:text-base">${product.price}</span>
-                      {product.original_price && (
-                        <span className="text-xs text-gray-500 line-through">${product.original_price}</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-1 md:space-x-2">
-                    <Button 
-                      size="sm" 
-                      onClick={(e) => handleBuyNow(product.id, e)}
-                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg px-2 md:px-3 text-xs font-bold transform transition hover:scale-105 active:scale-95"
-                    >
-                      <Zap className="w-3 h-3 mr-1" />
-                      Buy Now
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant={inCart ? "default" : "outline"}
-                      onClick={(e) => handleAddToCart(product.id, e)}
-                      className={`rounded-lg px-2 md:px-3 text-xs transition-all active:scale-95 ${
-                        inCart 
-                          ? "bg-green-500 text-white hover:bg-green-600" 
-                          : "border-lime-400 text-lime-700 hover:bg-lime-50"
-                      }`}
-                    >
-                      {inCart ? "Selected" : "Add"}
-                    </Button>
-                  </div>
+                  {hasAccess(product.id) && (
+                    <Badge className="bg-green-100 text-green-800">Owned ✓</Badge>
+                  )}
+                </div>
+                
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ProductAccessButton
+                    productId={product.id}
+                    downloadLink={product.download_link}
+                    price={Number(product.price)}
+                    onPurchase={() => handlePurchase(product.id, Number(product.price))}
+                  />
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
-        {/* Floating Cart Summary */}
-        {cartCount > 0 && (
-          <div 
-            className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-lime-400 text-gray-800 px-4 md:px-6 py-2 md:py-3 rounded-full shadow-lg flex items-center space-x-2 md:space-x-3 z-50 mx-4 cursor-pointer hover:bg-lime-500 transition-all animate-pulse active:scale-95"
-            onClick={() => navigate('/cart')}
-          >
-            <span className="font-medium text-sm md:text-base">View Cart</span>
-            <Badge className="bg-white text-gray-800 rounded-full text-xs animate-bounce">
-              {cartCount}
-            </Badge>
+        {/* User Stats */}
+        <div className="bg-green-50 rounded-xl p-6 mb-8">
+          <h3 className="text-lg font-semibold text-green-900 mb-4">Your Activity</h3>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-green-600">{user?.visit_count || 0}</p>
+              <p className="text-sm text-green-700">Total Visits</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-green-600">{user?.login_streak || 0}</p>
+              <p className="text-sm text-green-700">Login Streak</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-green-600">{products.filter(p => hasAccess(p.id)).length}</p>
+              <p className="text-sm text-green-700">Products Owned</p>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Bottom Navigation */}
@@ -298,15 +261,15 @@ const Index = () => {
           </Button>
           <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
             <Bell className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-gray-400">Notification</span>
+            <span className="text-xs text-gray-400">Updates</span>
           </Button>
           <Button 
             variant="ghost" 
             className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
-            onClick={() => navigate('/admin')}
+            onClick={logout}
           >
-            <User className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-gray-400">Admin</span>
+            <LogOut className="w-5 h-5 text-gray-400" />
+            <span className="text-xs text-gray-400">Logout</span>
           </Button>
         </div>
       </nav>

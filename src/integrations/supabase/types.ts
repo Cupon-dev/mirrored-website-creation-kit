@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          name: string
+          password_hash: string
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          name: string
+          password_hash: string
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          name?: string
+          password_hash?: string
+          role?: string | null
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           created_at: string | null
@@ -67,6 +100,62 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      flash_offers: {
+        Row: {
+          created_at: string | null
+          current_purchases: number | null
+          description: string | null
+          discount_percentage: number
+          end_time: string
+          id: string
+          is_active: boolean | null
+          max_purchases: number | null
+          offer_price: number
+          original_price: number
+          product_id: string
+          start_time: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_purchases?: number | null
+          description?: string | null
+          discount_percentage?: number
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          max_purchases?: number | null
+          offer_price: number
+          original_price: number
+          product_id: string
+          start_time?: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          current_purchases?: number | null
+          description?: string | null
+          discount_percentage?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          max_purchases?: number | null
+          offer_price?: number
+          original_price?: number
+          product_id?: string
+          start_time?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flash_offers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -208,6 +297,38 @@ export type Database = {
         }
         Relationships: []
       }
+      product_analytics: {
+        Row: {
+          current_viewers: number | null
+          id: string
+          last_updated: string | null
+          product_id: string
+          total_purchases: number | null
+        }
+        Insert: {
+          current_viewers?: number | null
+          id?: string
+          last_updated?: string | null
+          product_id: string
+          total_purchases?: number | null
+        }
+        Update: {
+          current_viewers?: number | null
+          id?: string
+          last_updated?: string | null
+          product_id?: string
+          total_purchases?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_analytics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
@@ -215,11 +336,13 @@ export type Database = {
           created_at: string | null
           description: string | null
           discount_percentage: number | null
+          download_link: string | null
           gallery_images: string[] | null
           id: string
           image_url: string | null
           is_active: boolean | null
           is_featured: boolean | null
+          is_flash_offer: boolean | null
           name: string
           original_price: number | null
           price: number
@@ -236,11 +359,13 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           discount_percentage?: number | null
+          download_link?: string | null
           gallery_images?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_flash_offer?: boolean | null
           name: string
           original_price?: number | null
           price: number
@@ -257,11 +382,13 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           discount_percentage?: number | null
+          download_link?: string | null
           gallery_images?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_flash_offer?: boolean | null
           name?: string
           original_price?: number | null
           price?: number
@@ -278,6 +405,55 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_product_access: {
+        Row: {
+          accessed_at: string | null
+          created_at: string | null
+          id: string
+          payment_id: string | null
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          accessed_at?: string | null
+          created_at?: string | null
+          id?: string
+          payment_id?: string | null
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          accessed_at?: string | null
+          created_at?: string | null
+          id?: string
+          payment_id?: string | null
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_product_access_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_product_access_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_product_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -320,8 +496,10 @@ export type Database = {
           email: string
           id: string
           is_verified: boolean | null
+          last_login: string | null
           last_visit: string | null
-          mobile_number: string | null
+          login_streak: number | null
+          mobile_number: string
           name: string
           razorpay_payment_id: string | null
           updated_at: string
@@ -332,8 +510,10 @@ export type Database = {
           email: string
           id?: string
           is_verified?: boolean | null
+          last_login?: string | null
           last_visit?: string | null
-          mobile_number?: string | null
+          login_streak?: number | null
+          mobile_number: string
           name: string
           razorpay_payment_id?: string | null
           updated_at?: string
@@ -344,8 +524,10 @@ export type Database = {
           email?: string
           id?: string
           is_verified?: boolean | null
+          last_login?: string | null
           last_visit?: string | null
-          mobile_number?: string | null
+          login_streak?: number | null
+          mobile_number?: string
           name?: string
           razorpay_payment_id?: string | null
           updated_at?: string
@@ -358,6 +540,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      increment_product_purchase: {
+        Args: { product_uuid: string }
+        Returns: undefined
+      }
+      update_product_viewers: {
+        Args: { product_uuid: string; viewer_change: number }
+        Returns: undefined
+      }
       verify_user_access: {
         Args: { user_email: string }
         Returns: boolean

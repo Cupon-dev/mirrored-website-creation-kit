@@ -6,10 +6,12 @@ import { useToast } from '@/hooks/use-toast';
 interface User {
   id: string;
   email: string;
-  mobile_number?: string;
+  mobile_number: string;
   name: string;
   is_verified: boolean;
   visit_count: number;
+  login_streak: number;
+  last_login: string | null;
 }
 
 export const useAuth = () => {
@@ -33,6 +35,15 @@ export const useAuth = () => {
 
         if (userData && !error) {
           setUser(userData);
+          // Update last login
+          await supabase
+            .from('users')
+            .update({ 
+              last_login: new Date().toISOString(),
+              login_streak: (userData.login_streak || 0) + 1
+            })
+            .eq('id', userData.id);
+          
           // Track session
           await supabase.from('user_sessions').insert({
             user_id: userData.id,
@@ -48,40 +59,37 @@ export const useAuth = () => {
     }
   };
 
-  const registerUser = async (name: string, email: string, mobile?: string) => {
+  const registerUser = async (name: string, email: string, mobile: string) => {
     try {
-      // First disable RLS temporarily for this operation
-      const { data, error } = await supabase.rpc('create_user_account', {
-        user_name: name,
-        user_email: email,
-        user_mobile: mobile
-      });
-
-      if (error) {
-        // Fallback to direct insert if RPC doesn't exist
-        const { data: userData, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            name,
-            email,
-            mobile_number: mobile,
-            is_verified: true // Auto-verify since no payment required
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        
-        setUser(userData);
-        localStorage.setItem('user_email', userData.email);
-        
+      if (!mobile) {
         toast({
-          title: "Welcome!",
-          description: "Registration successful! You now have access to the store."
+          title: "Mobile number required",
+          description: "Please enter your mobile number to register."
         });
-        
-        return { success: true, userId: userData.id };
+        return { success: false, error: "Mobile number required" };
       }
+
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          name,
+          email,
+          mobile_number: mobile,
+          is_verified: true, // Auto-verify for free access
+          visit_count: 1
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setUser(data);
+      localStorage.setItem('user_email', data.email);
+      
+      toast({
+        title: "Welcome!",
+        description: "Registration successful! You now have access to the store."
+      });
       
       return { success: true, userId: data.id };
     } catch (error: any) {
