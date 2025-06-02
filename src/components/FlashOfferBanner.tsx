@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Flame, Clock, Users } from 'lucide-react';
+import { Flame, Clock, Users, Zap } from 'lucide-react';
 import { useFlashOffers } from '@/hooks/useFlashOffers';
 
 const FlashOfferBanner = () => {
@@ -51,46 +51,98 @@ const FlashOfferBanner = () => {
         />
       </div>
       
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Flame className="w-6 h-6 text-yellow-300 animate-pulse" />
-            <span className="text-white font-bold text-lg">FLASH SALE</span>
-          </div>
-          
-          <Badge className="bg-yellow-400 text-red-900 font-bold animate-bounce">
-            {currentOffer.discount_percentage}% OFF
-          </Badge>
-        </div>
-
-        <div className="flex items-center space-x-6 text-white">
-          <div className="flex items-center space-x-2">
-            <Users className="w-4 h-4" />
-            <span className="text-sm">
-              {currentOffer.current_purchases}/{currentOffer.max_purchases} sold
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4" />
-            <div className="flex space-x-1 font-mono">
-              <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
-                {timeLeft.hours.toString().padStart(2, '0')}
-              </span>
-              <span>:</span>
-              <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
-                {timeLeft.minutes.toString().padStart(2, '0')}
-              </span>
-              <span>:</span>
-              <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
-                {timeLeft.seconds.toString().padStart(2, '0')}
-              </span>
+      <div className="relative z-10">
+        {/* Mobile Layout */}
+        <div className="block md:hidden">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Flame className="w-5 h-5 text-yellow-300 animate-pulse" />
+              <span className="text-white font-bold text-sm">DIGITAL SALE</span>
+              <Badge className="bg-yellow-400 text-red-900 font-bold animate-bounce text-xs">
+                {currentOffer.discount_percentage}% OFF
+              </Badge>
             </div>
           </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 text-white text-xs">
+              <div className="flex items-center space-x-1">
+                <Users className="w-3 h-3" />
+                <span>{currentOffer.current_purchases}/{currentOffer.max_purchases}</span>
+              </div>
+              
+              <div className="flex items-center space-x-1">
+                <Clock className="w-3 h-3" />
+                <div className="flex space-x-1 font-mono">
+                  <span className="bg-white text-red-600 px-1.5 py-0.5 rounded font-bold text-xs">
+                    {timeLeft.hours.toString().padStart(2, '0')}
+                  </span>
+                  <span>:</span>
+                  <span className="bg-white text-red-600 px-1.5 py-0.5 rounded font-bold text-xs">
+                    {timeLeft.minutes.toString().padStart(2, '0')}
+                  </span>
+                  <span>:</span>
+                  <span className="bg-white text-red-600 px-1.5 py-0.5 rounded font-bold text-xs">
+                    {timeLeft.seconds.toString().padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <Button className="bg-yellow-400 text-red-900 hover:bg-yellow-300 font-bold text-xs px-3 py-1">
+              <Zap className="w-3 h-3 mr-1" />
+              Grab Now!
+            </Button>
+          </div>
+        </div>
 
-          <Button className="bg-yellow-400 text-red-900 hover:bg-yellow-300 font-bold">
-            Grab Now!
-          </Button>
+        {/* Desktop Layout */}
+        <div className="hidden md:flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Flame className="w-6 h-6 text-yellow-300 animate-pulse" />
+              <span className="text-white font-bold text-lg">DIGITAL PRODUCT SALE</span>
+            </div>
+            
+            <Badge className="bg-yellow-400 text-red-900 font-bold animate-bounce">
+              {currentOffer.discount_percentage}% OFF
+            </Badge>
+            
+            <Badge className="bg-orange-500 text-white animate-pulse">
+              LIMITED TIME OFFER
+            </Badge>
+          </div>
+
+          <div className="flex items-center space-x-6 text-white">
+            <div className="flex items-center space-x-2">
+              <Users className="w-4 h-4" />
+              <span className="text-sm">
+                {currentOffer.current_purchases.toLocaleString('en-IN')}/{currentOffer.max_purchases.toLocaleString('en-IN')} sold
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4" />
+              <div className="flex space-x-1 font-mono">
+                <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
+                  {timeLeft.hours.toString().padStart(2, '0')}
+                </span>
+                <span>:</span>
+                <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
+                  {timeLeft.minutes.toString().padStart(2, '0')}
+                </span>
+                <span>:</span>
+                <span className="bg-white text-red-600 px-2 py-1 rounded font-bold">
+                  {timeLeft.seconds.toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+
+            <Button className="bg-yellow-400 text-red-900 hover:bg-yellow-300 font-bold">
+              <Zap className="w-4 h-4 mr-2" />
+              Grab Now!
+            </Button>
+          </div>
         </div>
       </div>
     </div>

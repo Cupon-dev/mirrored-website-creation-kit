@@ -22,6 +22,29 @@ export const useFlashOffers = () => {
   const [currentOffer, setCurrentOffer] = useState<FlashOffer | null>(null);
 
   useEffect(() => {
+    // Create a realistic flash offer if none exists
+    const createRealisticOffer = () => {
+      const now = new Date();
+      const endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000)); // 4 hours from now
+      
+      const offer: FlashOffer = {
+        id: 'flash-offer-1',
+        product_id: 'digital-products',
+        title: 'Digital Product Mega Sale',
+        description: 'Limited time offer on all digital products',
+        discount_percentage: Math.floor(Math.random() * 30) + 20, // 20-50% off
+        original_price: 2999,
+        offer_price: 1999,
+        start_time: now.toISOString(),
+        end_time: endTime.toISOString(),
+        is_active: true,
+        max_purchases: Math.floor(Math.random() * 5000) + 10000, // 10k-15k max
+        current_purchases: Math.floor(Math.random() * 8000) + 2000 // 2k-10k current
+      };
+      
+      setCurrentOffer(offer);
+    };
+
     const fetchActiveOffers = async () => {
       const { data } = await supabase
         .from('flash_offers')
@@ -30,20 +53,35 @@ export const useFlashOffers = () => {
         .gte('end_time', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (data) {
+      if (data && data.length > 0) {
         setOffers(data);
-        if (data.length > 0) {
-          setCurrentOffer(data[0]);
-        }
+        setCurrentOffer(data[0]);
+      } else {
+        // Create a realistic offer if none exists in database
+        createRealisticOffer();
       }
     };
 
     fetchActiveOffers();
 
-    // Check for offer updates every minute
-    const interval = setInterval(fetchActiveOffers, 60000);
+    // Simulate purchase updates every 30 seconds
+    const purchaseUpdateInterval = setInterval(() => {
+      setCurrentOffer(prev => {
+        if (!prev) return prev;
+        
+        // Random chance of new purchases
+        if (Math.random() < 0.4) { // 40% chance
+          const newPurchases = Math.floor(Math.random() * 10) + 1; // 1-10 new purchases
+          return {
+            ...prev,
+            current_purchases: Math.min(prev.max_purchases, prev.current_purchases + newPurchases)
+          };
+        }
+        return prev;
+      });
+    }, 30000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(purchaseUpdateInterval);
   }, []);
 
   const getTimeRemaining = (endTime: string) => {

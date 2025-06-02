@@ -16,7 +16,18 @@ export const useProductAnalytics = (productId: string) => {
   useEffect(() => {
     if (!productId) return;
 
-    // Fetch current analytics
+    // Generate realistic initial values
+    const generateRealisticNumbers = () => {
+      const baseViewers = Math.floor(Math.random() * (25000 - 15000) + 15000);
+      const basePurchases = Math.floor(Math.random() * (25000 - 5000) + 5000);
+      
+      setAnalytics({
+        current_viewers: baseViewers,
+        total_purchases: basePurchases
+      });
+    };
+
+    // Fetch current analytics from database or use generated numbers
     const fetchAnalytics = async () => {
       const { data } = await supabase
         .from('product_analytics')
@@ -26,6 +37,8 @@ export const useProductAnalytics = (productId: string) => {
 
       if (data) {
         setAnalytics(data);
+      } else {
+        generateRealisticNumbers();
       }
     };
 
@@ -48,18 +61,30 @@ export const useProductAnalytics = (productId: string) => {
     fetchAnalytics();
     incrementViewer();
 
-    // Simulate random viewer fluctuations for FOMO
+    // Simulate realistic viewer fluctuations for FOMO
     const interval = setInterval(() => {
-      const randomChange = Math.floor(Math.random() * 5) - 2; // -2 to +2
+      const randomChange = Math.floor(Math.random() * 100) - 50; // -50 to +50
       setAnalytics(prev => ({
         ...prev,
-        current_viewers: Math.max(0, prev.current_viewers + randomChange)
+        current_viewers: Math.max(15000, Math.min(25000, prev.current_viewers + randomChange))
       }));
-    }, 5000);
+    }, 3000);
+
+    // Simulate occasional purchases
+    const purchaseInterval = setInterval(() => {
+      if (Math.random() < 0.3) { // 30% chance every 10 seconds
+        const purchaseIncrease = Math.floor(Math.random() * 5) + 1; // 1-5 purchases
+        setAnalytics(prev => ({
+          ...prev,
+          total_purchases: prev.total_purchases + purchaseIncrease
+        }));
+      }
+    }, 10000);
 
     return () => {
       decrementViewer();
       clearInterval(interval);
+      clearInterval(purchaseInterval);
     };
   }, [productId]);
 

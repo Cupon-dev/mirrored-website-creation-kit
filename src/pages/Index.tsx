@@ -189,7 +189,7 @@ const Index = () => {
         <FlashOfferBanner />
 
         {/* Categories */}
-        <div className="mb-6 md:mb-8">
+        <div className="mb-4 md:mb-6">
           <div className="flex items-center justify-between mb-3 md:mb-4">
             <h3 className="text-base md:text-lg font-semibold text-gray-900">Categories</h3>
           </div>
@@ -223,23 +223,23 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Product Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Product Grid - Responsive: 2 columns on mobile, 4 on desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           {products.map((product) => (
             <div 
               key={product.id} 
-              className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+              className="bg-white rounded-xl md:rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => handleProductClick(product.id)}
             >
               <div className="relative">
                 <img 
                   src={product.image_url}
                   alt={product.name}
-                  className="w-full h-48 md:h-56 object-cover"
+                  className="w-full h-32 md:h-48 object-cover"
                 />
-                <div className="absolute top-3 left-3">
+                <div className="absolute top-2 left-2">
                   {product.discount_percentage > 0 && (
-                    <Badge className="bg-red-500 text-white rounded-lg px-2 py-1 text-xs animate-pulse">
+                    <Badge className="bg-red-500 text-white rounded-lg px-1.5 md:px-2 py-0.5 md:py-1 text-xs animate-pulse">
                       -{product.discount_percentage}% OFF
                     </Badge>
                   )}
@@ -247,14 +247,14 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
+                  className="absolute top-2 right-2 w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/90 hover:bg-white p-0 active:scale-90 transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleWishlist(product.id);
                   }}
                 >
                   <Heart 
-                    className={`w-4 h-4 transition-all ${
+                    className={`w-3 h-3 md:w-4 md:h-4 transition-all ${
                       wishlist.includes(product.id) 
                         ? "fill-red-500 text-red-500" 
                         : "text-gray-400"
@@ -262,13 +262,13 @@ const Index = () => {
                   />
                 </Button>
                 {product.stock_quantity <= 20 && (
-                  <Badge className="absolute bottom-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded animate-bounce">
+                  <Badge className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded animate-bounce">
                     Only {product.stock_quantity} left!
                   </Badge>
                 )}
               </div>
               
-              <div className="p-4">
+              <div className="p-3 md:p-4">
                 <FOMOCounter productId={product.id} />
                 
                 <div className="flex items-center space-x-1 mb-2">
@@ -278,19 +278,19 @@ const Index = () => {
                   <span className="text-xs text-gray-500">({product.review_count})</span>
                 </div>
                 
-                <h4 className="font-medium text-gray-900 text-sm md:text-base mb-3 leading-tight line-clamp-2">
+                <h4 className="font-medium text-gray-900 text-xs md:text-sm mb-2 md:mb-3 leading-tight line-clamp-2">
                   {product.name}
                 </h4>
                 
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-gray-900 text-lg">${product.price}</span>
+                <div className="flex items-center justify-between mb-3 md:mb-4">
+                  <div className="flex items-center space-x-1 md:space-x-2">
+                    <span className="font-bold text-gray-900 text-sm md:text-lg">₹{Number(product.price).toLocaleString('en-IN')}</span>
                     {product.original_price && (
-                      <span className="text-sm text-gray-500 line-through">${product.original_price}</span>
+                      <span className="text-xs md:text-sm text-gray-500 line-through">₹{Number(product.original_price).toLocaleString('en-IN')}</span>
                     )}
                   </div>
                   {user && hasAccess(product.id) && (
-                    <Badge className="bg-green-100 text-green-800">Owned ✓</Badge>
+                    <Badge className="bg-green-100 text-green-800 text-xs">Owned ✓</Badge>
                   )}
                 </div>
                 
