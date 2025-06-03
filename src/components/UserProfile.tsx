@@ -1,10 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, Calendar, Award } from 'lucide-react';
+import { User, Download, ShoppingBag, Calendar, Award, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { verifyPaymentAndGrantAccess } from '@/services/paymentService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PurchasedProduct {
@@ -21,14 +22,36 @@ const UserProfile = () => {
   const { userAccess } = useUserAccess();
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     if (user && userAccess.length > 0) {
       fetchPurchasedProducts();
+    } else if (user) {
+      // Check for pending payments and verify
+      verifyUserPayments();
     } else {
       setIsLoading(false);
     }
   }, [user, userAccess]);
+
+  const verifyUserPayments = async () => {
+    if (!user?.email) return;
+    
+    setIsVerifying(true);
+    try {
+      const result = await verifyPaymentAndGrantAccess(user.email, user.id);
+      if (result.success) {
+        // Refresh the page to update access
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+    } finally {
+      setIsVerifying(false);
+      setIsLoading(false);
+    }
+  };
 
   const fetchPurchasedProducts = async () => {
     try {
@@ -41,7 +64,7 @@ const UserProfile = () => {
 
       const productsWithDate = data?.map(product => ({
         ...product,
-        purchased_at: new Date().toISOString() // In real app, get from user_product_access table
+        purchased_at: new Date().toISOString()
       })) || [];
 
       setPurchasedProducts(productsWithDate);
@@ -56,7 +79,7 @@ const UserProfile = () => {
     return null;
   }
 
-  if (isLoading) {
+  if (isLoading || isVerifying) {
     return (
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <div className="animate-pulse">
@@ -76,6 +99,12 @@ const UserProfile = () => {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
           <p className="text-sm text-gray-500">{user.email}</p>
+          {userAccess.length > 0 && (
+            <Badge className="bg-green-100 text-green-800 text-xs mt-1">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Verified Access
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -140,6 +169,14 @@ const UserProfile = () => {
           <Award className="w-12 h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-500">No products purchased yet</p>
           <p className="text-sm text-gray-400">Start shopping to see your products here!</p>
+          <Button
+            onClick={verifyUserPayments}
+            variant="outline"
+            className="mt-3 text-sm"
+            disabled={isVerifying}
+          >
+            {isVerifying ? 'Checking...' : 'Check for Recent Purchases'}
+          </Button>
         </div>
       )}
     </div>

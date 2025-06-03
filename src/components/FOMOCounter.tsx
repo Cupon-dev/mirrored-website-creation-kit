@@ -1,56 +1,26 @@
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Eye, ShoppingBag, TrendingUp } from 'lucide-react';
-import { useProductAnalytics } from '@/hooks/useProductAnalytics';
+import { useSharedAnalytics } from '@/contexts/AnalyticsContext';
 
 interface FOMOCounterProps {
   productId: string;
 }
 
 const FOMOCounter = ({ productId }: FOMOCounterProps) => {
-  const { analytics } = useProductAnalytics(productId);
+  const { getAnalytics } = useSharedAnalytics();
+  const analytics = getAnalytics(productId);
   const [animatedViewers, setAnimatedViewers] = useState(analytics.current_viewers);
   const [animatedPurchases, setAnimatedPurchases] = useState(analytics.total_purchases);
 
-  // Generate unique delay for each product based on productId
-  const getProductDelay = (baseDelay: number) => {
-    const hash = productId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    return baseDelay + (Math.abs(hash) % 3000); // Add 0-3 seconds variation
-  };
+  useEffect(() => {
+    setAnimatedViewers(analytics.current_viewers);
+  }, [analytics.current_viewers]);
 
   useEffect(() => {
-    // Very slow, realistic viewer count animation with product-specific delay
-    const viewerDelay = getProductDelay(1200); // Base 1.2s + variation
-    const viewerInterval = setInterval(() => {
-      setAnimatedViewers(prev => {
-        const diff = analytics.current_viewers - prev;
-        if (diff === 0) return prev;
-        const step = Math.sign(diff) * (Math.abs(diff) > 20 ? 2 : 1);
-        return prev + step;
-      });
-    }, viewerDelay);
-
-    return () => clearInterval(viewerInterval);
-  }, [analytics.current_viewers, productId]);
-
-  useEffect(() => {
-    // Very slow, realistic purchase count animation with product-specific delay
-    const purchaseDelay = getProductDelay(1800); // Base 1.8s + variation
-    const purchaseInterval = setInterval(() => {
-      setAnimatedPurchases(prev => {
-        const diff = analytics.total_purchases - prev;
-        if (diff === 0) return prev;
-        const step = Math.sign(diff) * (Math.abs(diff) > 15 ? 2 : 1);
-        return prev + step;
-      });
-    }, purchaseDelay);
-
-    return () => clearInterval(purchaseInterval);
-  }, [analytics.total_purchases, productId]);
+    setAnimatedPurchases(analytics.total_purchases);
+  }, [analytics.total_purchases]);
 
   return (
     <div className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-3 mb-2 md:mb-3 overflow-x-auto">

@@ -1,10 +1,10 @@
 
-import { Heart, ShoppingBag, Star, Users, Eye } from "lucide-react";
+import { Heart, ShoppingBag, Star, Users, Eye, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { useEffect } from "react";
+import { useSharedAnalytics } from "@/contexts/AnalyticsContext";
 import ProductAccessButton from "./ProductAccessButton";
 
 interface ProductCardProps {
@@ -34,14 +34,15 @@ const ProductCard = ({
   isWishlisted,
 }: ProductCardProps) => {
   const navigate = useNavigate();
-  const { analytics, incrementViewer, decrementViewer } = useProductAnalytics(product.id);
+  const { getAnalytics, incrementViewer, decrementViewer } = useSharedAnalytics();
+  const analytics = getAnalytics(product.id);
 
   useEffect(() => {
-    incrementViewer();
+    incrementViewer(product.id);
     return () => {
-      decrementViewer();
+      decrementViewer(product.id);
     };
-  }, [incrementViewer, decrementViewer]);
+  }, [product.id, incrementViewer, decrementViewer]);
 
   const formatPrice = (price: number) => {
     return `₹${price.toLocaleString('en-IN')}`;
@@ -157,6 +158,14 @@ const ProductCard = ({
               </span>
             </>
           )}
+        </div>
+
+        {/* Trust Signal - Instant Access */}
+        <div className="flex items-center justify-center py-1">
+          <Badge className="bg-green-100 text-green-800 text-xs flex items-center space-x-1">
+            <Zap className="w-3 h-3" />
+            <span>Instant Access</span>
+          </Badge>
         </div>
 
         {/* Analytics - Consistent with detail page */}

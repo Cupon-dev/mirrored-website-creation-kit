@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { verifyPaymentAndGrantAccess } from '@/services/paymentService';
 
 const PaymentSuccessHandler = () => {
   const [searchParams] = useSearchParams();
@@ -18,89 +19,61 @@ const PaymentSuccessHandler = () => {
 
   useEffect(() => {
     const handlePaymentSuccess = async () => {
-      const paymentId = searchParams.get('payment_id');
-      const razorpayPaymentId = searchParams.get('razorpay_payment_id');
-      const email = searchParams.get('email');
-      const driveLink = searchParams.get('drive_link');
+      const email = searchParams.get('email') || user?.email;
+      
+      if (!email) {
+        toast({
+          title: "Error",
+          description: "No email found for payment verification",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
 
-      console.log('Payment success params:', { paymentId, razorpayPaymentId, email, driveLink });
+      try {
+        console.log('Processing payment success for email:', email);
+        
+        // Verify payment and grant access
+        const result = await verifyPaymentAndGrantAccess(email, user?.id);
+        
+        if (result.success && result.accessGranted) {
+          setPaymentData({
+            email: email,
+            drive_link: result.driveLink,
+            whatsapp_group: result.whatsappGroup
+          });
 
-      if (paymentId || razorpayPaymentId || email) {
-        try {
-          // Set up payment data
-          const mockPaymentData = {
-            payment_id: paymentId || razorpayPaymentId,
-            email: email || user?.email,
-            drive_link: driveLink || "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
-            whatsapp_group: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
-          };
-
-          setPaymentData(mockPaymentData);
-          
-          // Grant access to the product
+          // Grant access locally
           if (user) {
-            await grantAccess('digital-product-1'); // Grant access to default product
-            console.log('Access granted to user:', user.id);
+            await grantAccess('digital-product-1');
           }
 
           toast({
             title: "Payment Successful! 🎉",
-            description: "Your product is now accessible. You can now access your download link!",
+            description: "Your product access has been granted instantly!",
             duration: 6000,
           });
 
-          setIsProcessing(false);
-          
-          // Auto redirect to home after 3 seconds
+          // Auto redirect after 3 seconds
           setTimeout(() => {
             navigate('/', { replace: true });
           }, 3000);
-
-        } catch (error) {
-          console.error('Error processing payment success:', error);
+        } else {
           toast({
-            title: "Payment Processed",
-            description: "Your payment was successful. You should receive access shortly.",
+            title: "Payment Processing",
+            description: result.error || "Payment verification in progress...",
             variant: "default",
           });
-          setIsProcessing(false);
         }
-      } else {
-        // Check if there's a pending payment in localStorage
-        const pendingPayment = localStorage.getItem('pending_payment');
-        if (pendingPayment) {
-          try {
-            const paymentInfo = JSON.parse(pendingPayment);
-            const mockPaymentData = {
-              payment_id: paymentInfo.paymentId,
-              email: paymentInfo.email,
-              drive_link: paymentInfo.driveLink,
-              whatsapp_group: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
-            };
-
-            setPaymentData(mockPaymentData);
-            
-            if (user) {
-              await grantAccess('digital-product-1');
-            }
-
-            // Clear the pending payment
-            localStorage.removeItem('pending_payment');
-
-            toast({
-              title: "Payment Successful! 🎉",
-              description: "Your product is now accessible!",
-              duration: 6000,
-            });
-            
-            // Auto redirect to home after 3 seconds
-            setTimeout(() => {
-              navigate('/', { replace: true });
-            }, 3000);
-          } catch (error) {
-            console.error('Error parsing pending payment:', error);
-          }
-        }
+      } catch (error) {
+        console.error('Error processing payment:', error);
+        toast({
+          title: "Payment Received",
+          description: "Your payment was successful. Access will be granted shortly.",
+          variant: "default",
+        });
+      } finally {
         setIsProcessing(false);
       }
     };
@@ -113,7 +86,7 @@ const PaymentSuccessHandler = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-green-700">Processing your payment...</p>
+          <p className="text-green-700">Verifying payment and granting access...</p>
         </div>
       </div>
     );
@@ -126,18 +99,18 @@ const PaymentSuccessHandler = () => {
         
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
         <p className="text-gray-600 mb-6">
-          Your purchase has been completed successfully. You now have access to your digital product.
+          Your purchase has been completed and access has been granted instantly!
         </p>
 
         {paymentData && (
           <div className="space-y-4 mb-6">
             <div className="bg-green-50 rounded-lg p-4 text-left">
-              <h3 className="font-semibold text-green-800 mb-2">What's Next?</h3>
+              <h3 className="font-semibold text-green-800 mb-2">✅ Instant Access Granted!</h3>
               <ul className="text-sm text-green-700 space-y-1">
-                <li>✅ Product access has been granted</li>
-                <li>✅ Download link is now available</li>
-                <li>✅ WhatsApp group invite included</li>
-                <li>✅ You can access your product anytime from the main page</li>
+                <li>✅ Product access activated</li>
+                <li>✅ Download link ready</li>
+                <li>✅ WhatsApp community access</li>
+                <li>✅ Available on home page now</li>
               </ul>
             </div>
 
@@ -174,7 +147,7 @@ const PaymentSuccessHandler = () => {
         )}
 
         <p className="text-xs text-gray-500">
-          💡 You can access your purchased products anytime from the main page. Look for the "Access Your Product" button on items you've bought!
+          💡 Your purchased products now show "Access Your Product" button on the home page!
         </p>
       </div>
     </div>
