@@ -11,6 +11,7 @@ import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
+import UserProfile from "@/components/UserProfile";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -183,6 +184,13 @@ const Index = () => {
         {/* Flash Offer Banner */}
         <FlashOfferBanner />
 
+        {/* User Profile Section */}
+        {user && (
+          <div className="mb-6">
+            <UserProfile />
+          </div>
+        )}
+
         {/* Categories */}
         <div className="mb-4 md:mb-6">
           <div className="flex items-center justify-between mb-3 md:mb-4">
@@ -231,27 +239,6 @@ const Index = () => {
             />
           ))}
         </div>
-
-        {/* User Stats */}
-        {user && (
-          <div className="bg-green-50 rounded-xl p-6 mb-8">
-            <h3 className="text-lg font-semibold text-green-900 mb-4">Your Activity</h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-green-600">{user.visit_count || 0}</p>
-                <p className="text-sm text-green-700">Total Visits</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-green-600">{user.login_streak || 0}</p>
-                <p className="text-sm text-green-700">Login Streak</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-green-600">{products.length}</p>
-                <p className="text-sm text-green-700">Products Available</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -291,44 +278,6 @@ const Index = () => {
           )}
         </div>
       </nav>
-
-      {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogTrigger asChild>
-          <span />
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Quick Login</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter your email or mobile number"
-              value={loginIdentifier}
-              onChange={(e) => setLoginIdentifier(e.target.value)}
-              className="w-full"
-            />
-            <Button 
-              onClick={handleLogin}
-              disabled={isLoggingIn || !loginIdentifier.trim()}
-              className="w-full bg-green-500 hover:bg-green-600"
-            >
-              {isLoggingIn ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Logging in...
-                </>
-              ) : (
-                'Login'
-              )}
-            </Button>
-            <p className="text-xs text-gray-500 text-center">
-              New user? Register during your first purchase!
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

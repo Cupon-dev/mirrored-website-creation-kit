@@ -39,7 +39,7 @@ const PaymentSuccessHandler = () => {
           
           // Grant access to the product
           if (user) {
-            grantAccess('digital-product-1'); // Grant access to default product
+            await grantAccess('digital-product-1'); // Grant access to default product
             console.log('Access granted to user:', user.id);
           }
 
@@ -50,6 +50,12 @@ const PaymentSuccessHandler = () => {
           });
 
           setIsProcessing(false);
+          
+          // Auto redirect to home after 3 seconds
+          setTimeout(() => {
+            navigate('/', { replace: true });
+          }, 3000);
+
         } catch (error) {
           console.error('Error processing payment success:', error);
           toast({
@@ -75,7 +81,7 @@ const PaymentSuccessHandler = () => {
             setPaymentData(mockPaymentData);
             
             if (user) {
-              grantAccess('digital-product-1');
+              await grantAccess('digital-product-1');
             }
 
             // Clear the pending payment
@@ -86,6 +92,11 @@ const PaymentSuccessHandler = () => {
               description: "Your product is now accessible!",
               duration: 6000,
             });
+            
+            // Auto redirect to home after 3 seconds
+            setTimeout(() => {
+              navigate('/', { replace: true });
+            }, 3000);
           } catch (error) {
             console.error('Error parsing pending payment:', error);
           }
@@ -95,7 +106,7 @@ const PaymentSuccessHandler = () => {
     };
 
     handlePaymentSuccess();
-  }, [searchParams, user, grantAccess, toast]);
+  }, [searchParams, user, grantAccess, toast, navigate]);
 
   if (isProcessing) {
     return (
@@ -147,23 +158,24 @@ const PaymentSuccessHandler = () => {
                 Join WhatsApp Community
               </Button>
             </div>
+            
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">Redirecting to home page in 3 seconds...</p>
+              <Button
+                onClick={() => navigate('/', { replace: true })}
+                variant="outline"
+                className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-3 rounded-xl"
+              >
+                <Home className="w-5 h-5 mr-2" />
+                Go to Home Now
+              </Button>
+            </div>
           </div>
         )}
 
-        <div className="space-y-3">
-          <Button
-            onClick={() => navigate('/')}
-            variant="outline"
-            className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-3 rounded-xl"
-          >
-            <Home className="w-5 h-5 mr-2" />
-            Back to Store
-          </Button>
-          
-          <p className="text-xs text-gray-500">
-            💡 You can access your purchased products anytime from the main page. Look for the "Access Your Product" button on items you've bought!
-          </p>
-        </div>
+        <p className="text-xs text-gray-500">
+          💡 You can access your purchased products anytime from the main page. Look for the "Access Your Product" button on items you've bought!
+        </p>
       </div>
     </div>
   );

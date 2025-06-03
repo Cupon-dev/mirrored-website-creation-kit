@@ -1,12 +1,14 @@
 
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Heart, Star, ShoppingBag, Zap, Shield, Truck } from "lucide-react";
+import { ArrowLeft, Heart, Star, ShoppingBag, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProduct } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import FOMOCounter from "@/components/FOMOCounter";
+import ProductAccessButton from "@/components/ProductAccessButton";
+import { useUserAccess } from "@/hooks/useUserAccess";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +17,7 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const { data: product, isLoading } = useProduct(id!);
   const { addToCart } = useCart();
+  const { hasAccess } = useUserAccess();
 
   if (isLoading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
@@ -36,6 +39,8 @@ const ProductDetail = () => {
       navigate('/cart');
     }
   };
+
+  const userHasAccess = hasAccess(product.id);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,22 +127,6 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* Trust Signals */}
-            <div className="grid grid-cols-3 gap-4 py-4 border-y">
-              <div className="text-center">
-                <Truck className="w-6 h-6 mx-auto text-green-500 mb-1" />
-                <span className="text-xs text-gray-600">Free Delivery</span>
-              </div>
-              <div className="text-center">
-                <Shield className="w-6 h-6 mx-auto text-blue-500 mb-1" />
-                <span className="text-xs text-gray-600">30-Day Return</span>
-              </div>
-              <div className="text-center">
-                <Zap className="w-6 h-6 mx-auto text-yellow-500 mb-1" />
-                <span className="text-xs text-gray-600">Instant Access</span>
-              </div>
-            </div>
-
             {/* Quantity Selector */}
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
@@ -163,23 +152,25 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Product Access Section */}
               <div className="space-y-3">
-                <Button 
-                  onClick={handleBuyNow}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
-                >
-                  <Zap className="w-5 h-5 mr-2" />
-                  BUY NOW - ₹{(Number(product.price) * quantity).toLocaleString('en-IN')}
-                </Button>
-                <Button 
-                  onClick={() => addToCart({ productId: product.id, quantity })}
-                  variant="outline"
-                  className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-4 text-lg rounded-xl"
-                >
-                  <ShoppingBag className="w-5 h-5 mr-2" />
-                  Add to Cart
-                </Button>
+                <ProductAccessButton
+                  productId={product.id}
+                  downloadLink={product.download_link}
+                  price={product.price * quantity}
+                  onPurchase={handleBuyNow}
+                />
+                
+                {!userHasAccess && (
+                  <Button 
+                    onClick={() => addToCart({ productId: product.id, quantity })}
+                    variant="outline"
+                    className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-4 text-lg rounded-xl"
+                  >
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    Add to Cart
+                  </Button>
+                )}
               </div>
             </div>
 

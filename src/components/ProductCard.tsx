@@ -92,7 +92,7 @@ const ProductCard = ({
           loading="lazy"
         />
         
-        {/* Quick Action Overlay - Myntra Style */}
+        {/* Quick Action Overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300">
           <div className="absolute bottom-0 left-0 right-0 p-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
             <div className="flex space-x-1">
@@ -159,7 +159,7 @@ const ProductCard = ({
           )}
         </div>
 
-        {/* Analytics - Live counters */}
+        {/* Analytics - Consistent with detail page */}
         <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
           <div className="flex items-center space-x-1">
             <Eye className="w-3 h-3" />
