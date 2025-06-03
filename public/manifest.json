@@ -2,29 +2,12 @@
 {
   "name": "PremiumLeaks Store",
   "short_name": "PremiumLeaks",
-  "description": "Digital products marketplace with instant access",
+  "description": "Your premium digital content marketplace",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f9fafb",
+  "background_color": "#ffffff",
   "theme_color": "#10b981",
   "orientation": "portrait-primary",
-  "scope": "/",
-  "lang": "en",
-  "categories": ["shopping", "productivity"],
-  "screenshots": [
-    {
-      "src": "/placeholder.svg",
-      "sizes": "1280x720",
-      "type": "image/svg+xml",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/placeholder.svg", 
-      "sizes": "750x1334",
-      "type": "image/svg+xml",
-      "form_factor": "narrow"
-    }
-  ],
   "icons": [
     {
       "src": "/favicon.ico",
@@ -44,5 +27,9 @@
       "purpose": "any maskable"
     }
   ],
+  "categories": ["shopping", "entertainment"],
+  "lang": "en",
+  "dir": "ltr",
+  "scope": "/",
   "prefer_related_applications": false
 }

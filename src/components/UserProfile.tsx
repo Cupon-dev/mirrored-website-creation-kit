@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, Calendar, Award, CheckCircle } from 'lucide-react';
+import { User, Download, ShoppingBag, Calendar, Award, CheckCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +28,6 @@ const UserProfile = () => {
     if (user && userAccess.length > 0) {
       fetchPurchasedProducts();
     } else if (user) {
-      // Check for pending payments and verify
       verifyUserPayments();
     } else {
       setIsLoading(false);
@@ -42,7 +41,6 @@ const UserProfile = () => {
     try {
       const result = await verifyPaymentAndGrantAccess(user.email, user.id);
       if (result.success) {
-        // Refresh the page to update access
         window.location.reload();
       }
     } catch (error) {
@@ -81,7 +79,7 @@ const UserProfile = () => {
 
   if (isLoading || isVerifying) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm">
+      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm">
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
           <div className="h-20 bg-gray-200 rounded"></div>
@@ -91,14 +89,14 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
-          <User className="w-6 h-6 text-white" />
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm">
+      <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+          <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
-          <p className="text-sm text-gray-500">{user.email}</p>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{user.name}</h3>
+          <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
           {userAccess.length > 0 && (
             <Badge className="bg-green-100 text-green-800 text-xs mt-1">
               <CheckCircle className="w-3 h-3 mr-1" />
@@ -109,17 +107,17 @@ const UserProfile = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">{user.visit_count || 0}</div>
+          <div className="text-lg sm:text-2xl font-bold text-green-600">{user.visit_count || 0}</div>
           <div className="text-xs text-gray-500">Total Visits</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">{purchasedProducts.length}</div>
+          <div className="text-lg sm:text-2xl font-bold text-blue-600">{purchasedProducts.length}</div>
           <div className="text-xs text-gray-500">Products Owned</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-purple-600">{user.login_streak || 0}</div>
+          <div className="text-lg sm:text-2xl font-bold text-purple-600">{user.login_streak || 0}</div>
           <div className="text-xs text-gray-500">Login Streak</div>
         </div>
       </div>
@@ -127,7 +125,7 @@ const UserProfile = () => {
       {/* Purchased Products */}
       {purchasedProducts.length > 0 && (
         <div>
-          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <h4 className="font-semibold text-gray-900 mb-3 flex items-center text-sm sm:text-base">
             <ShoppingBag className="w-4 h-4 mr-2" />
             Your Products ({purchasedProducts.length})
           </h4>
@@ -137,12 +135,12 @@ const UserProfile = () => {
                 <img 
                   src={product.image_url} 
                   alt={product.name}
-                  className="w-12 h-12 object-cover rounded-lg"
+                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded-lg flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <h5 className="font-medium text-gray-900 truncate">{product.name}</h5>
-                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                    <span>₹{Number(product.price).toLocaleString('en-IN')}</span>
+                  <h5 className="font-medium text-gray-900 truncate text-sm sm:text-base">{product.name}</h5>
+                  <div className="flex items-center flex-wrap gap-2 text-xs">
+                    <span className="text-gray-500">₹{Number(product.price).toLocaleString('en-IN')}</span>
                     <Badge variant="outline" className="text-xs">
                       <Calendar className="w-3 h-3 mr-1" />
                       Purchased
@@ -152,11 +150,11 @@ const UserProfile = () => {
                 <Button
                   size="sm"
                   onClick={() => product.download_link && window.open(product.download_link, '_blank')}
-                  className="bg-green-500 hover:bg-green-600 text-white"
+                  className="bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 sm:px-3 sm:py-2"
                   disabled={!product.download_link}
                 >
-                  <Download className="w-3 h-3 mr-1" />
-                  Access
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  <span className="hidden sm:inline">Access</span>
                 </Button>
               </div>
             ))}
@@ -165,14 +163,14 @@ const UserProfile = () => {
       )}
 
       {purchasedProducts.length === 0 && (
-        <div className="text-center py-8">
-          <Award className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500">No products purchased yet</p>
-          <p className="text-sm text-gray-400">Start shopping to see your products here!</p>
+        <div className="text-center py-6 sm:py-8">
+          <Award className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm sm:text-base">No products purchased yet</p>
+          <p className="text-xs sm:text-sm text-gray-400">Start shopping to see your products here!</p>
           <Button
             onClick={verifyUserPayments}
             variant="outline"
-            className="mt-3 text-sm"
+            className="mt-3 text-xs sm:text-sm"
             disabled={isVerifying}
           >
             {isVerifying ? 'Checking...' : 'Check for Recent Purchases'}

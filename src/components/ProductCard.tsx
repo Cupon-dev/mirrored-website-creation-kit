@@ -1,197 +1,174 @@
 
-import { Heart, ShoppingBag, Star, Users, Eye, Zap } from "lucide-react";
+import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { useSharedAnalytics } from "@/contexts/AnalyticsContext";
-import ProductAccessButton from "./ProductAccessButton";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import FOMOCounter from "./FOMOCounter";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  original_price?: number;
+  discount_percentage: number;
+  image_url: string;
+  brand?: string;
+  rating: number;
+  review_count: number;
+  stock_quantity: number;
+  download_link?: string;
+}
 
 interface ProductCardProps {
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    original_price?: number;
-    image_url: string;
-    rating: number;
-    review_count: number;
-    discount_percentage: number;
-    stock_quantity: number;
-    download_link?: string;
-  };
+  product: Product;
   onAddToCart: (productId: string) => void;
   onPurchase: (productId: string) => void;
   onWishlistToggle: (productId: string) => void;
   isWishlisted: boolean;
 }
 
-const ProductCard = ({
-  product,
-  onAddToCart,
-  onPurchase,
-  onWishlistToggle,
-  isWishlisted,
+const ProductCard = ({ 
+  product, 
+  onAddToCart, 
+  onPurchase, 
+  onWishlistToggle, 
+  isWishlisted 
 }: ProductCardProps) => {
   const navigate = useNavigate();
-  const { getAnalytics, incrementViewer, decrementViewer } = useSharedAnalytics();
-  const analytics = getAnalytics(product.id);
-
-  useEffect(() => {
-    incrementViewer(product.id);
-    return () => {
-      decrementViewer(product.id);
-    };
-  }, [product.id, incrementViewer, decrementViewer]);
-
-  const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString('en-IN')}`;
-  };
+  const { hasAccess } = useUserAccess();
+  const userHasAccess = hasAccess(product.id);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 group relative overflow-hidden">
-      {/* Discount Badge */}
-      {product.discount_percentage > 0 && (
-        <Badge className="absolute top-2 left-2 z-10 bg-red-500 text-white text-xs font-bold animate-pulse">
-          -{product.discount_percentage}% OFF
-        </Badge>
-      )}
-
-      {/* Stock Badge */}
-      {product.stock_quantity <= 20 && (
-        <Badge className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-xs animate-pulse">
-          Only {product.stock_quantity} left!
-        </Badge>
-      )}
-
-      {/* Wishlist Button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          onWishlistToggle(product.id);
-        }}
-        className={`absolute top-2 right-2 z-20 p-1.5 rounded-full transition-all ${
-          isWishlisted 
-            ? 'text-red-500 bg-red-50 hover:bg-red-100' 
-            : 'text-gray-400 bg-white/80 hover:bg-white hover:text-red-500'
-        } ${product.stock_quantity <= 20 ? 'top-8' : ''}`}
-      >
-        <Heart className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isWishlisted ? 'fill-current' : ''}`} />
-      </Button>
-
-      {/* Product Image */}
-      <div 
-        className="relative overflow-hidden cursor-pointer bg-gray-50"
-        onClick={() => navigate(`/product/${product.id}`)}
-      >
+    <div className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all duration-300 overflow-hidden">
+      {/* Image Container */}
+      <div className="relative">
         <img 
           src={product.image_url} 
           alt={product.name}
-          className="w-full h-32 md:h-40 object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
+          className="w-full h-32 sm:h-40 md:h-48 object-cover cursor-pointer"
+          onClick={() => navigate(`/product/${product.id}`)}
         />
         
-        {/* Quick Action Overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300">
-          <div className="absolute bottom-0 left-0 right-0 p-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-            <div className="flex space-x-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToCart(product.id);
-                }}
-                className="flex-1 text-xs bg-white/90 hover:bg-white text-gray-900 border-0"
-              >
-                <ShoppingBag className="w-3 h-3 mr-1" />
-                ADD
-              </Button>
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPurchase(product.id);
-                }}
-                className="flex-1 text-xs bg-green-500 hover:bg-green-600 text-white border-0"
-              >
-                BUY
-              </Button>
-            </div>
-          </div>
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {product.discount_percentage > 0 && (
+            <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5">
+              -{product.discount_percentage}%
+            </Badge>
+          )}
+          {product.stock_quantity <= 20 && (
+            <Badge className="bg-orange-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
+              Only {product.stock_quantity} left!
+            </Badge>
+          )}
         </div>
+
+        {/* Wishlist Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onWishlistToggle(product.id)}
+          className="absolute top-2 right-2 p-1.5 h-auto bg-white/80 hover:bg-white rounded-full"
+        >
+          <Heart 
+            className={`w-3 h-3 sm:w-4 sm:h-4 ${
+              isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'
+            }`} 
+          />
+        </Button>
+
+        {/* Access Status */}
+        {userHasAccess && (
+          <div className="absolute bottom-2 left-2">
+            <Badge className="bg-green-500 text-white text-xs px-2 py-1">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Owned
+            </Badge>
+          </div>
+        )}
       </div>
 
-      {/* Product Info */}
-      <div className="p-3 md:p-4 space-y-2">
+      {/* Content */}
+      <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+        {/* FOMO Counter */}
+        <FOMOCounter productId={product.id} />
+
+        {/* Brand & Rating */}
+        <div className="flex items-center justify-between text-xs">
+          {product.brand && (
+            <span className="text-gray-500 truncate">{product.brand}</span>
+          )}
+          <div className="flex items-center space-x-1">
+            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+            <span className="font-medium">{product.rating}</span>
+            <span className="text-gray-500">({product.review_count})</span>
+          </div>
+        </div>
+
         {/* Product Name */}
         <h3 
-          className="font-medium text-gray-900 text-sm md:text-base line-clamp-2 cursor-pointer hover:text-green-600 transition-colors"
+          className="font-semibold text-gray-900 text-sm sm:text-base line-clamp-2 cursor-pointer hover:text-green-600 transition-colors"
           onClick={() => navigate(`/product/${product.id}`)}
         >
           {product.name}
         </h3>
 
-        {/* Rating */}
-        <div className="flex items-center space-x-1">
-          <div className="flex items-center space-x-1">
-            <Star className="w-3 h-3 md:w-4 md:h-4 fill-yellow-400 text-yellow-400" />
-            <span className="text-xs md:text-sm font-medium text-gray-700">{product.rating}</span>
-          </div>
-          <span className="text-xs text-gray-500">({product.review_count.toLocaleString()})</span>
-        </div>
-
         {/* Price */}
-        <div className="flex items-center space-x-2">
-          <span className="font-bold text-gray-900 text-sm md:text-base">
-            {formatPrice(product.price)}
+        <div className="flex items-center flex-wrap gap-1 sm:gap-2">
+          <span className="text-base sm:text-lg font-bold text-gray-900">
+            ₹{Number(product.price).toLocaleString('en-IN')}
           </span>
           {product.original_price && (
-            <>
-              <span className="text-xs md:text-sm text-gray-500 line-through">
-                {formatPrice(product.original_price)}
-              </span>
-              <span className="text-xs font-medium text-green-600">
-                ({product.discount_percentage}% OFF)
-              </span>
-            </>
+            <span className="text-xs sm:text-sm text-gray-500 line-through">
+              ₹{Number(product.original_price).toLocaleString('en-IN')}
+            </span>
+          )}
+          {product.discount_percentage > 0 && (
+            <Badge className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5">
+              Save ₹{(Number(product.original_price) - Number(product.price)).toLocaleString('en-IN')}
+            </Badge>
           )}
         </div>
 
-        {/* Trust Signal - Instant Access */}
-        <div className="flex items-center justify-center py-1">
-          <Badge className="bg-green-100 text-green-800 text-xs flex items-center space-x-1">
-            <Zap className="w-3 h-3" />
+        {/* Trust Signals */}
+        <div className="flex items-center gap-2 text-xs text-green-600">
+          <div className="flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
             <span>Instant Access</span>
-          </Badge>
-        </div>
-
-        {/* Analytics - Consistent with detail page */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
-          <div className="flex items-center space-x-1">
-            <Eye className="w-3 h-3" />
-            <span className="font-medium text-blue-600">
-              {analytics.current_viewers.toLocaleString()} viewing
-            </span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Users className="w-3 h-3" />
-            <span className="font-medium text-green-600">
-              {analytics.total_purchases.toLocaleString()} bought
-            </span>
           </div>
         </div>
 
-        {/* Access Button */}
-        <div className="pt-2">
-          <ProductAccessButton
-            productId={product.id}
-            downloadLink={product.download_link}
-            price={product.price}
-            onPurchase={() => onPurchase(product.id)}
-          />
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {userHasAccess ? (
+            <Button
+              onClick={() => product.download_link && window.open(product.download_link, '_blank')}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-2 sm:py-3 text-xs sm:text-sm rounded-lg"
+              disabled={!product.download_link}
+            >
+              <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              Access Your Content
+            </Button>
+          ) : (
+            <>
+              <Button 
+                onClick={() => onPurchase(product.id)}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 sm:py-3 text-xs sm:text-sm rounded-lg shadow-lg transform transition hover:scale-[1.02]"
+              >
+                <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                BUY NOW
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => onAddToCart(product.id)}
+                className="w-full border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-2 text-xs sm:text-sm rounded-lg transition-all"
+              >
+                Add to Cart
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
