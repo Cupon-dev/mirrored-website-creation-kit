@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, CheckCircle, AlertCircle, Loader2, User, Mail, Phone } from "lucide-react";
+import { CreditCard, CheckCircle, Loader2, User, Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { initializePayment } from "@/services/paymentService";
 
 interface WhatsAppDeliveryProps {
   cartTotal: number;
@@ -19,7 +19,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   const [name, setName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
-  const [paymentData, setPaymentData] = useState<any>(null);
   const { toast } = useToast();
   const { user, registerUser, loginUser } = useAuth();
 
@@ -32,64 +31,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       setStep("payment");
     }
   }, [user]);
-
-  // Check for payment completion
-  const checkPaymentStatus = async () => {
-    try {
-      const checkEmail = user?.email || email;
-      
-      if (!checkEmail) return;
-
-      const { data, error } = await supabase.functions.invoke('check-payment-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: checkEmail })
-      });
-
-      if (error) {
-        console.error('Error checking payment status:', error);
-        return;
-      }
-
-      if (data?.status === 'completed') {
-        console.log('Payment confirmed! Access granted.');
-        setPaymentData(data);
-        setStep('success');
-        
-        localStorage.removeItem('pending_payment');
-        
-        toast({
-          title: "Payment Successful! 🎉",
-          description: "Your access has been granted instantly!",
-          duration: 6000,
-        });
-        
-        // Redirect to home after success
-        setTimeout(() => {
-          onOrderComplete();
-          window.location.href = '/';
-        }, 2000);
-      }
-    } catch (error: any) {
-      console.error('Error checking payment status:', error);
-    }
-  };
-
-  // Check for pending payment on mount
-  useEffect(() => {
-    const pendingPayment = localStorage.getItem('pending_payment');
-    if (pendingPayment) {
-      try {
-        const paymentData = JSON.parse(pendingPayment);
-        setEmail(paymentData.email);
-        setPhoneNumber(paymentData.phoneNumber);
-        checkPaymentStatus();
-      } catch (error) {
-        console.error('Error parsing pending payment:', error);
-        localStorage.removeItem('pending_payment');
-      }
-    }
-  }, []);
 
   const handleDetailsSubmit = async () => {
     if (!email || !phoneNumber || !name) {
@@ -107,6 +48,16 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       toast({
         title: "Invalid email",
         description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate phone number (basic check)
+    if (phoneNumber.length < 10) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid 10-digit phone number.",
         variant: "destructive",
       });
       return;
@@ -158,64 +109,57 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
     try {
       setIsProcessing(true);
 
-      const orderIdSuffix = Math.random().toString(36).substring(2, 8);
-      const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
+      const userEmail = user?.email || email;
+      const userPhone = user?.mobile_number || phoneNumber;
 
-      // Create payment record
-      const { data: payment, error: paymentError } = await supabase
-        .from('payments')
-        .insert([{
-          email: user?.email || email,
-          mobile_number: user?.mobile_number || phoneNumber,
-          amount: cartTotal,
-          google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
-          razorpay_order_id: razorpayOrderId,
-          status: 'pending'
-        }])
-        .select()
-        .single();
-
-      if (paymentError) {
-        console.error('Error creating payment record:', paymentError);
-        throw paymentError;
+      // Initialize payment record
+      const paymentResult = await initializePayment(userEmail, userPhone, cartTotal);
+      
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || "Failed to initialize payment");
       }
+
+      // Store payment details for recovery
+      localStorage.setItem('pending_payment', JSON.stringify({
+        paymentId: paymentResult.paymentId,
+        email: userEmail,
+        phoneNumber: userPhone,
+        cartTotal,
+        razorpayOrderId: paymentResult.razorpayOrderId
+      }));
 
       // Check if any cart item has a razorpay_link
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        // Store payment details for recovery
-        localStorage.setItem('pending_payment', JSON.stringify({
-          paymentId: payment.id,
-          email: user?.email || email,
-          phoneNumber: user?.mobile_number || phoneNumber,
-          cartTotal,
-          razorpayOrderId
-        }));
+        const successUrl = `${window.location.origin}/payment-success?email=${encodeURIComponent(userEmail)}`;
+        const cancelUrl = `${window.location.origin}/cart`;
         
-        const successUrl = `${window.location.origin}/payment-success`;
-        const razorpayUrl = `${razorpayProduct.products.razorpay_link}&redirect_url=${encodeURIComponent(successUrl)}`;
+        // Add success and cancel URLs to the Razorpay link
+        const razorpayUrl = new URL(razorpayProduct.products.razorpay_link);
+        razorpayUrl.searchParams.set('prefill[email]', userEmail);
+        razorpayUrl.searchParams.set('prefill[contact]', userPhone);
+        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
         
         toast({
-          title: "Redirecting to Payment",
-          description: "Complete your payment and you'll be redirected back automatically!",
+          title: "Opening Payment Gateway",
+          description: "Complete your payment to get instant access!",
           duration: 5000,
         });
         
-        // Open payment link
-        window.open(razorpayUrl, '_self');
+        // Open payment link in same tab for better mobile experience
+        window.location.href = razorpayUrl.toString();
         
       } else {
-        throw new Error("No payment link found for this product");
+        throw new Error("Payment gateway not configured for this product");
       }
       
-      setIsProcessing(false);
     } catch (error: any) {
       setIsProcessing(false);
       console.error('Payment initiation error:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Payment Error",
+        description: error.message || "Failed to start payment process",
         variant: "destructive"
       });
     }
@@ -223,47 +167,43 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
   if (step === "success") {
     return (
-      <div className="space-y-6 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center max-w-md mx-auto">
-        <div className="space-y-4">
-          <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto" />
-          <h3 className="text-lg sm:text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
-          
-          <div className="bg-green-100 rounded-xl p-3 sm:p-4 border border-green-300">
-            <p className="text-green-800 font-medium text-sm sm:text-base">
-              ✅ Your access has been granted instantly!
-            </p>
-            <p className="text-green-700 text-xs sm:text-sm mt-1">
-              Return to home page to access your purchased content.
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <Button
-              onClick={() => {
-                onOrderComplete();
-                window.location.href = '/';
-              }}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 text-sm sm:text-lg rounded-xl"
-            >
-              Go to Home Page
-            </Button>
-          </div>
+      <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center max-w-md mx-auto">
+        <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto" />
+        <h3 className="text-lg sm:text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
+        
+        <div className="bg-green-100 rounded-xl p-3 sm:p-4 border border-green-300">
+          <p className="text-green-800 font-medium text-sm sm:text-base">
+            ✅ Your access has been granted instantly!
+          </p>
+          <p className="text-green-700 text-xs sm:text-sm mt-1">
+            Return to home page to access your purchased content.
+          </p>
         </div>
+        
+        <Button
+          onClick={() => {
+            onOrderComplete();
+            window.location.href = '/';
+          }}
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 text-sm sm:text-lg rounded-xl"
+        >
+          Go to Home Page
+        </Button>
       </div>
     );
   }
 
   if (step === "details" && !user) {
     return (
-      <div className="space-y-6 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
+      <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
         <div className="text-center">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Complete Your Order</h3>
-          <p className="text-sm sm:text-base text-gray-600">Enter your details to create your account and proceed</p>
+          <p className="text-sm sm:text-base text-gray-600">Enter your details to create account and proceed</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <User className="w-4 h-4 inline mr-1" />
               Full Name
             </label>
@@ -277,7 +217,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <Mail className="w-4 h-4 inline mr-1" />
               Email Address
             </label>
@@ -291,7 +231,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <Phone className="w-4 h-4 inline mr-1" />
               Mobile Number
             </label>
@@ -302,16 +242,16 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="text-sm sm:text-base"
             />
-            <p className="text-xs text-gray-500 mt-1">Enter your 10-digit mobile number (without +91)</p>
+            <p className="text-xs text-gray-500 mt-1">Enter 10-digit mobile number</p>
           </div>
 
-          <div className="bg-white rounded-xl p-3 sm:p-4 space-y-3">
+          <div className="bg-white rounded-xl p-3 sm:p-4 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm sm:text-base text-gray-600">Total Amount:</span>
               <span className="text-lg sm:text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
             </div>
             
-            <div className="space-y-2 text-xs sm:text-sm">
+            <div className="space-y-1 text-xs sm:text-sm">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
                 <span className="text-gray-600">Instant access after payment</span>
@@ -319,12 +259,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-                <span className="text-gray-600">Permanent access to your content</span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500 flex-shrink-0" />
-                <span className="text-gray-600">Your personal account created</span>
+                <span className="text-gray-600">Permanent access to content</span>
               </div>
             </div>
           </div>
@@ -332,7 +267,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           <Button
             onClick={handleDetailsSubmit}
             disabled={isProcessing}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg"
           >
             {isProcessing ? (
               <>
@@ -352,21 +287,21 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
+    <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
       <div className="text-center">
         <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-sm sm:text-base text-gray-600">Pay securely - You'll be redirected back automatically!</p>
+        <p className="text-sm sm:text-base text-gray-600">Secure payment gateway</p>
       </div>
 
-      <div className="space-y-4">
-        <div className="bg-white rounded-xl p-3 sm:p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Customer:</span>
-            <span className="font-medium text-sm">{user?.name || name}</span>
+      <div className="space-y-3">
+        <div className="bg-white rounded-xl p-3 sm:p-4 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Customer:</span>
+            <span className="font-medium">{user?.name || name}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Email:</span>
-            <span className="font-medium text-sm break-all">{user?.email || email}</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Email:</span>
+            <span className="font-medium break-all">{user?.email || email}</span>
           </div>
           <div className="flex items-center justify-between border-t pt-2">
             <span className="text-sm sm:text-base text-gray-600">Total Amount:</span>
@@ -376,18 +311,18 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
           <p className="text-xs sm:text-sm text-green-800">
-            <strong>🚀 Automatic Process:</strong><br/>
-            1. Click "Pay Now" to complete payment<br/>
-            2. After payment, you'll be redirected back automatically<br/>
-            3. Your product access will be granted immediately<br/>
-            4. Access your content from the home page
+            <strong>🚀 Simple Process:</strong><br/>
+            1. Click "Pay Now" to open secure payment gateway<br/>
+            2. Complete payment using any method<br/>
+            3. Access granted immediately after payment<br/>
+            4. Return to home page to access your content
           </p>
         </div>
 
         <Button
           onClick={initiatePayment}
           disabled={isProcessing}
-          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg"
         >
           {isProcessing ? (
             <>
@@ -412,7 +347,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         </Button>
 
         <p className="text-xs text-center text-gray-500">
-          🔒 Secure payment • 🔄 Auto redirect • 🎯 Instant access
+          🔒 Secure payment • ⚡ Instant access • 📱 Mobile optimized
         </p>
       </div>
     </div>

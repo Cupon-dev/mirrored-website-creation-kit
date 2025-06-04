@@ -40,15 +40,15 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       const { error: accessError } = await supabase
         .from('user_product_access')
-        .insert({
+        .upsert({
           user_id: userId,
-          product_id: 'digital-product-1', // Default product for now
+          product_id: 'digital-product-1',
           payment_id: latestPayment.id
-        })
-        .select()
-        .single();
+        }, {
+          onConflict: 'user_id,product_id'
+        });
 
-      if (accessError && !accessError.message.includes('duplicate')) {
+      if (accessError) {
         console.error('Error granting access:', accessError);
         return { success: false, error: 'Failed to grant access' };
       }
@@ -57,7 +57,7 @@ export const verifyPaymentAndGrantAccess = async (
     return {
       success: true,
       accessGranted: true,
-      driveLink: latestPayment.google_drive_link,
+      driveLink: latestPayment.google_drive_link || '',
       whatsappGroup: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
     };
 
@@ -86,5 +86,46 @@ export const checkPaymentStatus = async (email: string): Promise<boolean> => {
   } catch (error) {
     console.error('Payment status check error:', error);
     return false;
+  }
+};
+
+export const initializePayment = async (email: string, phoneNumber: string, amount: number) => {
+  try {
+    console.log('Initializing payment for:', email, amount);
+    
+    const orderIdSuffix = Math.random().toString(36).substring(2, 8);
+    const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
+
+    // Create payment record
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        email: email,
+        mobile_number: phoneNumber,
+        amount: amount,
+        google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
+        razorpay_order_id: razorpayOrderId,
+        status: 'pending'
+      }])
+      .select()
+      .single();
+
+    if (paymentError) {
+      console.error('Error creating payment record:', paymentError);
+      throw new Error('Failed to create payment record');
+    }
+
+    return {
+      success: true,
+      paymentId: payment.id,
+      razorpayOrderId: razorpayOrderId
+    };
+
+  } catch (error) {
+    console.error('Payment initialization error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 };

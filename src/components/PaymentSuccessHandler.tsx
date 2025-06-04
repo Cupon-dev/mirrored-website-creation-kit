@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, ExternalLink, Home, Download, Users } from 'lucide-react';
+import { CheckCircle, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,7 +19,21 @@ const PaymentSuccessHandler = () => {
 
   useEffect(() => {
     const handlePaymentSuccess = async () => {
+      // Get email from URL params or user
       const email = searchParams.get('email') || user?.email;
+      
+      if (!email) {
+        // Try to get from localStorage
+        const pendingPayment = localStorage.getItem('pending_payment');
+        if (pendingPayment) {
+          try {
+            const paymentData = JSON.parse(pendingPayment);
+            email = paymentData.email;
+          } catch (error) {
+            console.error('Error parsing pending payment:', error);
+          }
+        }
+      }
       
       if (!email) {
         toast({
@@ -34,14 +48,15 @@ const PaymentSuccessHandler = () => {
       try {
         console.log('Processing payment success for email:', email);
         
+        // Add a small delay to allow webhook processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         // Verify payment and grant access
         const result = await verifyPaymentAndGrantAccess(email, user?.id);
         
         if (result.success && result.accessGranted) {
           setPaymentData({
-            email: email,
-            drive_link: result.driveLink,
-            whatsapp_group: result.whatsappGroup
+            email: email
           });
 
           // Grant access locally
@@ -49,9 +64,12 @@ const PaymentSuccessHandler = () => {
             await grantAccess('digital-product-1');
           }
 
+          // Clear pending payment
+          localStorage.removeItem('pending_payment');
+
           toast({
             title: "Payment Successful! 🎉",
-            description: "Your product access has been granted instantly!",
+            description: "Your access has been granted instantly!",
             duration: 6000,
           });
 
@@ -65,6 +83,11 @@ const PaymentSuccessHandler = () => {
             description: result.error || "Payment verification in progress...",
             variant: "default",
           });
+          
+          // Redirect to home anyway after a delay
+          setTimeout(() => {
+            navigate('/', { replace: true });
+          }, 5000);
         }
       } catch (error) {
         console.error('Error processing payment:', error);
@@ -73,6 +96,11 @@ const PaymentSuccessHandler = () => {
           description: "Your payment was successful. Access will be granted shortly.",
           variant: "default",
         });
+        
+        // Redirect to home
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 3000);
       } finally {
         setIsProcessing(false);
       }
@@ -83,10 +111,11 @@ const PaymentSuccessHandler = () => {
 
   if (isProcessing) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md mx-auto">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-green-700">Verifying payment and granting access...</p>
+          <p className="text-green-700 text-lg font-medium">Verifying payment...</p>
+          <p className="text-gray-600 text-sm mt-2">Please wait while we process your payment</p>
         </div>
       </div>
     );
@@ -99,55 +128,34 @@ const PaymentSuccessHandler = () => {
         
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
         <p className="text-gray-600 mb-6">
-          Your purchase has been completed and access has been granted instantly!
+          Your purchase has been completed successfully!
         </p>
 
-        {paymentData && (
-          <div className="space-y-4 mb-6">
-            <div className="bg-green-50 rounded-lg p-4 text-left">
-              <h3 className="font-semibold text-green-800 mb-2">✅ Instant Access Granted!</h3>
-              <ul className="text-sm text-green-700 space-y-1">
-                <li>✅ Product access activated</li>
-                <li>✅ Download link ready</li>
-                <li>✅ WhatsApp community access</li>
-                <li>✅ Available on home page now</li>
-              </ul>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                onClick={() => window.open(paymentData.drive_link, '_blank')}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-xl"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Access Your Product Now
-              </Button>
-
-              <Button
-                onClick={() => window.open(paymentData.whatsapp_group, '_blank')}
-                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Join WhatsApp Community
-              </Button>
-            </div>
-            
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">Redirecting to home page in 3 seconds...</p>
-              <Button
-                onClick={() => navigate('/', { replace: true })}
-                variant="outline"
-                className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 font-semibold py-3 rounded-xl"
-              >
-                <Home className="w-5 h-5 mr-2" />
-                Go to Home Now
-              </Button>
-            </div>
+        <div className="space-y-4 mb-6">
+          <div className="bg-green-50 rounded-lg p-4 text-left">
+            <h3 className="font-semibold text-green-800 mb-2">✅ Access Granted!</h3>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>✅ Product access activated</li>
+              <li>✅ Available on home page now</li>
+              <li>✅ Permanent access to content</li>
+              <li>✅ No additional steps needed</li>
+            </ul>
           </div>
-        )}
+          
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-3">Redirecting to home page in 3 seconds...</p>
+            <Button
+              onClick={() => navigate('/', { replace: true })}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
+            >
+              <Home className="w-5 h-5 mr-2" />
+              Go to Home Now
+            </Button>
+          </div>
+        </div>
 
         <p className="text-xs text-gray-500">
-          💡 Your purchased products now show "Access Your Product" button on the home page!
+          💡 Your purchased products now show "Access Your Content" button on the home page!
         </p>
       </div>
     </div>

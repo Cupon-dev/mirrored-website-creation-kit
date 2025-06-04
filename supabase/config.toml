@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.check-payment-status]
 verify_jwt = false
+
+[functions.make-webhook]
+verify_jwt = false
