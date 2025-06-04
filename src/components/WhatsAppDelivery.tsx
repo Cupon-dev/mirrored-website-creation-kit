@@ -25,9 +25,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   // If user is already logged in, skip to payment
   useEffect(() => {
     if (user) {
-      setEmail(user.email);
-      setPhoneNumber(user.mobile_number);
-      setName(user.name);
+      setEmail(user.email || "");
+      setPhoneNumber(user.mobile_number || "");
+      setName(user.name || "");
       setStep("payment");
     }
   }, [user]);
@@ -112,6 +112,10 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const userEmail = user?.email || email;
       const userPhone = user?.mobile_number || phoneNumber;
 
+      if (!userEmail || !userPhone) {
+        throw new Error("Email and phone number are required");
+      }
+
       // Initialize payment record
       const paymentResult = await initializePayment(userEmail, userPhone, cartTotal);
       
@@ -132,24 +136,35 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        const successUrl = `${window.location.origin}/payment-success?email=${encodeURIComponent(userEmail)}`;
-        const cancelUrl = `${window.location.origin}/cart`;
-        
-        // Add success and cancel URLs to the Razorpay link
-        const razorpayUrl = new URL(razorpayProduct.products.razorpay_link);
-        razorpayUrl.searchParams.set('prefill[email]', userEmail);
-        razorpayUrl.searchParams.set('prefill[contact]', userPhone);
-        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
-        
-        toast({
-          title: "Opening Payment Gateway",
-          description: "Complete your payment to get instant access!",
-          duration: 5000,
-        });
-        
-        // Open payment link in same tab for better mobile experience
-        window.location.href = razorpayUrl.toString();
-        
+        try {
+          const baseUrl = window.location.origin;
+          const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}`;
+          
+          // Create the payment URL with proper parameters
+          const razorpayUrl = new URL(razorpayProduct.products.razorpay_link);
+          
+          // Add required parameters
+          razorpayUrl.searchParams.set('prefill[email]', userEmail);
+          razorpayUrl.searchParams.set('prefill[contact]', userPhone);
+          razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
+          razorpayUrl.searchParams.set('callback_url', successUrl);
+          razorpayUrl.searchParams.set('redirect', 'true');
+          
+          console.log('Opening payment gateway:', razorpayUrl.toString());
+          
+          toast({
+            title: "Opening Payment Gateway",
+            description: "Complete your payment to get instant access!",
+            duration: 5000,
+          });
+          
+          // Open payment link in same tab for better mobile experience
+          window.location.href = razorpayUrl.toString();
+          
+        } catch (urlError) {
+          console.error('Error processing payment URL:', urlError);
+          throw new Error("Invalid payment gateway configuration");
+        }
       } else {
         throw new Error("Payment gateway not configured for this product");
       }
@@ -167,15 +182,15 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
   if (step === "success") {
     return (
-      <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center max-w-md mx-auto">
-        <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto" />
-        <h3 className="text-lg sm:text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
+      <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border text-center max-w-md mx-auto">
+        <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
+        <h3 className="text-2xl font-bold text-green-600">Payment Successful! 🎉</h3>
         
-        <div className="bg-green-100 rounded-xl p-3 sm:p-4 border border-green-300">
-          <p className="text-green-800 font-medium text-sm sm:text-base">
+        <div className="bg-green-100 rounded-xl p-4 border border-green-300">
+          <p className="text-green-800 font-medium">
             ✅ Your access has been granted instantly!
           </p>
-          <p className="text-green-700 text-xs sm:text-sm mt-1">
+          <p className="text-green-700 text-sm mt-1">
             Return to home page to access your purchased content.
           </p>
         </div>
@@ -185,7 +200,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
             onOrderComplete();
             window.location.href = '/';
           }}
-          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 text-sm sm:text-lg rounded-xl"
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
         >
           Go to Home Page
         </Button>
@@ -195,10 +210,10 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
   if (step === "details" && !user) {
     return (
-      <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
+      <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
         <div className="text-center">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Complete Your Order</h3>
-          <p className="text-sm sm:text-base text-gray-600">Enter your details to create account and proceed</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Complete Your Order</h3>
+          <p className="text-gray-600">Enter your details to create account and proceed</p>
         </div>
 
         <div className="space-y-3">
@@ -212,7 +227,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               placeholder="Your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="text-sm sm:text-base"
             />
           </div>
 
@@ -226,7 +240,6 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="text-sm sm:text-base"
             />
           </div>
 
@@ -240,25 +253,24 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
               placeholder="7339525425"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              className="text-sm sm:text-base"
             />
             <p className="text-xs text-gray-500 mt-1">Enter 10-digit mobile number</p>
           </div>
 
-          <div className="bg-white rounded-xl p-3 sm:p-4 space-y-2">
+          <div className="bg-white rounded-xl p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm sm:text-base text-gray-600">Total Amount:</span>
-              <span className="text-lg sm:text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
+              <span className="text-gray-600">Total Amount:</span>
+              <span className="text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
             </div>
             
-            <div className="space-y-1 text-xs sm:text-sm">
+            <div className="space-y-1 text-sm">
               <div className="flex items-center space-x-2">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
+                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                 <span className="text-gray-600">Instant access after payment</span>
               </div>
               
               <div className="flex items-center space-x-2">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
+                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                 <span className="text-gray-600">Permanent access to content</span>
               </div>
             </div>
@@ -267,16 +279,16 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           <Button
             onClick={handleDetailsSubmit}
             disabled={isProcessing}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg"
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg"
           >
             {isProcessing ? (
               <>
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Processing...
               </>
             ) : (
               <>
-                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <CreditCard className="w-5 h-5 mr-2" />
                 Create Account & Proceed
               </>
             )}
@@ -287,30 +299,30 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
+    <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl border max-w-md mx-auto">
       <div className="text-center">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
-        <p className="text-sm sm:text-base text-gray-600">Secure payment gateway</p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">💳 Complete Payment</h3>
+        <p className="text-gray-600">Secure payment gateway</p>
       </div>
 
       <div className="space-y-3">
-        <div className="bg-white rounded-xl p-3 sm:p-4 space-y-2">
+        <div className="bg-white rounded-xl p-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">Customer:</span>
-            <span className="font-medium">{user?.name || name}</span>
+            <span className="font-medium break-words">{user?.name || name}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">Email:</span>
-            <span className="font-medium break-all">{user?.email || email}</span>
+            <span className="font-medium break-words text-xs">{user?.email || email}</span>
           </div>
           <div className="flex items-center justify-between border-t pt-2">
-            <span className="text-sm sm:text-base text-gray-600">Total Amount:</span>
-            <span className="text-lg sm:text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
+            <span className="text-gray-600">Total Amount:</span>
+            <span className="text-2xl font-bold text-green-600">₹{cartTotal.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-green-800">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">
             <strong>🚀 Simple Process:</strong><br/>
             1. Click "Pay Now" to open secure payment gateway<br/>
             2. Complete payment using any method<br/>
@@ -322,16 +334,16 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         <Button
           onClick={initiatePayment}
           disabled={isProcessing}
-          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 sm:py-4 text-sm sm:text-lg rounded-xl shadow-lg"
+          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 rounded-xl shadow-lg"
         >
           {isProcessing ? (
             <>
-              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               Opening Payment Gateway...
             </>
           ) : (
             <>
-              <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <CreditCard className="w-5 h-5 mr-2" />
               Pay Now - ₹{cartTotal.toLocaleString('en-IN')}
             </>
           )}

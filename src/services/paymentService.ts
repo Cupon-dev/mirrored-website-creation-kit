@@ -56,9 +56,7 @@ export const verifyPaymentAndGrantAccess = async (
 
     return {
       success: true,
-      accessGranted: true,
-      driveLink: latestPayment.google_drive_link || '',
-      whatsappGroup: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
+      accessGranted: true
     };
 
   } catch (error) {
@@ -103,7 +101,6 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
         email: email,
         mobile_number: phoneNumber,
         amount: amount,
-        google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
         razorpay_order_id: razorpayOrderId,
         status: 'pending'
       }])

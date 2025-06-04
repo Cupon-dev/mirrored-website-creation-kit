@@ -1,46 +1,52 @@
 
-import { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Eye, ShoppingBag, TrendingUp } from 'lucide-react';
-import { useSharedAnalytics } from '@/contexts/AnalyticsContext';
+import { useState, useEffect, useCallback } from 'react';
+import { useAnalytics } from '@/contexts/AnalyticsContext';
 
 interface FOMOCounterProps {
-  productId: string;
+  currentViewers: number;
+  totalPurchases: number;
 }
 
-const FOMOCounter = ({ productId }: FOMOCounterProps) => {
-  const { getAnalytics } = useSharedAnalytics();
-  const analytics = getAnalytics(productId);
-  const [animatedViewers, setAnimatedViewers] = useState(analytics.current_viewers);
-  const [animatedPurchases, setAnimatedPurchases] = useState(analytics.total_purchases);
+const FOMOCounter = ({ currentViewers, totalPurchases }: FOMOCounterProps) => {
+  const [displayViewers, setDisplayViewers] = useState(currentViewers);
+  const { getAnalytics } = useAnalytics();
+
+  // Memoize the analytics call to prevent re-renders
+  const trackView = useCallback(() => {
+    const analytics = getAnalytics();
+    // Track view without causing re-render
+    if (analytics) {
+      // Analytics tracking logic here
+    }
+  }, [getAnalytics]);
 
   useEffect(() => {
-    setAnimatedViewers(analytics.current_viewers);
-  }, [analytics.current_viewers]);
+    trackView();
+  }, [trackView]);
 
   useEffect(() => {
-    setAnimatedPurchases(analytics.total_purchases);
-  }, [analytics.total_purchases]);
+    // Animate viewer count changes
+    const interval = setInterval(() => {
+      const variation = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+      setDisplayViewers(prev => Math.max(1, prev + variation));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2 md:mb-3">
-      <Badge className="bg-green-100 text-green-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-pulse text-xs whitespace-nowrap">
-        <Eye className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
-        <span className="font-medium">{animatedViewers.toLocaleString('en-IN')} viewing</span>
-      </Badge>
-      
-      <Badge className="bg-blue-100 text-blue-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 text-xs whitespace-nowrap">
-        <ShoppingBag className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
-        <span className="font-medium">{animatedPurchases.toLocaleString('en-IN')} sold</span>
-      </Badge>
-
-      {animatedViewers > 8000 && (
-        <Badge className="bg-red-100 text-red-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-bounce text-xs whitespace-nowrap">
-          <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
-          <span className="font-medium hidden sm:inline">High Demand!</span>
-          <span className="font-medium sm:hidden">🔥</span>
-        </Badge>
-      )}
+    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <span className="text-red-700 font-medium">
+            {displayViewers} people viewing this
+          </span>
+        </div>
+        <span className="text-red-600 font-semibold">
+          {totalPurchases} sold today
+        </span>
+      </div>
     </div>
   );
 };
