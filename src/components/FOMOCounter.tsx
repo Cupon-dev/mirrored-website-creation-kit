@@ -1,28 +1,30 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAnalytics } from '@/contexts/AnalyticsContext';
+import { useSharedAnalytics } from '@/contexts/AnalyticsContext';
 
 interface FOMOCounterProps {
-  currentViewers: number;
-  totalPurchases: number;
+  productId: string;
 }
 
-const FOMOCounter = ({ currentViewers, totalPurchases }: FOMOCounterProps) => {
-  const [displayViewers, setDisplayViewers] = useState(currentViewers);
-  const { getAnalytics } = useAnalytics();
+const FOMOCounter = ({ productId }: FOMOCounterProps) => {
+  const { getAnalytics } = useSharedAnalytics();
+  const analytics = getAnalytics(productId);
+  const [displayViewers, setDisplayViewers] = useState(analytics.current_viewers);
 
   // Memoize the analytics call to prevent re-renders
   const trackView = useCallback(() => {
-    const analytics = getAnalytics();
     // Track view without causing re-render
-    if (analytics) {
-      // Analytics tracking logic here
-    }
-  }, [getAnalytics]);
+    console.log('Tracking view for product:', productId);
+  }, [productId]);
 
   useEffect(() => {
     trackView();
   }, [trackView]);
+
+  useEffect(() => {
+    // Update display viewers when analytics change
+    setDisplayViewers(analytics.current_viewers);
+  }, [analytics.current_viewers]);
 
   useEffect(() => {
     // Animate viewer count changes
@@ -44,7 +46,7 @@ const FOMOCounter = ({ currentViewers, totalPurchases }: FOMOCounterProps) => {
           </span>
         </div>
         <span className="text-red-600 font-semibold">
-          {totalPurchases} sold today
+          {analytics.total_purchases} sold today
         </span>
       </div>
     </div>
