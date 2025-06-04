@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Home } from 'lucide-react';
@@ -20,22 +19,22 @@ const PaymentSuccessHandler = () => {
   useEffect(() => {
     const handlePaymentSuccess = async () => {
       // Get email from URL params or user
-      const email = searchParams.get('email') || user?.email;
+      let userEmail = searchParams.get('email') || user?.email;
       
-      if (!email) {
+      if (!userEmail) {
         // Try to get from localStorage
         const pendingPayment = localStorage.getItem('pending_payment');
         if (pendingPayment) {
           try {
             const paymentData = JSON.parse(pendingPayment);
-            email = paymentData.email;
+            userEmail = paymentData.email;
           } catch (error) {
             console.error('Error parsing pending payment:', error);
           }
         }
       }
       
-      if (!email) {
+      if (!userEmail) {
         toast({
           title: "Error",
           description: "No email found for payment verification",
@@ -46,17 +45,17 @@ const PaymentSuccessHandler = () => {
       }
 
       try {
-        console.log('Processing payment success for email:', email);
+        console.log('Processing payment success for email:', userEmail);
         
         // Add a small delay to allow webhook processing
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Verify payment and grant access
-        const result = await verifyPaymentAndGrantAccess(email, user?.id);
+        const result = await verifyPaymentAndGrantAccess(userEmail, user?.id);
         
         if (result.success && result.accessGranted) {
           setPaymentData({
-            email: email
+            email: userEmail
           });
 
           // Grant access locally
