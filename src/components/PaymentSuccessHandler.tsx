@@ -1,6 +1,7 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Home } from 'lucide-react';
+import { CheckCircle, Home, Play, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,7 +56,9 @@ const PaymentSuccessHandler = () => {
         
         if (result.success && result.accessGranted) {
           setPaymentData({
-            email: userEmail
+            email: userEmail,
+            driveLink: result.driveLink,
+            whatsappGroup: result.whatsappGroup
           });
 
           // Grant access locally
@@ -72,10 +75,10 @@ const PaymentSuccessHandler = () => {
             duration: 6000,
           });
 
-          // Auto redirect after 3 seconds
+          // Auto redirect after 5 seconds
           setTimeout(() => {
             navigate('/', { replace: true });
-          }, 3000);
+          }, 5000);
         } else {
           toast({
             title: "Payment Processing",
@@ -140,9 +143,52 @@ const PaymentSuccessHandler = () => {
               <li>✅ No additional steps needed</li>
             </ul>
           </div>
+
+          {/* Video Demo Section */}
+          <div className="bg-blue-50 rounded-lg p-4 text-left">
+            <h3 className="font-semibold text-blue-800 mb-2 flex items-center">
+              <Play className="w-4 h-4 mr-2" />
+              📹 Watch Demo Video
+            </h3>
+            <p className="text-sm text-blue-700 mb-3">
+              See how to access and use your purchased content with this quick demo video.
+            </p>
+            <Button
+              onClick={() => window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank')}
+              variant="outline"
+              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Watch Demo Video
+            </Button>
+          </div>
+
+          {/* Access Links */}
+          {paymentData?.driveLink && (
+            <div className="bg-purple-50 rounded-lg p-4 text-left">
+              <h3 className="font-semibold text-purple-800 mb-2">🔗 Your Content</h3>
+              <Button
+                onClick={() => window.open(paymentData.driveLink, '_blank')}
+                variant="outline"
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100 mb-2"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Access Download Link
+              </Button>
+              {paymentData?.whatsappGroup && (
+                <Button
+                  onClick={() => window.open(paymentData.whatsappGroup, '_blank')}
+                  variant="outline"
+                  className="w-full border-green-300 text-green-700 hover:bg-green-100"
+                >
+                  💬 Join WhatsApp Group
+                </Button>
+              )}
+            </div>
+          )}
           
           <div className="text-center">
-            <p className="text-sm text-gray-600 mb-3">Redirecting to home page in 3 seconds...</p>
+            <p className="text-sm text-gray-600 mb-3">Redirecting to home page in 5 seconds...</p>
             <Button
               onClick={() => navigate('/', { replace: true })}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"

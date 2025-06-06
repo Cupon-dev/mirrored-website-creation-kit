@@ -96,6 +96,15 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
     const orderIdSuffix = Math.random().toString(36).substring(2, 8);
     const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
 
+    // Store the payment data for redirect
+    const paymentData = {
+      email,
+      phoneNumber,
+      amount,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('pending_payment', JSON.stringify(paymentData));
+
     // Create payment record
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
