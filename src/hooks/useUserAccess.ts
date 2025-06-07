@@ -35,7 +35,19 @@ export const useUserAccess = () => {
 
       if (error) {
         console.error('Error fetching user access:', error);
-        setUserAccess([]);
+        // Also check by email if user_id lookup fails
+        const { data: emailData, error: emailError } = await supabase
+          .from('payments')
+          .select('id')
+          .eq('email', user.email)
+          .eq('status', 'completed');
+
+        if (!emailError && emailData && emailData.length > 0) {
+          console.log('Found payment by email, granting access to digital-product-1');
+          setUserAccess(['digital-product-1']);
+        } else {
+          setUserAccess([]);
+        }
         return;
       }
 

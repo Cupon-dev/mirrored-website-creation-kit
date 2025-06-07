@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PaymentVerificationResult {
@@ -41,21 +40,31 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       console.log('Granting access to user:', userId);
       
-      const { error: accessError } = await supabase
+      // Check if access already exists
+      const { data: existingAccess } = await supabase
         .from('user_product_access')
-        .upsert({
-          user_id: userId,
-          product_id: 'digital-product-1',
-          payment_id: latestPayment.id
-        }, {
-          onConflict: 'user_id,product_id'
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .eq('product_id', 'digital-product-1')
+        .single();
 
-      if (accessError) {
-        console.error('Error granting access:', accessError);
-        return { success: false, error: 'Failed to grant access' };
+      if (!existingAccess) {
+        const { error: accessError } = await supabase
+          .from('user_product_access')
+          .insert({
+            user_id: userId,
+            product_id: 'digital-product-1',
+            payment_id: latestPayment.id
+          });
+
+        if (accessError) {
+          console.error('Error granting access:', accessError);
+          return { success: false, error: 'Failed to grant access' };
+        }
+        console.log('Access granted successfully');
+      } else {
+        console.log('Access already exists for user');
       }
-      console.log('Access granted successfully');
     }
 
     return {

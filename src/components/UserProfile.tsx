@@ -26,16 +26,20 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (user) {
-      if (userAccess.length > 0) {
-        fetchPurchasedProducts();
-      } else if (!accessLoading) {
-        // If no access found, try to verify payments
-        verifyUserPayments();
-      }
+      // Always try to verify payments first
+      verifyUserPayments();
     } else {
       setIsLoading(false);
     }
-  }, [user, userAccess, accessLoading]);
+  }, [user]);
+
+  useEffect(() => {
+    if (user && userAccess.length > 0) {
+      fetchPurchasedProducts();
+    } else if (!accessLoading && user) {
+      setIsLoading(false);
+    }
+  }, [userAccess, accessLoading, user]);
 
   const verifyUserPayments = async () => {
     if (!user?.email) return;
@@ -49,13 +53,12 @@ const UserProfile = () => {
         await refreshAccess();
       } else {
         console.log('No payments found or verification failed');
-        setIsLoading(false);
       }
     } catch (error) {
       console.error('Payment verification error:', error);
-      setIsLoading(false);
     } finally {
       setIsVerifying(false);
+      setIsLoading(false);
     }
   };
 
@@ -93,10 +96,7 @@ const UserProfile = () => {
 
   const handleRefresh = async () => {
     setIsLoading(true);
-    await refreshAccess();
-    if (user?.email) {
-      await verifyUserPayments();
-    }
+    await verifyUserPayments();
   };
 
   if (!user) {
@@ -127,7 +127,7 @@ const UserProfile = () => {
             {userAccess.length > 0 && (
               <Badge className="bg-green-100 text-green-800 text-xs mt-1">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                Verified Access
+                {userAccess.length} Product{userAccess.length > 1 ? 's' : ''} Owned
               </Badge>
             )}
           </div>
@@ -185,11 +185,19 @@ const UserProfile = () => {
         </div>
       )}
 
-      {purchasedProducts.length === 0 && (
+      {purchasedProducts.length === 0 && !isLoading && (
         <div className="text-center py-6 sm:py-8">
           <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-500 text-sm sm:text-base">No products purchased yet</p>
           <p className="text-xs sm:text-sm text-gray-400">Start shopping to see your products here!</p>
+          <Button 
+            onClick={handleRefresh}
+            variant="outline"
+            className="mt-3"
+            size="sm"
+          >
+            Check for Recent Purchases
+          </Button>
         </div>
       )}
     </div>
