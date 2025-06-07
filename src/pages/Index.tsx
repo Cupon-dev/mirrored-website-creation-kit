@@ -1,9 +1,5 @@
-{/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex itemsimport { useState, useEffect } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library, Phone, Mail, X, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,13 +15,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const createSupabaseClient = () => {
   return {
     from: (table) => ({
-      select: (columns = '*') => ({
-        eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-        execute: () => simulateSupabaseQuery(table, 'select', {}),
-        order: (column, options) => ({
-          execute: () => simulateSupabaseQuery(table, 'select', { order: { column, ...options } })
-        })
-      }),
+      select: (columns = '*') => {
+        const baseQuery = {
+          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
+          order: (column, options) => simulateSupabaseQuery(table, 'select', { order: { column, ...options }, columns })
+        };
+        return baseQuery;
+      },
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
       update: (data) => ({
         eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
@@ -403,8 +399,7 @@ const Index = () => {
       const { data: existingUsers, error: queryError } = await supabaseClient
         .from('users')
         .select('*')
-        .or(`email.eq.${identifier},phone.eq.${identifier}`)
-        .limit(1);
+        .eq('email', identifier);
 
       let userData;
       
@@ -431,15 +426,12 @@ const Index = () => {
         // Save new user to database
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
-          .insert([userData])
-          .select()
-          .single();
+          .insert([userData]);
 
         if (insertError) {
           console.error('Error creating user:', insertError);
           // Fallback: continue with local user data
         } else {
-          userData = newUser;
           console.log('✅ New user created in database:', userData.id);
         }
       }
@@ -471,14 +463,12 @@ const Index = () => {
           login_time: sessionData.login_time,
           user_agent: sessionData.user_agent,
           ip_address: sessionData.ip_address || 'unknown'
-        }])
-        .select()
-        .single();
+        }]);
       
       if (error) {
         console.error('Error saving session:', error);
       } else {
-        console.log('✅ Session saved to database:', data.session_id);
+        console.log('✅ Session saved to database:', sessionData.session_id);
       }
     } catch (error) {
       console.error('Error saving session:', error);
@@ -498,9 +488,7 @@ const Index = () => {
           payment_session_id: paymentData.payment_session_id,
           status: paymentData.status,
           created_at: paymentData.created_at
-        }])
-        .select()
-        .single();
+        }]);
       
       if (paymentError) {
         console.error('Error saving payment:', paymentError);
@@ -519,9 +507,7 @@ const Index = () => {
       
       const { data: access, error: accessError } = await supabaseClient
         .from('user_product_access')
-        .insert([accessData])
-        .select()
-        .single();
+        .insert([accessData]);
       
       if (accessError) {
         console.error('Error granting access:', accessError);
@@ -739,22 +725,6 @@ const Index = () => {
         return true;
       }
       
-      // In production, replace this with:
-      /*
-      const razorpayVerification = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payment_session_id: paymentSessionId,
-          razorpay_payment_id: urlParams.get('razorpay_payment_id'),
-          razorpay_signature: urlParams.get('razorpay_signature')
-        })
-      });
-      
-      const verificationResult = await razorpayVerification.json();
-      return verificationResult.verified;
-      */
-      
       return false;
     } catch (error) {
       console.error('Payment verification error:', error);
@@ -875,9 +845,6 @@ const Index = () => {
     
     // Show payment in progress message
     alert(`🔄 Payment initiated for ${product.name}\n\nYou will be redirected to Razorpay to complete payment.\nAccess will be granted only after successful payment verification.`);
-    
-    // REMOVE THE AUTO-GRANT SIMULATION - THIS WAS THE SECURITY FLAW
-    // No automatic access granted here - only after real payment verification
   };
 
   const accessDigitalContent = async (product) => {
