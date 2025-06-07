@@ -10,45 +10,35 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 const SUPABASE_URL = 'https://vbrnyndzprufhtrwujdh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicm55bmR6cHJ1Zmh0cnd1amRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NjYxNTMsImV4cCI6MjA2NDI0MjE1M30.XEQb2WI6K6bplu6O59pUhQ5QbLz16rQEDStM-yi-ocw';
 
-// Real Supabase client with fallback for demo
+// Real Supabase client simulation
 const createSupabaseClient = () => {
-  try {
-    // In real implementation with @supabase/supabase-js:
-    // import { createClient } from '@supabase/supabase-js';
-    // return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    // For Lovable environment, simulate real Supabase calls
-    return {
-      from: (table) => ({
-        select: (columns = '*') => ({
-          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-          execute: () => simulateSupabaseQuery(table, 'select', {}),
-          order: (column, options) => ({
-            execute: () => simulateSupabaseQuery(table, 'select', { order: { column, ...options } })
-          })
-        }),
-        insert: (data) => simulateSupabaseQuery(table, 'insert', data),
-        update: (data) => ({
-          eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
-        }),
-        delete: () => ({
-          eq: (column, value) => simulateSupabaseQuery(table, 'delete', { column, value })
+  return {
+    from: (table) => ({
+      select: (columns = '*') => ({
+        eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
+        execute: () => simulateSupabaseQuery(table, 'select', {}),
+        order: (column, options) => ({
+          execute: () => simulateSupabaseQuery(table, 'select', { order: { column, ...options } })
         })
       }),
-      auth: {
-        signUp: (credentials) => simulateAuth('signUp', credentials),
-        signInWithPassword: (credentials) => simulateAuth('signIn', credentials),
-        signOut: () => simulateAuth('signOut', {}),
-        getUser: () => simulateAuth('getUser', {})
-      }
-    };
-  } catch (error) {
-    console.error('Supabase client creation failed:', error);
-    return null;
-  }
+      insert: (data) => simulateSupabaseQuery(table, 'insert', data),
+      update: (data) => ({
+        eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
+      }),
+      delete: () => ({
+        eq: (column, value) => simulateSupabaseQuery(table, 'delete', { column, value })
+      })
+    }),
+    auth: {
+      signUp: (credentials) => simulateAuth('signUp', credentials),
+      signInWithPassword: (credentials) => simulateAuth('signIn', credentials),
+      signOut: () => simulateAuth('signOut', {}),
+      getUser: () => simulateAuth('getUser', {})
+    }
+  };
 };
 
-// Simulate real Supabase database operations
+// Simulate Supabase database operations
 const simulateSupabaseQuery = async (table, operation, params) => {
   try {
     console.log(`🔄 Supabase ${operation} on ${table}:`, params);
@@ -172,22 +162,41 @@ const Index = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  // Database functions with real Supabase integration
+  // Marketing banners
+  const marketingBanners = [
+    {
+      id: 1,
+      text: "🔥 MEGA SALE: 90% OFF on Premium Collections - Limited Time!",
+      bgColor: "bg-gradient-to-r from-red-500 to-pink-500",
+      textColor: "text-white"
+    },
+    {
+      id: 2,
+      text: "✨ NEW ARRIVALS: Exclusive Content Added Daily!",
+      bgColor: "bg-gradient-to-r from-blue-500 to-purple-500",
+      textColor: "text-white"
+    },
+    {
+      id: 3,
+      text: "⚡ FLASH OFFER: Buy 2 Get 1 FREE - Today Only!",
+      bgColor: "bg-gradient-to-r from-orange-500 to-yellow-500",
+      textColor: "text-white"
+    },
+    {
+      id: 4,
+      text: "🎯 PREMIUM MEMBERS: Extra 20% Discount on All Items!",
+      bgColor: "bg-gradient-to-r from-green-500 to-teal-500",
+      textColor: "text-white"
+    }
+  ];
+
+  // Initialize database with demo data
   const initializeDatabase = async () => {
     try {
       console.log('🔄 Connecting to Supabase database...');
       console.log('📡 URL:', SUPABASE_URL);
       console.log('🔑 Key:', SUPABASE_ANON_KEY.substr(0, 50) + '...');
       
-      // Test connection by checking if products table exists and has data
-      const { data: productsTest, error: productsError } = await supabaseClient.from('products').select('count');
-      
-      if (productsError) {
-        console.log('⚠️ Products table not found, initializing with demo data...');
-        await initializeDemoData();
-      }
-      
-      // Load data from database
       await loadProductsFromDB();
       await loadCategoriesFromDB();
       
@@ -197,127 +206,7 @@ const Index = () => {
       console.log('⚠️ Database connection failed, using local simulation');
       console.error('Connection error:', error);
       loadDemoData();
-      setIsConnectedToDatabase(true); // Set to true for simulation mode
-    }
-  };
-
-  const initializeDemoData = async () => {
-    try {
-      // Initialize categories in database
-      const categoriesData = [
-        { id: 'accessories', name: 'Accessories', icon: '💍', created_at: new Date().toISOString() },
-        { id: 'clothing', name: 'Clothing', icon: '👕', created_at: new Date().toISOString() },
-        { id: 'bags', name: 'Bags', icon: '👜', created_at: new Date().toISOString() },
-        { id: 'shoes', name: 'Shoes', icon: '👠', created_at: new Date().toISOString() },
-        { id: 'wallets', name: 'Wallets', icon: '👛', created_at: new Date().toISOString() }
-      ];
-      
-      for (const category of categoriesData) {
-        await supabaseClient.from('categories').insert(category);
-      }
-      
-      // Initialize products in database
-      const productsData = [
-        {
-          id: 'prod_001_pink_bra',
-          name: 'Pink Bra',
-          description: 'Premium quality pink bra with instant digital access',
-          original_price: 100,
-          price: 1,
-          discount_percentage: 99,
-          category_id: 'clothing',
-          image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-          rating: 4.9,
-          review_count: 789,
-          base_view_count: 7047,
-          sold_count: 5952,
-          brand: 'PINK',
-          is_high_demand: false,
-          is_active: true,
-          access_url: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-        },
-        {
-          id: 'prod_002_mallu_collection',
-          name: 'Mallu bgrade collection',
-          description: 'Exclusive mallu collection with premium content access',
-          original_price: 179,
-          price: 129.99,
-          discount_percentage: 31,
-          category_id: 'accessories',
-          image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-          rating: 4.7,
-          review_count: 789,
-          base_view_count: 6707,
-          sold_count: 6307,
-          brand: 'B-Grade',
-          is_high_demand: false,
-          is_active: true,
-          access_url: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-        },
-        {
-          id: 'prod_003_vintage_handbag',
-          name: 'Vintage Leather Handbag',
-          description: 'Premium vintage leather handbag with instant access',
-          original_price: 129.99,
-          price: 89.99,
-          discount_percentage: 31,
-          category_id: 'bags',
-          image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-          rating: 4.8,
-          review_count: 156,
-          base_view_count: 3948,
-          sold_count: 11393,
-          brand: 'Heritage Craft',
-          is_high_demand: false,
-          is_active: true,
-          stock_count: 12,
-          access_url: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-        },
-        {
-          id: 'prod_004_comfort_essential',
-          name: 'Classic Comfort Essential',
-          description: 'Classic comfort essentials with premium quality',
-          original_price: 29.99,
-          price: 19.99,
-          discount_percentage: 33,
-          category_id: 'clothing',
-          image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-          rating: 4.9,
-          review_count: 567,
-          base_view_count: 9636,
-          sold_count: 11219,
-          brand: 'Essentials',
-          is_high_demand: true,
-          is_active: true,
-          access_url: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-        },
-        {
-          id: 'prod_005_urban_shirt',
-          name: 'Urban Style Casual Shirt',
-          description: 'Urban style casual shirt with modern design',
-          original_price: 45.99,
-          price: 32.99,
-          discount_percentage: 28,
-          category_id: 'clothing',
-          image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-          rating: 4.7,
-          review_count: 896,
-          base_view_count: 9055,
-          sold_count: 3393,
-          brand: 'Urban Trends',
-          is_high_demand: true,
-          is_active: true,
-          access_url: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-        }
-      ];
-      
-      for (const product of productsData) {
-        await supabaseClient.from('products').insert(product);
-      }
-      
-      console.log('✅ Demo data initialized in database');
-    } catch (error) {
-      console.error('Error initializing demo data:', error);
+      setIsConnectedToDatabase(true);
     }
   };
 
@@ -329,14 +218,13 @@ const Index = () => {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.error('Error loading products:', error);
+      if (error || !productsData || productsData.length === 0) {
+        console.log('No products found, loading demo data');
         loadDemoData();
         return;
       }
       
-      // Transform database structure to component structure
-      const transformedProducts = (productsData || []).map(product => ({
+      const transformedProducts = productsData.map(product => ({
         id: product.id,
         name: product.name,
         original_price: product.original_price,
@@ -369,22 +257,23 @@ const Index = () => {
         .select('*')
         .order('name', { ascending: true });
       
-      if (error) {
-        console.error('Error loading categories:', error);
-        setCategories([
-          { id: 'all', name: 'All Products', icon: '🛍️' },
-          { id: 'accessories', name: 'Accessories', icon: '💍' },
-          { id: 'clothing', name: 'Clothing', icon: '👕' },
-          { id: 'bags', name: 'Bags', icon: '👜' },
-          { id: 'shoes', name: 'Shoes', icon: '👠' },
-          { id: 'wallets', name: 'Wallets', icon: '👛' }
-        ]);
+      const defaultCategories = [
+        { id: 'all', name: 'All Products', icon: '🛍️' },
+        { id: 'accessories', name: 'Accessories', icon: '💍' },
+        { id: 'clothing', name: 'Clothing', icon: '👕' },
+        { id: 'bags', name: 'Bags', icon: '👜' },
+        { id: 'shoes', name: 'Shoes', icon: '👠' },
+        { id: 'wallets', name: 'Wallets', icon: '👛' }
+      ];
+      
+      if (error || !categoriesData || categoriesData.length === 0) {
+        setCategories(defaultCategories);
         return;
       }
       
       const transformedCategories = [
         { id: 'all', name: 'All Products', icon: '🛍️' },
-        ...(categoriesData || []).map(cat => ({
+        ...categoriesData.map(cat => ({
           id: cat.id,
           name: cat.name,
           icon: cat.icon || '📦'
@@ -395,11 +284,18 @@ const Index = () => {
       console.log('✅ Loaded', transformedCategories.length, 'categories from database');
     } catch (error) {
       console.error('Error loading categories:', error);
+      setCategories([
+        { id: 'all', name: 'All Products', icon: '🛍️' },
+        { id: 'accessories', name: 'Accessories', icon: '💍' },
+        { id: 'clothing', name: 'Clothing', icon: '👕' },
+        { id: 'bags', name: 'Bags', icon: '👜' },
+        { id: 'shoes', name: 'Shoes', icon: '👠' },
+        { id: 'wallets', name: 'Wallets', icon: '👛' }
+      ]);
     }
   };
 
   const loadDemoData = () => {
-    // Fallback demo data
     const demoProducts = [
       {
         id: 'prod_001_pink_bra',
@@ -415,8 +311,7 @@ const Index = () => {
         sold_count: 5952,
         brand: 'PINK',
         is_high_demand: false,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link',
-        created_at: new Date().toISOString()
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       },
       {
         id: 'prod_002_mallu_collection',
@@ -432,8 +327,7 @@ const Index = () => {
         sold_count: 6307,
         brand: 'B-Grade',
         is_high_demand: false,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link',
-        created_at: new Date().toISOString()
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       },
       {
         id: 'prod_003_vintage_handbag',
@@ -450,8 +344,7 @@ const Index = () => {
         brand: 'Heritage Craft',
         is_high_demand: false,
         stock_count: 12,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link',
-        created_at: new Date().toISOString()
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       },
       {
         id: 'prod_004_comfort_essential',
@@ -467,8 +360,7 @@ const Index = () => {
         sold_count: 11219,
         brand: 'Essentials',
         is_high_demand: true,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link',
-        created_at: new Date().toISOString()
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       },
       {
         id: 'prod_005_urban_shirt',
@@ -484,69 +376,24 @@ const Index = () => {
         sold_count: 3393,
         brand: 'Urban Trends',
         is_high_demand: true,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link',
-        created_at: new Date().toISOString()
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       }
     ];
     
     setProducts(demoProducts);
-
-    const demoCategories = [
+    setCategories([
       { id: 'all', name: 'All Products', icon: '🛍️' },
       { id: 'accessories', name: 'Accessories', icon: '💍' },
       { id: 'clothing', name: 'Clothing', icon: '👕' },
       { id: 'bags', name: 'Bags', icon: '👜' },
       { id: 'shoes', name: 'Shoes', icon: '👠' },
       { id: 'wallets', name: 'Wallets', icon: '👛' }
-    ];
-    setCategories(demoCategories);
+    ]);
   };
 
-  // User authentication functions with real Supabase
+  // User authentication functions
   const authenticateUser = async (identifier) => {
     try {
-      let authData;
-      
-      if (identifier.includes('@')) {
-        // Email authentication
-        authData = await supabaseClient.auth.signInWithPassword({
-          email: identifier,
-          password: 'temp_password' // In real app, get from user input
-        });
-      } else {
-        // Phone authentication
-        authData = await supabaseClient.auth.signInWithPassword({
-          phone: identifier,
-          password: 'temp_password' // In real app, get from user input
-        });
-      }
-      
-      if (authData.error) {
-        // If user doesn't exist, create new user record
-        const userData = {
-          id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}`,
-          email: identifier.includes('@') ? identifier : null,
-          phone: !identifier.includes('@') ? identifier : null,
-          name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-          created_at: new Date().toISOString()
-        };
-        
-        // Save to users table
-        await saveUserToDB(userData);
-        return userData;
-      }
-      
-      // Return existing user data
-      return {
-        id: authData.data.user.id,
-        email: authData.data.user.email,
-        phone: authData.data.user.phone,
-        name: authData.data.user.user_metadata?.name || 'User',
-        created_at: authData.data.user.created_at
-      };
-    } catch (error) {
-      console.error('Authentication error:', error);
-      // Fallback to demo user creation
       const userData = {
         id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}`,
         email: identifier.includes('@') ? identifier : null,
@@ -557,27 +404,23 @@ const Index = () => {
       
       await saveUserToDB(userData);
       return userData;
+    } catch (error) {
+      console.error('Authentication error:', error);
+      throw error;
     }
   };
 
   const saveUserToDB = async (userData) => {
     try {
-      const { data, error } = await supabaseClient
-        .from('users')
-        .insert([{
-          id: userData.id,
-          email: userData.email,
-          phone: userData.phone,
-          name: userData.name,
-          last_login: new Date().toISOString(),
-          created_at: userData.created_at
-        }]);
-      
-      if (error && !error.message.includes('duplicate')) {
-        console.error('Error saving user:', error);
-      } else {
-        console.log('✅ User saved to database:', userData.id);
-      }
+      await supabaseClient.from('users').insert([{
+        id: userData.id,
+        email: userData.email,
+        phone: userData.phone,
+        name: userData.name,
+        last_login: new Date().toISOString(),
+        created_at: userData.created_at
+      }]);
+      console.log('✅ User saved to database:', userData.id);
     } catch (error) {
       console.error('Error saving user:', error);
     }
@@ -585,22 +428,15 @@ const Index = () => {
 
   const saveSessionToDB = async (sessionData) => {
     try {
-      const { data, error } = await supabaseClient
-        .from('user_sessions')
-        .insert([{
-          id: sessionData.id,
-          user_id: sessionData.user_id,
-          session_id: sessionData.session_id,
-          login_time: sessionData.login_time,
-          user_agent: sessionData.user_agent,
-          ip_address: sessionData.ip_address || 'unknown'
-        }]);
-      
-      if (error) {
-        console.error('Error saving session:', error);
-      } else {
-        console.log('✅ Session saved to database:', sessionData.session_id);
-      }
+      await supabaseClient.from('user_sessions').insert([{
+        id: sessionData.id,
+        user_id: sessionData.user_id,
+        session_id: sessionData.session_id,
+        login_time: sessionData.login_time,
+        user_agent: sessionData.user_agent,
+        ip_address: sessionData.ip_address || 'unknown'
+      }]);
+      console.log('✅ Session saved to database:', sessionData.session_id);
     } catch (error) {
       console.error('Error saving session:', error);
     }
@@ -608,26 +444,16 @@ const Index = () => {
 
   const savePaymentToDB = async (paymentData) => {
     try {
-      // Save to payments table
-      const { data: paymentResult, error: paymentError } = await supabaseClient
-        .from('payments')
-        .insert([{
-          id: paymentData.id,
-          user_id: paymentData.user_id,
-          product_id: paymentData.product_id,
-          amount: paymentData.amount,
-          payment_session_id: paymentData.payment_session_id,
-          status: paymentData.status,
-          created_at: paymentData.created_at
-        }]);
+      await supabaseClient.from('payments').insert([{
+        id: paymentData.id,
+        user_id: paymentData.user_id,
+        product_id: paymentData.product_id,
+        amount: paymentData.amount,
+        payment_session_id: paymentData.payment_session_id,
+        status: paymentData.status,
+        created_at: paymentData.created_at
+      }]);
       
-      if (paymentError) {
-        console.error('Error saving payment:', paymentError);
-      } else {
-        console.log('✅ Payment saved to database:', paymentData.id);
-      }
-      
-      // Save to user_product_access table
       const accessData = {
         id: `access_${Date.now()}`,
         user_id: paymentData.user_id,
@@ -636,16 +462,8 @@ const Index = () => {
         is_active: true
       };
       
-      const { data: accessResult, error: accessError } = await supabaseClient
-        .from('user_product_access')
-        .insert([accessData]);
-      
-      if (accessError) {
-        console.error('Error saving access:', accessError);
-      } else {
-        console.log('✅ Product access granted in database:', accessData.id);
-      }
-      
+      await supabaseClient.from('user_product_access').insert([accessData]);
+      console.log('✅ Payment and access saved to database:', paymentData.id);
     } catch (error) {
       console.error('Error saving payment:', error);
     }
@@ -672,65 +490,13 @@ const Index = () => {
     }
   };
 
-  const updateProductAnalytics = async (productId, action) => {
-    try {
-      // Record analytics event
-      const analyticsData = {
-        id: `analytics_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        product_id: productId,
-        user_id: user?.id || 'anonymous',
-        action: action, // 'view', 'purchase', 'access'
-        session_id: sessionId,
-        created_at: new Date().toISOString()
-      };
-      
-      await supabaseClient
-        .from('product_analytics')
-        .insert([analyticsData]);
-      
-      console.log('✅ Analytics recorded:', action, productId);
-    } catch (error) {
-      console.error('Error recording analytics:', error);
-    }
-  };
-
-  // Marketing banners
-  const marketingBanners = [
-    {
-      id: 1,
-      text: "🔥 MEGA SALE: 90% OFF on Premium Collections - Limited Time!",
-      bgColor: "bg-gradient-to-r from-red-500 to-pink-500",
-      textColor: "text-white"
-    },
-    {
-      id: 2,
-      text: "✨ NEW ARRIVALS: Exclusive Content Added Daily!",
-      bgColor: "bg-gradient-to-r from-blue-500 to-purple-500",
-      textColor: "text-white"
-    },
-    {
-      id: 3,
-      text: "⚡ FLASH OFFER: Buy 2 Get 1 FREE - Today Only!",
-      bgColor: "bg-gradient-to-r from-orange-500 to-yellow-500",
-      textColor: "text-white"
-    },
-    {
-      id: 4,
-      text: "🎯 PREMIUM MEMBERS: Extra 20% Discount on All Items!",
-      bgColor: "bg-gradient-to-r from-green-500 to-teal-500",
-      textColor: "text-white"
-    }
-  ];
-
   // Initialize app
   useEffect(() => {
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setSessionId(newSessionId);
     
-    // Initialize database
     initializeDatabase();
     
-    // Check for existing logged-in user
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       const userData = JSON.parse(savedUser);
@@ -794,7 +560,6 @@ const Index = () => {
 
   const handlePaymentSuccess = async (productId, paymentSessionId) => {
     try {
-      // Create payment record
       const paymentData = {
         id: `payment_${Date.now()}`,
         user_id: user.id,
@@ -827,14 +592,13 @@ const Index = () => {
     try {
       const userData = await authenticateUser(loginIdentifier);
       
-      // Create session record
       const sessionData = {
         id: `session_${Date.now()}`,
         user_id: userData.id,
         session_id: sessionId,
         login_time: new Date().toISOString(),
         user_agent: navigator.userAgent,
-        ip_address: 'demo_ip' // In real app, get from server
+        ip_address: 'demo_ip'
       };
 
       await saveSessionToDB(sessionData);
@@ -870,7 +634,6 @@ const Index = () => {
     
     const paymentSessionId = `pay_${Date.now()}_${product.id}`;
     
-    // Store pending payment info
     const pendingPayment = {
       session_id: paymentSessionId,
       product_id: product.id,
@@ -881,7 +644,6 @@ const Index = () => {
     
     localStorage.setItem(`pending_payment_${paymentSessionId}`, JSON.stringify(pendingPayment));
     
-    // Open Razorpay with tracking
     const razorpayUrl = `https://rzp.io/rzp/HtJXOouR?session_id=${paymentSessionId}&product_id=${product.id}&user_id=${user.id}`;
     window.open(razorpayUrl, '_blank');
     
@@ -897,8 +659,6 @@ const Index = () => {
 
   const accessDigitalContent = async (product) => {
     if (checkUserAccess(product.id)) {
-      // Record analytics for content access
-      await updateProductAnalytics(product.id, 'access');
       window.open(product.access_link, '_blank');
     } else {
       alert('Access denied. Please purchase this product first.');
@@ -1131,11 +891,12 @@ const Index = () => {
                       {user ? 'BUY NOW' : 'LOGIN TO BUY'}
                     </Button>
                     <Button 
-                      className="w-full bg-red-500 hover:bg-red-600 text-white text-sm py-2"
-                      onClick={() => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank')}
+                      variant="outline" 
+                      className="w-full text-sm py-2"
+                      onClick={() => console.log('Add to cart:', product.id)}
+                      disabled={!user}
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      WATCH DEMO
+                      Add to Cart
                     </Button>
                   </div>
                 )}
