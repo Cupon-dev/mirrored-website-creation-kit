@@ -26,7 +26,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
   useEffect(() => {
     if (user) {
       setEmail(user.email);
-      setPhoneNumber(user.mobile_number);
+      setPhoneNumber(user.mobile_number || "");
       setName(user.name);
       setStep("payment");
     }
@@ -112,6 +112,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const userEmail = user?.email || email;
       const userPhone = user?.mobile_number || phoneNumber;
 
+      console.log('Initiating payment for:', { userEmail, userPhone, cartTotal });
+
       // Initialize payment record
       const paymentResult = await initializePayment(userEmail, userPhone, cartTotal);
       
@@ -119,41 +121,48 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         throw new Error(paymentResult.error || "Failed to initialize payment");
       }
 
+      console.log('Payment initialized:', paymentResult);
+
       // Store payment details for recovery
       localStorage.setItem('pending_payment', JSON.stringify({
         paymentId: paymentResult.paymentId,
         email: userEmail,
         phoneNumber: userPhone,
         cartTotal,
-        razorpayOrderId: paymentResult.razorpayOrderId
+        razorpayOrderId: paymentResult.razorpayOrderId,
+        timestamp: new Date().toISOString()
       }));
 
       // Check if any cart item has a razorpay_link
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        // Create proper success and cancel URLs with better redirect handling
+        // Create proper success and cancel URLs
         const baseUrl = window.location.origin;
         const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success&payment_id=${paymentResult.paymentId}`;
-        const cancelUrl = `${baseUrl}/cart?status=cancelled`;
+        const cancelUrl = `${baseUrl}/cart?status=cancelled&payment_id=${paymentResult.paymentId}`;
+        
+        console.log('Success URL:', successUrl);
+        console.log('Cancel URL:', cancelUrl);
         
         // Create the payment URL with proper redirects
         const razorpayUrl = new URL(razorpayProduct.products.razorpay_link);
         
-        // Add customer details
+        // Add customer details with proper formatting
         razorpayUrl.searchParams.set('prefill[email]', userEmail);
-        razorpayUrl.searchParams.set('prefill[contact]', userPhone);
+        razorpayUrl.searchParams.set('prefill[contact]', userPhone.replace(/^\+91/, ''));
         razorpayUrl.searchParams.set('prefill[name]', user?.name || name);
         
-        // CRITICAL: Add redirect URLs to ensure user returns to app
+        // Add redirect URLs
         razorpayUrl.searchParams.set('redirect_url', successUrl);
         razorpayUrl.searchParams.set('callback_url', successUrl);
         razorpayUrl.searchParams.set('cancel_url', cancelUrl);
         
-        // Add order details
+        // Add order details for webhook processing
         razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
         razorpayUrl.searchParams.set('notes[customer_email]', userEmail);
         razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId);
+        razorpayUrl.searchParams.set('notes[phone]', userPhone.replace(/^\+91/, ''));
         
         toast({
           title: "Opening Payment Gateway",
@@ -162,6 +171,11 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         });
         
         console.log('Redirecting to payment URL:', razorpayUrl.toString());
+        
+        // Clear cart after successful payment initiation
+        setTimeout(() => {
+          onOrderComplete();
+        }, 1000);
         
         // Redirect to payment page
         window.location.href = razorpayUrl.toString();
