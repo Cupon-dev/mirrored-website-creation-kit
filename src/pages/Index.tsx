@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library, Phone, Mail, X, Database } from "lucide-react";
@@ -16,9 +17,8 @@ const createSupabaseClient = () => {
     from: (table) => ({
       select: (columns = '*') => ({
         eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-        execute: () => simulateSupabaseQuery(table, 'select', {}),
         order: (column, options) => ({
-          execute: () => simulateSupabaseQuery(table, 'select', { order: { column, ...options } })
+          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } })
         })
       }),
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
@@ -474,8 +474,7 @@ const Index = () => {
       const { data: accessData, error } = await supabaseClient
         .from('user_product_access')
         .select('product_id')
-        .eq('user_id', userId)
-        .eq('is_active', true);
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error loading purchases:', error);
@@ -878,10 +877,17 @@ const Index = () => {
                     onClick={() => accessDigitalContent(product)}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
-                    ACCESS NOW
+                    ACCESS YOUR CONTENT
                   </Button>
                 ) : (
                   <div className="space-y-2">
+                    <Button 
+                      className="w-full bg-red-500 hover:bg-red-600 text-white text-sm py-2"
+                      onClick={() => window.open('https://youtube.com/shorts/demo', '_blank')}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      WATCH DEMO
+                    </Button>
                     <Button 
                       className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2"
                       onClick={() => handlePurchase(product)}
@@ -889,14 +895,6 @@ const Index = () => {
                     >
                       <ShoppingBag className="w-4 h-4 mr-2" />
                       {user ? 'BUY NOW' : 'LOGIN TO BUY'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-sm py-2"
-                      onClick={() => console.log('Add to cart:', product.id)}
-                      disabled={!user}
-                    >
-                      Add to Cart
                     </Button>
                   </div>
                 )}
