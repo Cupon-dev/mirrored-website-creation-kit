@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library, Phone, Mail, X, Database } from "lucide-react";
@@ -16,11 +15,15 @@ const createSupabaseClient = () => {
   return {
     from: (table) => ({
       select: (columns = '*') => {
-        const baseQuery = {
+        const queryBuilder = {
           eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
           order: (column, options) => simulateSupabaseQuery(table, 'select', { order: { column, ...options }, columns })
         };
-        return baseQuery;
+        // If no chaining, return the query directly
+        return Object.assign(
+          simulateSupabaseQuery(table, 'select', { columns }),
+          queryBuilder
+        );
       },
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
       update: (data) => ({
@@ -40,7 +43,7 @@ const createSupabaseClient = () => {
 };
 
 // Simulate Supabase database operations
-const simulateSupabaseQuery = async (table, operation, params) => {
+const simulateSupabaseQuery = async (table, operation, params = {}) => {
   try {
     console.log(`🔄 Supabase ${operation} on ${table}:`, params);
     
@@ -213,11 +216,13 @@ const Index = () => {
 
   const loadProductsFromDB = async () => {
     try {
-      const { data: productsData, error } = await supabaseClient
+      const result = await supabaseClient
         .from('products')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+      
+      const { data: productsData, error } = result;
       
       if (error || !productsData || productsData.length === 0) {
         console.log('No products found, loading demo data');
@@ -253,10 +258,12 @@ const Index = () => {
 
   const loadCategoriesFromDB = async () => {
     try {
-      const { data: categoriesData, error } = await supabaseClient
+      const result = await supabaseClient
         .from('categories')
         .select('*')
         .order('name', { ascending: true });
+      
+      const { data: categoriesData, error } = result;
       
       const defaultCategories = [
         { id: 'all', name: 'All Products', icon: '🛍️' },
@@ -329,55 +336,6 @@ const Index = () => {
         brand: 'B-Grade',
         is_high_demand: false,
         access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-      },
-      {
-        id: 'prod_003_vintage_handbag',
-        name: 'Vintage Leather Handbag',
-        original_price: 129.99,
-        price: 89.99,
-        discount: 31,
-        category_id: 'bags',
-        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-        rating: 4.8,
-        reviews: 156,
-        base_viewing: 3948,
-        sold_count: 11393,
-        brand: 'Heritage Craft',
-        is_high_demand: false,
-        stock_count: 12,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-      },
-      {
-        id: 'prod_004_comfort_essential',
-        name: 'Classic Comfort Essential',
-        original_price: 29.99,
-        price: 19.99,
-        discount: 33,
-        category_id: 'clothing',
-        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-        rating: 4.9,
-        reviews: 567,
-        base_viewing: 9636,
-        sold_count: 11219,
-        brand: 'Essentials',
-        is_high_demand: true,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
-      },
-      {
-        id: 'prod_005_urban_shirt',
-        name: 'Urban Style Casual Shirt',
-        original_price: 45.99,
-        price: 32.99,
-        discount: 28,
-        category_id: 'clothing',
-        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
-        rating: 4.7,
-        reviews: 896,
-        base_viewing: 9055,
-        sold_count: 3393,
-        brand: 'Urban Trends',
-        is_high_demand: true,
-        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
       }
     ];
     
@@ -395,932 +353,387 @@ const Index = () => {
   // User authentication functions
   const authenticateUser = async (identifier) => {
     try {
-      // First check if user exists
-      const { data: existingUsers, error: queryError } = await supabaseClient
+      const result = await supabaseClient
         .from('users')
         .select('*')
         .eq('email', identifier);
 
+      const { data: existingUsers, error: queryError } = result;
+
       let userData;
       
       if (existingUsers && existingUsers.length > 0) {
-        // User exists, update last login
         userData = existingUsers[0];
-        await supabaseClient
+        const updateResult = await supabaseClient
           .from('users')
-          .update({ last_login: new Date().toISOString() })
+          .update({ 
+            last_login: new Date().toISOString(),
+            visit_count: (userData.visit_count || 0) + 1
+          })
           .eq('id', userData.id);
-        
-        console.log('✅ Existing user logged in:', userData.id);
       } else {
-        // Create new user
-        userData = {
-          id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}_${Date.now()}`,
-          email: identifier.includes('@') ? identifier : null,
-          phone: !identifier.includes('@') ? identifier : null,
-          name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString()
-        };
-        
-        // Save new user to database
-        const { data: newUser, error: insertError } = await supabaseClient
+        const insertResult = await supabaseClient
           .from('users')
-          .insert([userData]);
-
-        if (insertError) {
-          console.error('Error creating user:', insertError);
-          // Fallback: continue with local user data
-        } else {
-          console.log('✅ New user created in database:', userData.id);
-        }
+          .insert([{
+            email: identifier,
+            mobile_number: '',
+            name: identifier.split('@')[0] || 'User',
+            is_verified: true,
+            visit_count: 1,
+            last_login: new Date().toISOString()
+          }]);
+        
+        userData = insertResult.data?.[0] || {
+          id: `user_${Date.now()}`,
+          email: identifier,
+          name: identifier.split('@')[0] || 'User',
+          mobile_number: '',
+          is_verified: true,
+          visit_count: 1
+        };
       }
+
+      // Fetch user purchases/access
+      const accessResult = await supabaseClient
+        .from('user_product_access')
+        .select('*')
+        .eq('user_id', userData.id);
+
+      const { data: accessData } = accessResult;
+      setUserPurchases(accessData || []);
+      setUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
       
-      return userData;
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Authentication error:', error);
-      // Fallback: create local user
-      const userData = {
-        id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}_${Date.now()}`,
-        email: identifier.includes('@') ? identifier : null,
-        phone: !identifier.includes('@') ? identifier : null,
-        name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-        created_at: new Date().toISOString(),
-        last_login: new Date().toISOString()
-      };
-      return userData;
+      return { success: false, error: error.message };
     }
   };
 
-  const saveSessionToDB = async (sessionData) => {
-    try {
-      const { data, error } = await supabaseClient
-        .from('user_sessions')
-        .insert([{
-          id: sessionData.id,
-          user_id: sessionData.user_id,
-          session_id: sessionData.session_id,
-          login_time: sessionData.login_time,
-          user_agent: sessionData.user_agent,
-          ip_address: sessionData.ip_address || 'unknown'
-        }]);
-      
-      if (error) {
-        console.error('Error saving session:', error);
-      } else {
-        console.log('✅ Session saved to database:', sessionData.session_id);
-      }
-    } catch (error) {
-      console.error('Error saving session:', error);
-    }
-  };
-
-  const savePaymentToDB = async (paymentData) => {
-    try {
-      // Save payment record
-      const { data: payment, error: paymentError } = await supabaseClient
-        .from('payments')
-        .insert([{
-          id: paymentData.id,
-          user_id: paymentData.user_id,
-          product_id: paymentData.product_id,
-          amount: paymentData.amount,
-          payment_session_id: paymentData.payment_session_id,
-          status: paymentData.status,
-          created_at: paymentData.created_at
-        }]);
-      
-      if (paymentError) {
-        console.error('Error saving payment:', paymentError);
-      } else {
-        console.log('✅ Payment saved to database:', payment.id);
-      }
-      
-      // Grant product access
-      const accessData = {
-        id: `access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        user_id: paymentData.user_id,
-        product_id: paymentData.product_id,
-        granted_at: paymentData.created_at,
-        is_active: true
-      };
-      
-      const { data: access, error: accessError } = await supabaseClient
-        .from('user_product_access')
-        .insert([accessData]);
-      
-      if (accessError) {
-        console.error('Error granting access:', accessError);
-      } else {
-        console.log('✅ Product access granted in database:', access.id);
-      }
-      
-    } catch (error) {
-      console.error('Error saving payment:', error);
-    }
-  };
-
-  const loadUserPurchases = async (userId) => {
-    try {
-      const { data: accessData, error } = await supabaseClient
-        .from('user_product_access')
-        .select(`
-          product_id,
-          granted_at,
-          products (
-            id,
-            name,
-            image_url,
-            price,
-            access_url
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('is_active', true);
-
-      if (error) {
-        console.error('Error loading purchases:', error);
-        // Fallback to localStorage
-        const fallbackPurchases = JSON.parse(localStorage.getItem(`purchases_${userId}`) || '[]');
-        setUserPurchases(fallbackPurchases);
-        return;
-      }
-      
-      const productIds = (accessData || []).map(access => access.product_id);
-      setUserPurchases(productIds);
-      
-      // Also save to localStorage as backup
-      localStorage.setItem(`purchases_${userId}`, JSON.stringify(productIds));
-      
-      console.log('✅ Loaded user purchases from database:', productIds.length);
-    } catch (error) {
-      console.error('Error loading purchases:', error);
-      // Fallback to localStorage
-      const fallbackPurchases = JSON.parse(localStorage.getItem(`purchases_${userId}`) || '[]');
-      setUserPurchases(fallbackPurchases);
-    }
-  };
-
-  // Initialize app
   useEffect(() => {
-    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setSessionId(newSessionId);
-    
     initializeDatabase();
     
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      loadUserPurchases(userData.id);
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('currentUser');
+      }
     }
-  }, []);
 
-  // Initialize live viewing numbers
-  useEffect(() => {
-    if (products.length > 0) {
-      const initialViewing = {};
-      products.forEach(product => {
-        initialViewing[product.id] = product.base_viewing;
-      });
-      setLiveViewing(initialViewing);
-    }
-  }, [products]);
+    const sessionId = Math.random().toString(36).substring(7);
+    setSessionId(sessionId);
 
-  // Live viewing counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveViewing(prev => {
-        const updated = { ...prev };
-        products.forEach(product => {
-          const change = Math.floor(Math.random() * 150) - 50;
-          updated[product.id] = Math.max(0, (updated[product.id] || product.base_viewing) + change);
-        });
-        return updated;
-      });
+    const bannerInterval = setInterval(() => {
+      setCurrentBannerIndex(prev => (prev + 1) % marketingBanners.length);
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [products]);
-
-  // Marketing banner rotation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBannerIndex(prev => (prev + 1) % marketingBanners.length);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handle payment success/cancel from URL params
-  useEffect(() => {
-    const urlSessionId = searchParams.get('session_id');
-    const productId = searchParams.get('product_id');
     const status = searchParams.get('status');
-    
-    if (status === 'success' && urlSessionId && productId && user) {
-      // CRITICAL: Only grant access with proper verification
-      verifyAndGrantAccess(productId, urlSessionId);
-    } else if (status === 'cancel') {
-      handlePaymentCancel(urlSessionId);
-    }
-  }, [searchParams, user, navigate]);
-
-  const verifyAndGrantAccess = async (productId, paymentSessionId) => {
-    try {
-      console.log('🔍 Verifying payment for session:', paymentSessionId);
-      
-      // Step 1: Verify payment exists in database as pending
-      const { data: pendingPayments, error: verifyError } = await supabaseClient
-        .from('payments')
-        .select('*')
-        .eq('payment_session_id', paymentSessionId)
-        .eq('user_id', user.id)
-        .eq('product_id', productId);
-      
-      if (verifyError || !pendingPayments || pendingPayments.length === 0) {
-        console.error('❌ Payment verification failed - no pending payment found');
-        alert('❌ Payment verification failed. Please contact support if you completed payment.');
-        return;
-      }
-      
-      const pendingPayment = pendingPayments[0];
-      
-      // Step 2: In a real app, you would verify with Razorpay webhook here
-      // For demo, we simulate this verification step
-      const isPaymentVerified = await simulatePaymentVerification(paymentSessionId);
-      
-      if (!isPaymentVerified) {
-        console.error('❌ Payment verification failed - payment not confirmed');
-        alert('❌ Payment verification failed. Please ensure payment was completed successfully.');
-        return;
-      }
-      
-      // Step 3: Update payment status to completed
-      const { error: updateError } = await supabaseClient
-        .from('payments')
-        .update({ 
-          status: 'completed',
-          verified_at: new Date().toISOString() 
-        })
-        .eq('id', pendingPayment.id);
-      
-      if (updateError) {
-        console.error('❌ Error updating payment status:', updateError);
-        return;
-      }
-      
-      // Step 4: Grant product access
-      const accessData = {
-        id: `access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        user_id: user.id,
-        product_id: productId,
-        granted_at: new Date().toISOString(),
-        is_active: true,
-        payment_id: pendingPayment.id
-      };
-      
-      const { error: accessError } = await supabaseClient
-        .from('user_product_access')
-        .insert([accessData]);
-      
-      if (accessError) {
-        console.error('❌ Error granting access:', accessError);
-        return;
-      }
-      
-      // Step 5: Update UI and show success
-      await loadUserPurchases(user.id);
+    if (status === 'success') {
       setShowPaymentSuccess(true);
-      
-      // Clean up pending payment from localStorage
-      localStorage.removeItem(`pending_payment_${paymentSessionId}`);
-      
-      console.log('✅ Payment verified and access granted');
-      
-      setTimeout(() => {
-        setShowPaymentSuccess(false);
-        navigate('/', { replace: true });
-      }, 3000);
-      
-    } catch (error) {
-      console.error('❌ Payment verification error:', error);
-      alert('❌ Payment verification failed. Please contact support.');
-    }
-  };
-
-  const simulatePaymentVerification = async (paymentSessionId) => {
-    try {
-      // In a real app, this would be a webhook from Razorpay
-      // that verifies the payment with their API
-      
-      // For demo purposes, we simulate this by checking if the user
-      // actually went through the payment flow (URL parameters present)
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlSessionId = urlParams.get('session_id');
-      
-      // Basic verification: session ID matches and user returned with success status
-      if (urlSessionId === paymentSessionId) {
-        console.log('✅ Payment verification simulated - session ID matches');
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Payment verification error:', error);
-      return false;
-    }
-  };
-
-  const handlePaymentCancel = async (paymentSessionId) => {
-    try {
-      // Update payment status to cancelled
-      if (paymentSessionId) {
-        await supabaseClient
-          .from('payments')
-          .update({ status: 'cancelled' })
-          .eq('payment_session_id', paymentSessionId);
-        
-        // Clean up pending payment
-        localStorage.removeItem(`pending_payment_${paymentSessionId}`);
-      }
-      
+      setTimeout(() => setShowPaymentSuccess(false), 5000);
+    } else if (status === 'cancelled') {
       setShowPaymentCancel(true);
-      setTimeout(() => {
-        setShowPaymentCancel(false);
-        navigate('/', { replace: true });
-      }, 3000);
-    } catch (error) {
-      console.error('Error handling payment cancellation:', error);
+      setTimeout(() => setShowPaymentCancel(false), 5000);
     }
-  };
 
-  // Login function
+    return () => {
+      clearInterval(bannerInterval);
+    };
+  }, [searchParams]);
+
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.brand?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   const handleLogin = async () => {
-    if (!loginIdentifier.trim()) return;
+    if (!loginIdentifier) return;
     
     setIsLoggingIn(true);
+    const result = await authenticateUser(loginIdentifier);
     
-    try {
-      const userData = await authenticateUser(loginIdentifier);
-      
-      const sessionData = {
-        id: `session_${Date.now()}`,
-        user_id: userData.id,
-        session_id: sessionId,
-        login_time: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-        ip_address: 'demo_ip'
-      };
-
-      await saveSessionToDB(sessionData);
-      
-      setUser(userData);
-      localStorage.setItem('currentUser', JSON.stringify(userData));
-      await loadUserPurchases(userData.id);
-      
+    if (result.success) {
       setShowLoginDialog(false);
       setLoginIdentifier('');
-      setIsLoggingIn(false);
-    } catch (error) {
-      console.error('Login error:', error);
-      setIsLoggingIn(false);
     }
+    setIsLoggingIn(false);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
     setUser(null);
     setUserPurchases([]);
+    localStorage.removeItem('currentUser');
   };
-
-  const checkUserAccess = (productId) => {
-    return userPurchases.includes(productId);
-  };
-
-  const handlePurchase = async (product) => {
-    if (!user) {
-      setShowLoginDialog(true);
-      return;
-    }
-    
-    const paymentSessionId = `pay_${Date.now()}_${product.id}`;
-    
-    // Store pending payment info (NOT granted yet)
-    const pendingPayment = {
-      session_id: paymentSessionId,
-      product_id: product.id,
-      user_id: user.id,
-      amount: product.price,
-      status: 'pending',
-      timestamp: new Date().toISOString()
-    };
-    
-    localStorage.setItem(`pending_payment_${paymentSessionId}`, JSON.stringify(pendingPayment));
-    
-    // Save pending payment to database (status: pending)
-    try {
-      await supabaseClient.from('payments').insert([{
-        id: `payment_${paymentSessionId}`,
-        user_id: user.id,
-        product_id: product.id,
-        amount: product.price,
-        payment_session_id: paymentSessionId,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      }]);
-      console.log('💳 Pending payment recorded in database');
-    } catch (error) {
-      console.error('Error recording pending payment:', error);
-    }
-    
-    // Redirect to Razorpay with proper return URLs
-    const successUrl = `${window.location.origin}${window.location.pathname}?status=success&session_id=${paymentSessionId}&product_id=${product.id}`;
-    const cancelUrl = `${window.location.origin}${window.location.pathname}?status=cancel&session_id=${paymentSessionId}`;
-    
-    const razorpayUrl = `https://rzp.io/rzp/HtJXOouR?session_id=${paymentSessionId}&product_id=${product.id}&user_id=${user.id}&success_url=${encodeURIComponent(successUrl)}&cancel_url=${encodeURIComponent(cancelUrl)}`;
-    
-    // Open Razorpay payment gateway
-    window.open(razorpayUrl, '_blank');
-    
-    // Show payment in progress message
-    alert(`🔄 Payment initiated for ${product.name}\n\nYou will be redirected to Razorpay to complete payment.\nAccess will be granted only after successful payment verification.`);
-  };
-
-  const accessDigitalContent = async (product) => {
-    if (checkUserAccess(product.id)) {
-      window.open(product.access_link, '_blank');
-    } else {
-      alert('Access denied. Please purchase this product first.');
-    }
-  };
-
-  const toggleWishlist = (productId) => {
-    setWishlist(prev => 
-      prev.includes(productId) 
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
-    : products.filter(product => product.category_id === selectedCategory);
-
-  const purchasedProducts = products.filter(product => checkUserAccess(product.id));
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Database Status Banner */}
-      <div className={`${isConnectedToDatabase ? 'bg-green-500' : 'bg-orange-500'} text-white text-center py-1 px-4 text-xs`}>
-        <div className="flex items-center justify-center space-x-2">
-          <Database className="w-3 h-3" />
-          <span>
-            {isConnectedToDatabase ? '✅ Connected to Supabase Database' : '⚠️ Demo Mode - Replace with correct Supabase credentials'}
-          </span>
-        </div>
-      </div>
-
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
-                {user ? user.name.charAt(0).toUpperCase() : 'G'}
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <p className="text-xs sm:text-sm text-gray-600">
-                  {user ? `Welcome back, ${user.name}` : 'Welcome, Guest'}
-                </p>
-                <h1 className="text-lg sm:text-xl font-bold">PremiumLeaks Store 🔥</h1>
-              </div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">DigitalStore</h1>
             </div>
+            
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Button variant="ghost" size="sm" className="p-1 sm:p-2">
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
               {user ? (
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs sm:text-sm p-1 sm:p-2">
-                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  <span className="hidden sm:inline">Logout</span>
-                  <span className="sm:hidden">Exit</span>
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700 hidden sm:inline">Hello, {user.name}</span>
+                  <Button onClick={handleLogout} variant="outline" size="sm">
+                    <LogOut className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">Logout</span>
+                  </Button>
+                </div>
               ) : (
-                <Button size="sm" onClick={() => setShowLoginDialog(true)} className="text-xs sm:text-sm p-1 sm:p-2">
-                  <LogIn className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  <span>Login</span>
-                </Button>
+                <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <LogIn className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Login</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Login to Your Account</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Enter email or phone"
+                        value={loginIdentifier}
+                        onChange={(e) => setLoginIdentifier(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                      />
+                      <Button 
+                        onClick={handleLogin} 
+                        disabled={isLoggingIn || !loginIdentifier}
+                        className="w-full"
+                      >
+                        {isLoggingIn ? 'Logging in...' : 'Login'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Live Marketing Banner */}
-      <div className={`${marketingBanners[currentBannerIndex].bgColor} ${marketingBanners[currentBannerIndex].textColor} text-center py-2 sm:py-3 px-2 sm:px-4 transition-all duration-500`}>
-        <div className="flex items-center justify-center space-x-1 sm:space-x-2">
-          <span className="text-xs sm:text-sm font-medium animate-pulse">LIVE</span>
-          <span className="text-xs sm:text-sm font-bold">{marketingBanners[currentBannerIndex].text}</span>
-        </div>
+      {/* Marketing Banner */}
+      <div className={`${marketingBanners[currentBannerIndex].bgColor} ${marketingBanners[currentBannerIndex].textColor} py-2 px-4 text-center transition-all duration-500`}>
+        <p className="text-sm font-medium">{marketingBanners[currentBannerIndex].text}</p>
       </div>
 
-      {/* Categories */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Categories</h2>
-          <div className="flex space-x-1 sm:space-x-2 overflow-x-auto pb-2">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap text-xs sm:text-sm ${
-                  selectedCategory === category.id
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <span className="text-xs sm:text-base">{category.icon}</span>
-                <span className="text-xs sm:text-sm">{category.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* User Session Info */}
-      {user && (
-        <div className="bg-blue-50 border-b">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm space-y-1 sm:space-y-0">
-              <span className="text-blue-700">
-                🔒 Secure Session • {purchasedProducts.length} items owned • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
-              </span>
-              <span className="text-blue-600">
-                Session: {sessionId?.slice(-8)} • User: {user.id.slice(-8)}
-              </span>
-            </div>
+      {/* Payment Status Notifications */}
+      {showPaymentSuccess && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mx-4 mt-4">
+          <div className="flex items-center">
+            <CheckCircle className="w-5 h-5 mr-2" />
+            Payment successful! Your purchase has been completed.
           </div>
         </div>
       )}
 
-      {/* Products Grid */}
+      {showPaymentCancel && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mx-4 mt-4">
+          <div className="flex items-center">
+            <XCircle className="w-5 h-5 mr-2" />
+            Payment was cancelled. You can try again anytime.
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+        {/* Search and Navigation */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={showLibrary ? "default" : "outline"}
+                onClick={() => setShowLibrary(!showLibrary)}
+                size="sm"
+              >
+                <Library className="w-4 h-4 mr-1" />
+                My Library
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => navigate('/cart')}
+                size="sm"
+              >
+                <ShoppingBag className="w-4 h-4 mr-1" />
+                Cart
+              </Button>
+            </div>
+          </div>
+
+          {/* Categories */}
+          <div className="flex space-x-2 overflow-x-auto pb-2">
+            {categories.map((category) => (
+              <Button
+                key={category.id}
+                variant={selectedCategory === category.id ? "default" : "outline"}
+                onClick={() => setSelectedCategory(category.id)}
+                size="sm"
+                className="whitespace-nowrap"
+              >
+                <span className="mr-1">{category.icon}</span>
+                {category.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* My Library Section */}
+        {showLibrary && user && (
+          <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-4">My Library</h2>
+            {userPurchases.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userPurchases.map((purchase) => {
+                  const product = products.find(p => p.id === purchase.product_id);
+                  if (!product) return null;
+                  
+                  return (
+                    <div key={purchase.id} className="border rounded-lg p-4">
+                      <img 
+                        src={product.image_url} 
+                        alt={product.name}
+                        className="w-full h-40 object-cover rounded-lg mb-3"
+                      />
+                      <h3 className="font-semibold">{product.name}</h3>
+                      <p className="text-sm text-gray-600 mb-3">Purchased on {new Date(purchase.created_at).toLocaleDateString()}</p>
+                      <Button 
+                        onClick={() => window.open(product.access_link, '_blank')}
+                        className="w-full"
+                        size="sm"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Access Content
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-500">No purchases yet. Start shopping to build your library!</p>
+            )}
+          </div>
+        )}
+
+        {/* Products Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              {/* Product Image */}
+            <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
               <div className="relative">
                 <img 
                   src={product.image_url} 
                   alt={product.name}
-                  className="w-full h-32 sm:h-40 md:h-48 object-cover"
+                  className="w-full h-48 object-cover"
                 />
-                {/* Discount Badge */}
-                <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-red-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-bold">
-                  -{product.discount}%
-                </div>
-                {/* Stock Info */}
-                {product.stock_count && (
-                  <div className="absolute top-1 sm:top-2 right-1 sm:right-2 bg-orange-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs">
-                    Only {product.stock_count} left!
-                  </div>
+                {product.discount > 0 && (
+                  <Badge className="absolute top-2 left-2 bg-red-500 text-white">
+                    -{product.discount}%
+                  </Badge>
                 )}
-                {/* Wishlist */}
-                <button
-                  onClick={() => toggleWishlist(product.id)}
-                  className="absolute top-1 sm:top-2 right-1 sm:right-2 text-white hover:text-red-500 transition-colors"
-                  style={{ right: product.stock_count ? '60px' : '4px' }}
-                >
-                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${wishlist.includes(product.id) ? 'fill-current text-red-500' : ''}`} />
-                </button>
-                
-                {/* Owned Badge */}
-                {checkUserAccess(product.id) && (
-                  <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 bg-green-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs flex items-center">
-                    <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                    <span className="hidden sm:inline">Owned</span>
-                    <span className="sm:hidden">✓</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Product Info */}
-              <div className="p-2 sm:p-3">
-                {/* Live Stats */}
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-1 sm:mb-2">
-                  <div className="flex items-center">
-                    <Eye className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                    <span className="animate-pulse text-xs">{(liveViewing[product.id] || product.base_viewing).toLocaleString()} viewing</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center text-xs text-blue-600 mb-1 sm:mb-2">
-                  <ShoppingBag className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                  <span className="text-xs">{product.sold_count.toLocaleString()} sold</span>
-                </div>
-
-                {/* Brand */}
-                <p className="text-xs text-gray-600 mb-1">{product.brand}</p>
                 {product.is_high_demand && (
-                  <div className="flex items-center text-xs text-red-600 mb-1">
-                    <span className="text-xs">📈 High Demand!</span>
-                  </div>
+                  <Badge className="absolute top-2 right-2 bg-orange-500 text-white">
+                    🔥 Hot
+                  </Badge>
                 )}
-
-                {/* Rating */}
-                <div className="flex items-center mb-1 sm:mb-2">
-                  <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
-                  <span className="text-xs sm:text-sm font-medium ml-1">{product.rating}</span>
-                  <span className="text-xs text-gray-500 ml-1">({product.reviews})</span>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+                  onClick={() => {
+                    const newWishlist = wishlist.includes(product.id)
+                      ? wishlist.filter(id => id !== product.id)
+                      : [...wishlist, product.id];
+                    setWishlist(newWishlist);
+                  }}
+                >
+                  <Heart 
+                    className={`w-4 h-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
+                  />
+                </Button>
+              </div>
+              
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
+                <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
+                
+                <div className="flex items-center space-x-1 mb-2">
+                  <div className="flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3 h-3 ${i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-600">({product.reviews})</span>
                 </div>
-
-                {/* Product Name */}
-                <h3 className="text-xs sm:text-sm font-medium text-gray-800 mb-1 sm:mb-2 line-clamp-2 leading-tight">{product.name}</h3>
-
-                {/* Price */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-2 sm:mb-3">
-                  <span className="text-sm sm:text-lg font-bold text-black">₹{product.price}</span>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-xs sm:text-sm text-gray-500 line-through">₹{product.original_price}</span>
-                    <span className="text-xs sm:text-sm text-green-600 font-medium">
-                      Save ₹{(product.original_price - product.price).toFixed(0)}
-                    </span>
+                
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg font-bold text-green-600">₹{product.price}</span>
+                    {product.original_price && product.original_price > product.price && (
+                      <span className="text-sm text-gray-500 line-through">₹{product.original_price}</span>
+                    )}
                   </div>
                 </div>
-
-                {/* Instant Access Tag */}
-                <div className="flex items-center text-xs text-green-600 mb-2 sm:mb-3">
-                  <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                  <span className="text-xs">Instant Access</span>
+                
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                  <div className="flex items-center">
+                    <Eye className="w-3 h-3 mr-1" />
+                    {(product.base_viewing + (liveViewing[product.id] || 0)).toLocaleString()} viewing
+                  </div>
+                  {product.sold_count && (
+                    <span>{product.sold_count.toLocaleString()} sold</span>
+                  )}
                 </div>
-
-                {/* Purchase Status */}
-                {checkUserAccess(product.id) && (
-                  <div className="bg-green-50 border border-green-200 rounded p-1 sm:p-2 mb-2 sm:mb-3">
-                    <div className="flex items-center text-green-700 text-xs">
-                      <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                      <span className="font-medium text-xs">You own this - DB Verified</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                {checkUserAccess(product.id) ? (
-                  <Button 
-                    className="w-full bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
-                    onClick={() => accessDigitalContent(product)}
-                  >
-                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="text-xs sm:text-sm">ACCESS NOW</span>
-                  </Button>
-                ) : (
-                  <div className="space-y-1 sm:space-y-2">
-                    <Button 
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
-                      onClick={() => handlePurchase(product)}
-                      disabled={!user}
-                    >
-                      <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                      <span className="text-xs sm:text-sm">{user ? '🔒 SECURE PAYMENT' : 'LOGIN TO BUY'}</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
-                      onClick={() => console.log('Add to cart:', product.id)}
-                      disabled={!user}
-                    >
-                      <span className="text-xs sm:text-sm">Add to Cart</span>
-                    </Button>
-                  </div>
-                )}
+                
+                <Button
+                  onClick={() => navigate(`/product/${product.id}`)}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  size="sm"
+                >
+                  View Details
+                </Button>
               </div>
             </div>
           ))}
         </div>
-        
-        {/* Empty State */}
+
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <Search className="w-16 h-16 mx-auto" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500">Try selecting a different category</p>
+            <p className="text-gray-500 text-lg">No products found</p>
+            <p className="text-gray-400">Try adjusting your search or filter criteria</p>
           </div>
         )}
       </main>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
-        <div className="flex items-center justify-around py-2">
-          <button className="flex flex-col items-center p-2 text-blue-500">
-            <Home className="w-5 h-5" />
-            <span className="text-xs mt-1">Home</span>
-          </button>
-          <button className="flex flex-col items-center p-2 text-gray-500">
-            <Compass className="w-5 h-5" />
-            <span className="text-xs mt-1">Explore</span>
-          </button>
-          <button 
-            className="flex flex-col items-center p-2 text-gray-500 relative"
-            onClick={() => user ? setShowLibrary(true) : setShowLoginDialog(true)}
-          >
-            <Library className="w-5 h-5" />
-            <span className="text-xs mt-1">Library</span>
-            {purchasedProducts.length > 0 && (
-              <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-green-500">
-                {purchasedProducts.length}
-              </Badge>
-            )}
-          </button>
-          <button className="flex flex-col items-center p-2 text-gray-500">
-            <Bell className="w-5 h-5" />
-            <span className="text-xs mt-1">Alerts</span>
-          </button>
-          <button className="flex flex-col items-center p-2 text-gray-500">
-            <User className="w-5 h-5" />
-            <span className="text-xs mt-1">Profile</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <LogIn className="w-5 h-5 mr-2" />
-              Login to Your Account
-              <Database className="w-4 h-4 ml-2 text-green-500" />
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-center text-sm text-gray-600">
-              Enter your email or phone number to continue<br/>
-              <span className="text-xs text-green-600">✅ Secure database authentication</span>
-            </div>
-            
-            <div className="relative">
-              <Input
-                placeholder="Email address or phone number"
-                value={loginIdentifier}
-                onChange={(e) => setLoginIdentifier(e.target.value)}
-                className="pl-10"
-                disabled={isLoggingIn}
-              />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                {loginIdentifier.includes('@') ? (
-                  <Mail className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <Phone className="w-4 h-4 text-gray-400" />
-                )}
-              </div>
-            </div>
-            
-            <Button 
-              onClick={handleLogin} 
-              disabled={isLoggingIn || !loginIdentifier.trim()}
-              className="w-full"
-            >
-              {isLoggingIn ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Authenticating with Database...
-                </>
-              ) : (
-                'Continue'
-              )}
-            </Button>
-            
-            <div className="text-xs text-gray-500 text-center">
-              🔒 Your data is securely stored in Supabase database<br/>
-              By continuing, you agree to our Terms of Service and Privacy Policy
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Library Modal */}
-      <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
-        <DialogContent className="max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[80vh] overflow-y-auto mx-2 sm:mx-auto">
-          <DialogHeader>
-            <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-              <div className="flex items-center text-sm sm:text-base">
-                <Library className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                My Digital Library ({purchasedProducts.length} items)
-                <Database className="w-3 h-3 sm:w-4 sm:h-4 ml-2 text-green-500" />
-              </div>
-              <div className="text-xs sm:text-sm text-gray-500">
-                User: {user?.name} • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          {purchasedProducts.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3 mb-4">
-              <div className="flex items-center text-green-700">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="text-xs sm:text-sm font-medium">
-                  All purchases verified from database • Cross-device access enabled
-                </span>
-              </div>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
-            {purchasedProducts.length > 0 ? (
-              purchasedProducts.map((product) => (
-                <div key={product.id} className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
-                  <img 
-                    src={product.image_url} 
-                    alt={product.name}
-                    className="w-full h-24 sm:h-32 object-cover rounded mb-2 sm:mb-3"
-                  />
-                  <h3 className="font-medium text-xs sm:text-sm mb-1 sm:mb-2 line-clamp-2">{product.name}</h3>
-                  <div className="text-xs text-gray-600 mb-2">
-                    <div>Product ID: {product.id.slice(-8)}...</div>
-                    <div className="flex items-center mt-1">
-                      <Database className="w-3 h-3 mr-1 text-green-500" />
-                      <span>✅ Verified Access</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-green-600 text-xs mb-2 sm:mb-3">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    <span>Full Access Granted</span>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    className="w-full bg-green-500 hover:bg-green-600 text-xs sm:text-sm py-1.5 sm:py-2"
-                    onClick={() => accessDigitalContent(product)}
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    Open Content
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-6 sm:py-8">
-                <Library className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                <p className="text-gray-500 mb-1 sm:mb-2 text-sm sm:text-base">No purchased items yet</p>
-                <p className="text-xs sm:text-sm text-gray-400 mb-3 sm:mb-4">Items you purchase will be stored in the database with instant access</p>
-                <Button onClick={() => setShowLibrary(false)} size="sm" className="text-xs sm:text-sm">
-                  Browse Products
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {purchasedProducts.length > 0 && (
-            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t">
-              <div className="text-xs text-gray-500 text-center space-y-1">
-                <div>🔒 Your purchases are securely stored in Supabase database.</div>
-                <div>Access your content anytime, anywhere with your login credentials.</div>
-                <div>Database Status: {isConnectedToDatabase ? '✅ Connected' : '⚠️ Demo Mode'}</div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Payment Success Modal */}
-      {showPaymentSuccess && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md mx-4">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful! 🎉</h2>
-            <p className="text-gray-600 mb-4">Your purchase is complete. Digital access granted instantly!</p>
-            <div className="bg-green-50 border border-green-200 rounded p-3 mb-4">
-              <div className="flex items-center justify-center text-green-600 text-sm">
-                <Database className="w-4 h-4 mr-2" />
-                <span className="font-medium">Saved to database • Cross-device access enabled</span>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              Session: {sessionId?.slice(-8)} • User: {user?.name} • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">Auto-closing in 3 seconds...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Cancel Modal */}
-      {showPaymentCancel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md mx-4">
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Cancelled</h2>
-            <p className="text-gray-600 mb-4">No charges were made to your account</p>
-            <div className="text-xs text-gray-500">
-              Session: {sessionId?.slice(-8)} • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">Redirecting...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Add bottom padding to prevent content from being hidden behind bottom nav */}
-      <div className="h-20"></div>
     </div>
   );
 };
