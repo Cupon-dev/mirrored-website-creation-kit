@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, Calendar, Award, CheckCircle, ExternalLink } from 'lucide-react';
+import { User, Download, ShoppingBag, Calendar, Award, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,52 +19,70 @@ interface PurchasedProduct {
 
 const UserProfile = () => {
   const { user } = useAuth();
-  const { userAccess } = useUserAccess();
+  const { userAccess, refreshAccess, isLoading: accessLoading } = useUserAccess();
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
-    if (user && userAccess.length > 0) {
-      fetchPurchasedProducts();
-    } else if (user) {
-      verifyUserPayments();
+    if (user) {
+      if (userAccess.length > 0) {
+        fetchPurchasedProducts();
+      } else if (!accessLoading) {
+        // If no access found, try to verify payments
+        verifyUserPayments();
+      }
     } else {
       setIsLoading(false);
     }
-  }, [user, userAccess]);
+  }, [user, userAccess, accessLoading]);
 
   const verifyUserPayments = async () => {
     if (!user?.email) return;
     
     setIsVerifying(true);
     try {
+      console.log('Verifying payments for user:', user.email);
       const result = await verifyPaymentAndGrantAccess(user.email, user.id);
       if (result.success) {
-        window.location.reload();
+        console.log('Payment verification successful, refreshing access');
+        await refreshAccess();
+      } else {
+        console.log('No payments found or verification failed');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Payment verification error:', error);
+      setIsLoading(false);
     } finally {
       setIsVerifying(false);
-      setIsLoading(false);
     }
   };
 
   const fetchPurchasedProducts = async () => {
+    if (userAccess.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      console.log('Fetching products for access list:', userAccess);
       const { data, error } = await supabase
         .from('products')
         .select('id, name, price, image_url, download_link')
         .in('id', userAccess);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
 
       const productsWithDate = data?.map(product => ({
         ...product,
         purchased_at: new Date().toISOString()
       })) || [];
 
+      console.log('Fetched purchased products:', productsWithDate);
       setPurchasedProducts(productsWithDate);
     } catch (error) {
       console.error('Error fetching purchased products:', error);
@@ -73,11 +91,19 @@ const UserProfile = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    await refreshAccess();
+    if (user?.email) {
+      await verifyUserPayments();
+    }
+  };
+
   if (!user) {
     return null;
   }
 
-  if (isLoading || isVerifying) {
+  if (isLoading || isVerifying || accessLoading) {
     return (
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm">
         <div className="animate-pulse">
@@ -90,20 +116,33 @@ const UserProfile = () => {
 
   return (
     <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm">
-      <div className="flex items-center space-x-3 mb-4 sm:mb-6">
-        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-          <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{user.name}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
+            {userAccess.length > 0 && (
+              <Badge className="bg-green-100 text-green-800 text-xs mt-1">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Verified Access
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{user.name}</h3>
-          <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
-          {userAccess.length > 0 && (
-            <Badge className="bg-green-100 text-green-800 text-xs mt-1">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Verified Access
-            </Badge>
-          )}
-        </div>
+        
+        <Button
+          onClick={handleRefresh}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+          disabled={isLoading}
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
       </div>
 
       {/* Stats */}

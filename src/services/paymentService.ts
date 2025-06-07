@@ -14,7 +14,7 @@ export const verifyPaymentAndGrantAccess = async (
   userId?: string
 ): Promise<PaymentVerificationResult> => {
   try {
-    console.log('Verifying payment for email:', email);
+    console.log('Verifying payment for email:', email, 'userId:', userId);
 
     // Check for completed payments for this email
     const { data: payments, error: paymentError } = await supabase
@@ -30,6 +30,7 @@ export const verifyPaymentAndGrantAccess = async (
     }
 
     if (!payments || payments.length === 0) {
+      console.log('No completed payments found for email:', email);
       return { success: false, error: 'No completed payments found' };
     }
 
@@ -38,19 +39,32 @@ export const verifyPaymentAndGrantAccess = async (
 
     // Grant access to the user if they're logged in
     if (userId) {
-      const { error: accessError } = await supabase
+      console.log('Granting access to user:', userId);
+      
+      // Check if access already exists
+      const { data: existingAccess } = await supabase
         .from('user_product_access')
-        .upsert({
-          user_id: userId,
-          product_id: 'digital-product-1',
-          payment_id: latestPayment.id
-        }, {
-          onConflict: 'user_id,product_id'
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .eq('product_id', 'digital-product-1')
+        .single();
 
-      if (accessError) {
-        console.error('Error granting access:', accessError);
-        return { success: false, error: 'Failed to grant access' };
+      if (!existingAccess) {
+        const { error: accessError } = await supabase
+          .from('user_product_access')
+          .insert({
+            user_id: userId,
+            product_id: 'digital-product-1',
+            payment_id: latestPayment.id
+          });
+
+        if (accessError) {
+          console.error('Error granting access:', accessError);
+          return { success: false, error: 'Failed to grant access' };
+        }
+        console.log('Access granted successfully');
+      } else {
+        console.log('User already has access to this product');
       }
     }
 

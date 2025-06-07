@@ -15,38 +15,49 @@ export const useUserAccess = () => {
       return;
     }
 
-    const fetchUserAccess = async () => {
-      try {
-        setIsLoading(true);
-        console.log('Fetching user access for user:', user.id);
-        
-        const { data, error } = await supabase
-          .from('user_product_access')
-          .select('product_id')
-          .eq('user_id', user.id);
-
-        if (error) {
-          console.error('Error fetching user access:', error);
-          return;
-        }
-
-        if (data) {
-          const productIds = data.map(item => item.product_id);
-          console.log('User has access to products:', productIds);
-          setUserAccess(productIds);
-        }
-      } catch (error) {
-        console.error('Error in fetchUserAccess:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchUserAccess();
   }, [user]);
 
+  const fetchUserAccess = async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log('Fetching user access for user:', user.id);
+      
+      const { data, error } = await supabase
+        .from('user_product_access')
+        .select('product_id')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error fetching user access:', error);
+        setUserAccess([]);
+        return;
+      }
+
+      if (data) {
+        const productIds = data.map(item => item.product_id);
+        console.log('User has access to products:', productIds);
+        setUserAccess(productIds);
+      } else {
+        setUserAccess([]);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserAccess:', error);
+      setUserAccess([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const hasAccess = (productId: string) => {
-    return userAccess.includes(productId);
+    const access = userAccess.includes(productId);
+    console.log(`Checking access for product ${productId}:`, access, 'User access list:', userAccess);
+    return access;
   };
 
   const grantAccess = async (productId: string) => {
@@ -86,26 +97,8 @@ export const useUserAccess = () => {
   };
 
   const refreshAccess = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('user_product_access')
-        .select('product_id')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error refreshing user access:', error);
-        return;
-      }
-
-      if (data) {
-        const productIds = data.map(item => item.product_id);
-        setUserAccess(productIds);
-      }
-    } catch (error) {
-      console.error('Error in refreshAccess:', error);
-    }
+    console.log('Refreshing user access...');
+    await fetchUserAccess();
   };
 
   return {
