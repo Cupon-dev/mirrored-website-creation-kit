@@ -11,7 +11,7 @@ export const usePaymentVerification = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { grantAccess, refreshAccess } = useUserAccess();
+  const { refreshAccess } = useUserAccess();
   const [isProcessing, setIsProcessing] = useState(true);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [verificationComplete, setVerificationComplete] = useState(false);
@@ -62,9 +62,8 @@ export const usePaymentVerification = () => {
             whatsappGroup: result.whatsappGroup
           });
 
-          // Grant access locally if user is logged in
+          // Refresh access to get the latest product access
           if (user) {
-            await grantAccess('digital-product-1');
             await refreshAccess();
           }
 
@@ -112,7 +111,7 @@ export const usePaymentVerification = () => {
     };
 
     handlePaymentSuccess();
-  }, [searchParams, user, grantAccess, refreshAccess, toast, navigate]);
+  }, [searchParams, user, refreshAccess, toast, navigate]);
 
   const handleManualRefresh = async () => {
     setIsProcessing(true);

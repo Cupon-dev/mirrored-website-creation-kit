@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PaymentVerificationResult {
@@ -132,12 +131,31 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       console.log('Granting access to user:', userId);
       
+      // Get the first available active product to grant access to
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (productsError || !productsData || productsData.length === 0) {
+        console.error('No active products found:', productsError);
+        return { 
+          success: false, 
+          error: 'No active products found to grant access to',
+          debugInfo: { productsError, userId, paymentId: latestPayment.id }
+        };
+      }
+
+      const productId = productsData[0].id;
+      console.log('Found product to grant access to:', productId);
+      
       // Check if access already exists
       const { data: existingAccess, error: accessCheckError } = await supabase
         .from('user_product_access')
         .select('id, created_at')
         .eq('user_id', userId)
-        .eq('product_id', 'digital-product-1')
+        .eq('product_id', productId)
         .maybeSingle();
 
       if (!existingAccess) {
@@ -145,7 +163,7 @@ export const verifyPaymentAndGrantAccess = async (
           .from('user_product_access')
           .insert({
             user_id: userId,
-            product_id: 'digital-product-1',
+            product_id: productId,
             payment_id: latestPayment.id
           });
 
@@ -154,10 +172,10 @@ export const verifyPaymentAndGrantAccess = async (
           return { 
             success: false, 
             error: 'Failed to grant product access',
-            debugInfo: { accessError, userId, paymentId: latestPayment.id }
+            debugInfo: { accessError, userId, paymentId: latestPayment.id, productId }
           };
         }
-        console.log('Access granted successfully');
+        console.log('Access granted successfully to product:', productId);
       } else {
         console.log('Access already exists');
       }

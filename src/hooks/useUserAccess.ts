@@ -50,26 +50,41 @@ export const useUserAccess = () => {
         .eq('status', 'completed');
 
       if (!paymentError && paymentData && paymentData.length > 0) {
-        console.log('Found completed payments, granting access to digital-product-1');
+        console.log('Found completed payments, fetching available products to grant access');
         
-        // Auto-grant access for completed payments
-        for (const payment of paymentData) {
-          const { error: grantError } = await supabase
-            .from('user_product_access')
-            .insert({
-              user_id: user.id,
-              product_id: 'digital-product-1',
-              payment_id: payment.id
-            })
-            .select()
-            .single();
+        // Get the first available product to grant access to
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select('id')
+          .eq('is_active', true)
+          .limit(1);
 
-          if (!grantError) {
-            console.log('Auto-granted access for payment:', payment.id);
+        if (!productsError && productsData && productsData.length > 0) {
+          const productId = productsData[0].id;
+          console.log('Found product to grant access to:', productId);
+          
+          // Auto-grant access for completed payments
+          for (const payment of paymentData) {
+            const { error: grantError } = await supabase
+              .from('user_product_access')
+              .insert({
+                user_id: user.id,
+                product_id: productId,
+                payment_id: payment.id
+              })
+              .select()
+              .single();
+
+            if (!grantError) {
+              console.log('Auto-granted access for payment:', payment.id);
+            }
           }
+          
+          setUserAccess([productId]);
+        } else {
+          console.log('No active products found to grant access to');
+          setUserAccess([]);
         }
-        
-        setUserAccess(['digital-product-1']);
       } else {
         console.log('No completed payments found for user');
         setUserAccess([]);
