@@ -1,4 +1,9 @@
-import { useState, useEffect } from "react";
+{/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex itemsimport { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library, Phone, Mail, X, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,17 +19,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const createSupabaseClient = () => {
   return {
     from: (table) => ({
-      select: (columns = '*') => {
-        const queryBuilder = {
-          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-          order: (column, options) => ({
-            eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } })
-          })
-        };
-        // Add promise-like behavior without conflicting with await
-        Object.assign(queryBuilder, simulateSupabaseQuery(table, 'select', { columns }));
-        return queryBuilder;
-      },
+      select: (columns = '*') => ({
+        eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
+        execute: () => simulateSupabaseQuery(table, 'select', {}),
+        order: (column, options) => ({
+          execute: () => simulateSupabaseQuery(table, 'select', { order: { column, ...options } })
+        })
+      }),
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
       update: (data) => ({
         eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
@@ -216,12 +217,11 @@ const Index = () => {
 
   const loadProductsFromDB = async () => {
     try {
-      const result = await supabaseClient
+      const { data: productsData, error } = await supabaseClient
         .from('products')
         .select('*')
-        .eq('is_active', true);
-      
-      const { data: productsData, error } = result;
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
       
       if (error || !productsData || productsData.length === 0) {
         console.log('No products found, loading demo data');
@@ -257,11 +257,10 @@ const Index = () => {
 
   const loadCategoriesFromDB = async () => {
     try {
-      const result = await supabaseClient
+      const { data: categoriesData, error } = await supabaseClient
         .from('categories')
-        .select('*');
-      
-      const { data: categoriesData, error } = result;
+        .select('*')
+        .order('name', { ascending: true });
       
       const defaultCategories = [
         { id: 'all', name: 'All Products', icon: '🛍️' },
@@ -400,49 +399,87 @@ const Index = () => {
   // User authentication functions
   const authenticateUser = async (identifier) => {
     try {
-      const userData = {
-        id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}`,
-        email: identifier.includes('@') ? identifier : null,
-        phone: !identifier.includes('@') ? identifier : null,
-        name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-        created_at: new Date().toISOString()
-      };
+      // First check if user exists
+      const { data: existingUsers, error: queryError } = await supabaseClient
+        .from('users')
+        .select('*')
+        .or(`email.eq.${identifier},phone.eq.${identifier}`)
+        .limit(1);
+
+      let userData;
       
-      await saveUserToDB(userData);
+      if (existingUsers && existingUsers.length > 0) {
+        // User exists, update last login
+        userData = existingUsers[0];
+        await supabaseClient
+          .from('users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', userData.id);
+        
+        console.log('✅ Existing user logged in:', userData.id);
+      } else {
+        // Create new user
+        userData = {
+          id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}_${Date.now()}`,
+          email: identifier.includes('@') ? identifier : null,
+          phone: !identifier.includes('@') ? identifier : null,
+          name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString()
+        };
+        
+        // Save new user to database
+        const { data: newUser, error: insertError } = await supabaseClient
+          .from('users')
+          .insert([userData])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating user:', insertError);
+          // Fallback: continue with local user data
+        } else {
+          userData = newUser;
+          console.log('✅ New user created in database:', userData.id);
+        }
+      }
+      
       return userData;
     } catch (error) {
       console.error('Authentication error:', error);
-      throw error;
-    }
-  };
-
-  const saveUserToDB = async (userData) => {
-    try {
-      await supabaseClient.from('users').insert([{
-        id: userData.id,
-        email: userData.email,
-        phone: userData.phone,
-        name: userData.name,
-        last_login: new Date().toISOString(),
-        created_at: userData.created_at
-      }]);
-      console.log('✅ User saved to database:', userData.id);
-    } catch (error) {
-      console.error('Error saving user:', error);
+      // Fallback: create local user
+      const userData = {
+        id: `user_${identifier.replace(/[@\s.+]/g, '_').toLowerCase()}_${Date.now()}`,
+        email: identifier.includes('@') ? identifier : null,
+        phone: !identifier.includes('@') ? identifier : null,
+        name: identifier.includes('@') ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString()
+      };
+      return userData;
     }
   };
 
   const saveSessionToDB = async (sessionData) => {
     try {
-      await supabaseClient.from('user_sessions').insert([{
-        id: sessionData.id,
-        user_id: sessionData.user_id,
-        session_id: sessionData.session_id,
-        login_time: sessionData.login_time,
-        user_agent: sessionData.user_agent,
-        ip_address: sessionData.ip_address || 'unknown'
-      }]);
-      console.log('✅ Session saved to database:', sessionData.session_id);
+      const { data, error } = await supabaseClient
+        .from('user_sessions')
+        .insert([{
+          id: sessionData.id,
+          user_id: sessionData.user_id,
+          session_id: sessionData.session_id,
+          login_time: sessionData.login_time,
+          user_agent: sessionData.user_agent,
+          ip_address: sessionData.ip_address || 'unknown'
+        }])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error saving session:', error);
+      } else {
+        console.log('✅ Session saved to database:', data.session_id);
+      }
     } catch (error) {
       console.error('Error saving session:', error);
     }
@@ -450,26 +487,48 @@ const Index = () => {
 
   const savePaymentToDB = async (paymentData) => {
     try {
-      await supabaseClient.from('payments').insert([{
-        id: paymentData.id,
-        user_id: paymentData.user_id,
-        product_id: paymentData.product_id,
-        amount: paymentData.amount,
-        payment_session_id: paymentData.payment_session_id,
-        status: paymentData.status,
-        created_at: paymentData.created_at
-      }]);
+      // Save payment record
+      const { data: payment, error: paymentError } = await supabaseClient
+        .from('payments')
+        .insert([{
+          id: paymentData.id,
+          user_id: paymentData.user_id,
+          product_id: paymentData.product_id,
+          amount: paymentData.amount,
+          payment_session_id: paymentData.payment_session_id,
+          status: paymentData.status,
+          created_at: paymentData.created_at
+        }])
+        .select()
+        .single();
       
+      if (paymentError) {
+        console.error('Error saving payment:', paymentError);
+      } else {
+        console.log('✅ Payment saved to database:', payment.id);
+      }
+      
+      // Grant product access
       const accessData = {
-        id: `access_${Date.now()}`,
+        id: `access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         user_id: paymentData.user_id,
         product_id: paymentData.product_id,
         granted_at: paymentData.created_at,
         is_active: true
       };
       
-      await supabaseClient.from('user_product_access').insert([accessData]);
-      console.log('✅ Payment and access saved to database:', paymentData.id);
+      const { data: access, error: accessError } = await supabaseClient
+        .from('user_product_access')
+        .insert([accessData])
+        .select()
+        .single();
+      
+      if (accessError) {
+        console.error('Error granting access:', accessError);
+      } else {
+        console.log('✅ Product access granted in database:', access.id);
+      }
+      
     } catch (error) {
       console.error('Error saving payment:', error);
     }
@@ -479,19 +538,40 @@ const Index = () => {
     try {
       const { data: accessData, error } = await supabaseClient
         .from('user_product_access')
-        .select('product_id')
-        .eq('user_id', userId);
+        .select(`
+          product_id,
+          granted_at,
+          products (
+            id,
+            name,
+            image_url,
+            price,
+            access_url
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('is_active', true);
 
       if (error) {
         console.error('Error loading purchases:', error);
+        // Fallback to localStorage
+        const fallbackPurchases = JSON.parse(localStorage.getItem(`purchases_${userId}`) || '[]');
+        setUserPurchases(fallbackPurchases);
         return;
       }
       
       const productIds = (accessData || []).map(access => access.product_id);
       setUserPurchases(productIds);
+      
+      // Also save to localStorage as backup
+      localStorage.setItem(`purchases_${userId}`, JSON.stringify(productIds));
+      
       console.log('✅ Loaded user purchases from database:', productIds.length);
     } catch (error) {
       console.error('Error loading purchases:', error);
+      // Fallback to localStorage
+      const fallbackPurchases = JSON.parse(localStorage.getItem(`purchases_${userId}`) || '[]');
+      setUserPurchases(fallbackPurchases);
     }
   };
 
@@ -698,32 +778,33 @@ const Index = () => {
 
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
                 {user ? user.name.charAt(0).toUpperCase() : 'G'}
               </div>
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600">
                   {user ? `Welcome back, ${user.name}` : 'Welcome, Guest'}
                 </p>
-                <h1 className="text-xl font-bold">PremiumLeaks Store 🔥</h1>
+                <h1 className="text-lg sm:text-xl font-bold">PremiumLeaks Store 🔥</h1>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="w-5 h-5" />
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <Button variant="ghost" size="sm" className="p-1 sm:p-2">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               {user ? (
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Logout
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs sm:text-sm p-1 sm:p-2">
+                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="hidden sm:inline">Logout</span>
+                  <span className="sm:hidden">Exit</span>
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => setShowLoginDialog(true)}>
-                  <LogIn className="w-4 h-4 mr-1" />
-                  Login
+                <Button size="sm" onClick={() => setShowLoginDialog(true)} className="text-xs sm:text-sm p-1 sm:p-2">
+                  <LogIn className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span>Login</span>
                 </Button>
               )}
             </div>
@@ -732,30 +813,30 @@ const Index = () => {
       </header>
 
       {/* Live Marketing Banner */}
-      <div className={`${marketingBanners[currentBannerIndex].bgColor} ${marketingBanners[currentBannerIndex].textColor} text-center py-3 px-4 transition-all duration-500`}>
-        <div className="flex items-center justify-center space-x-2">
-          <span className="text-sm font-medium animate-pulse">LIVE</span>
-          <span className="text-sm font-bold">{marketingBanners[currentBannerIndex].text}</span>
+      <div className={`${marketingBanners[currentBannerIndex].bgColor} ${marketingBanners[currentBannerIndex].textColor} text-center py-2 sm:py-3 px-2 sm:px-4 transition-all duration-500`}>
+        <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+          <span className="text-xs sm:text-sm font-medium animate-pulse">LIVE</span>
+          <span className="text-xs sm:text-sm font-bold">{marketingBanners[currentBannerIndex].text}</span>
         </div>
       </div>
 
       {/* Categories */}
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <h2 className="text-lg font-semibold mb-4">Categories</h2>
-          <div className="flex space-x-2 overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
+          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Categories</h2>
+          <div className="flex space-x-1 sm:space-x-2 overflow-x-auto pb-2">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-full whitespace-nowrap ${
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap text-xs sm:text-sm ${
                   selectedCategory === category.id
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <span>{category.icon}</span>
-                <span className="text-sm">{category.name}</span>
+                <span className="text-xs sm:text-base">{category.icon}</span>
+                <span className="text-xs sm:text-sm">{category.name}</span>
               </button>
             ))}
           </div>
@@ -765,13 +846,13 @@ const Index = () => {
       {/* User Session Info */}
       {user && (
         <div className="bg-blue-50 border-b">
-          <div className="max-w-7xl mx-auto px-4 py-2">
-            <div className="flex items-center justify-between text-sm">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm space-y-1 sm:space-y-0">
               <span className="text-blue-700">
-                🔒 Secure Session • {purchasedProducts.length} items owned • Database: {isConnectedToDatabase ? 'Connected' : 'Demo Mode'}
+                🔒 Secure Session • {purchasedProducts.length} items owned • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
               </span>
               <span className="text-blue-600">
-                Session: {sessionId?.slice(-8)} • User ID: {user.id}
+                Session: {sessionId?.slice(-8)} • User: {user.id.slice(-8)}
               </span>
             </div>
           </div>
@@ -779,8 +860,8 @@ const Index = () => {
       )}
 
       {/* Products Grid */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
           {filteredProducts.map((product) => (
             <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
               {/* Product Image */}
@@ -788,90 +869,93 @@ const Index = () => {
                 <img 
                   src={product.image_url} 
                   alt={product.name}
-                  className="w-full h-48 object-cover"
+                  className="w-full h-32 sm:h-40 md:h-48 object-cover"
                 />
                 {/* Discount Badge */}
-                <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-red-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-bold">
                   -{product.discount}%
                 </div>
                 {/* Stock Info */}
                 {product.stock_count && (
-                  <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs">
+                  <div className="absolute top-1 sm:top-2 right-1 sm:right-2 bg-orange-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs">
                     Only {product.stock_count} left!
                   </div>
                 )}
                 {/* Wishlist */}
                 <button
                   onClick={() => toggleWishlist(product.id)}
-                  className="absolute top-2 right-2 text-white hover:text-red-500 transition-colors"
-                  style={{ right: product.stock_count ? '80px' : '8px' }}
+                  className="absolute top-1 sm:top-2 right-1 sm:right-2 text-white hover:text-red-500 transition-colors"
+                  style={{ right: product.stock_count ? '60px' : '4px' }}
                 >
-                  <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current text-red-500' : ''}`} />
+                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${wishlist.includes(product.id) ? 'fill-current text-red-500' : ''}`} />
                 </button>
                 
                 {/* Owned Badge */}
                 {checkUserAccess(product.id) && (
-                  <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs flex items-center">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Owned
+                  <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 bg-green-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded text-xs flex items-center">
+                    <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                    <span className="hidden sm:inline">Owned</span>
+                    <span className="sm:hidden">✓</span>
                   </div>
                 )}
               </div>
 
               {/* Product Info */}
-              <div className="p-3">
+              <div className="p-2 sm:p-3">
                 {/* Live Stats */}
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1 sm:mb-2">
                   <div className="flex items-center">
-                    <Eye className="w-3 h-3 mr-1" />
-                    <span className="animate-pulse">{(liveViewing[product.id] || product.base_viewing).toLocaleString()} viewing</span>
+                    <Eye className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                    <span className="animate-pulse text-xs">{(liveViewing[product.id] || product.base_viewing).toLocaleString()} viewing</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center text-xs text-blue-600 mb-2">
-                  <ShoppingBag className="w-3 h-3 mr-1" />
-                  {product.sold_count.toLocaleString()} sold
+                <div className="flex items-center text-xs text-blue-600 mb-1 sm:mb-2">
+                  <ShoppingBag className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                  <span className="text-xs">{product.sold_count.toLocaleString()} sold</span>
                 </div>
 
                 {/* Brand */}
                 <p className="text-xs text-gray-600 mb-1">{product.brand}</p>
                 {product.is_high_demand && (
                   <div className="flex items-center text-xs text-red-600 mb-1">
-                    <span>📈 High Demand!</span>
+                    <span className="text-xs">📈 High Demand!</span>
                   </div>
                 )}
 
                 {/* Rating */}
-                <div className="flex items-center mb-2">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="text-sm font-medium ml-1">{product.rating}</span>
+                <div className="flex items-center mb-1 sm:mb-2">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
+                  <span className="text-xs sm:text-sm font-medium ml-1">{product.rating}</span>
                   <span className="text-xs text-gray-500 ml-1">({product.reviews})</span>
                 </div>
 
                 {/* Product Name */}
-                <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">{product.name}</h3>
+                <h3 className="text-xs sm:text-sm font-medium text-gray-800 mb-1 sm:mb-2 line-clamp-2 leading-tight">{product.name}</h3>
 
                 {/* Price */}
-                <div className="flex items-center space-x-2 mb-3">
-                  <span className="text-lg font-bold text-black">₹{product.price}</span>
-                  <span className="text-sm text-gray-500 line-through">₹{product.original_price}</span>
-                  <span className="text-sm text-green-600 font-medium">
-                    Save ₹{(product.original_price - product.price).toFixed(0)}
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-2 sm:mb-3">
+                  <span className="text-sm sm:text-lg font-bold text-black">₹{product.price}</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-xs sm:text-sm text-gray-500 line-through">₹{product.original_price}</span>
+                    <span className="text-xs sm:text-sm text-green-600 font-medium">
+                      Save ₹{(product.original_price - product.price).toFixed(0)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Instant Access Tag */}
-                <div className="flex items-center text-xs text-green-600 mb-3">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Instant Access
+                <div className="flex items-center text-xs text-green-600 mb-2 sm:mb-3">
+                  <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                  <span className="text-xs">Instant Access</span>
                 </div>
 
                 {/* Purchase Status */}
                 {checkUserAccess(product.id) && (
-                  <div className="bg-green-50 border border-green-200 rounded p-2 mb-3">
+                  <div className="bg-green-50 border border-green-200 rounded p-1 sm:p-2 mb-2 sm:mb-3">
                     <div className="flex items-center text-green-700 text-xs">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      <span className="font-medium">You own this product - DB Verified</span>
+                      <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
+                      <span className="font-medium text-xs">You own this - DB Verified</span>
                     </div>
                   </div>
                 )}
@@ -879,28 +963,29 @@ const Index = () => {
                 {/* Action Buttons */}
                 {checkUserAccess(product.id) ? (
                   <Button 
-                    className="w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2"
+                    className="w-full bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
                     onClick={() => accessDigitalContent(product)}
                   >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    ACCESS YOUR CONTENT
+                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="text-xs sm:text-sm">ACCESS NOW</span>
                   </Button>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1 sm:space-y-2">
                     <Button 
-                      className="w-full bg-red-500 hover:bg-red-600 text-white text-sm py-2"
-                      onClick={() => window.open('https://youtube.com/shorts/demo', '_blank')}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      WATCH DEMO
-                    </Button>
-                    <Button 
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2"
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
                       onClick={() => handlePurchase(product)}
                       disabled={!user}
                     >
-                      <ShoppingBag className="w-4 h-4 mr-2" />
-                      {user ? 'BUY NOW' : 'LOGIN TO BUY'}
+                      <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">{user ? 'BUY NOW' : 'LOGIN TO BUY'}</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs sm:text-sm py-1 sm:py-2 h-8 sm:h-auto"
+                      onClick={() => console.log('Add to cart:', product.id)}
+                      disabled={!user}
+                    >
+                      <span className="text-xs sm:text-sm">Add to Cart</span>
                     </Button>
                   </div>
                 )}
@@ -908,6 +993,17 @@ const Index = () => {
             </div>
           ))}
         </div>
+        
+        {/* Empty State */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Search className="w-16 h-16 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-500">Try selecting a different category</p>
+          </div>
+        )}
       </main>
 
       {/* Bottom Navigation */}
@@ -1002,52 +1098,55 @@ const Index = () => {
 
       {/* Library Modal */}
       <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[80vh] overflow-y-auto mx-2 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Library className="w-5 h-5 mr-2" />
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+              <div className="flex items-center text-sm sm:text-base">
+                <Library className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 My Digital Library ({purchasedProducts.length} items)
-                <Database className="w-4 h-4 ml-2 text-green-500" />
+                <Database className="w-3 h-3 sm:w-4 sm:h-4 ml-2 text-green-500" />
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-xs sm:text-sm text-gray-500">
                 User: {user?.name} • DB: {isConnectedToDatabase ? 'Connected' : 'Demo'}
               </div>
             </DialogTitle>
           </DialogHeader>
           
           {purchasedProducts.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3 mb-4">
               <div className="flex items-center text-green-700">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                <span className="text-sm font-medium">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="text-xs sm:text-sm font-medium">
                   All purchases verified from database • Cross-device access enabled
                 </span>
               </div>
             </div>
           )}
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
             {purchasedProducts.length > 0 ? (
               purchasedProducts.map((product) => (
-                <div key={product.id} className="bg-gray-50 rounded-lg p-4 border">
+                <div key={product.id} className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
                   <img 
                     src={product.image_url} 
                     alt={product.name}
-                    className="w-full h-32 object-cover rounded mb-3"
+                    className="w-full h-24 sm:h-32 object-cover rounded mb-2 sm:mb-3"
                   />
-                  <h3 className="font-medium text-sm mb-2">{product.name}</h3>
+                  <h3 className="font-medium text-xs sm:text-sm mb-1 sm:mb-2 line-clamp-2">{product.name}</h3>
                   <div className="text-xs text-gray-600 mb-2">
-                    Product ID: {product.id}<br/>
-                    Database: ✅ Verified Access
+                    <div>Product ID: {product.id.slice(-8)}...</div>
+                    <div className="flex items-center mt-1">
+                      <Database className="w-3 h-3 mr-1 text-green-500" />
+                      <span>✅ Verified Access</span>
+                    </div>
                   </div>
-                  <div className="flex items-center text-green-600 text-xs mb-3">
+                  <div className="flex items-center text-green-600 text-xs mb-2 sm:mb-3">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Full Access Granted
+                    <span>Full Access Granted</span>
                   </div>
                   <Button 
                     size="sm" 
-                    className="w-full bg-green-500 hover:bg-green-600"
+                    className="w-full bg-green-500 hover:bg-green-600 text-xs sm:text-sm py-1.5 sm:py-2"
                     onClick={() => accessDigitalContent(product)}
                   >
                     <ExternalLink className="w-3 h-3 mr-1" />
@@ -1056,11 +1155,11 @@ const Index = () => {
                 </div>
               ))
             ) : (
-              <div className="col-span-full text-center py-8">
-                <Library className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-2">No purchased items yet</p>
-                <p className="text-sm text-gray-400 mb-4">Items you purchase will be stored in the database with instant access</p>
-                <Button onClick={() => setShowLibrary(false)}>
+              <div className="col-span-full text-center py-6 sm:py-8">
+                <Library className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-gray-500 mb-1 sm:mb-2 text-sm sm:text-base">No purchased items yet</p>
+                <p className="text-xs sm:text-sm text-gray-400 mb-3 sm:mb-4">Items you purchase will be stored in the database with instant access</p>
+                <Button onClick={() => setShowLibrary(false)} size="sm" className="text-xs sm:text-sm">
                   Browse Products
                 </Button>
               </div>
@@ -1068,11 +1167,11 @@ const Index = () => {
           </div>
           
           {purchasedProducts.length > 0 && (
-            <div className="mt-6 pt-4 border-t">
-              <div className="text-xs text-gray-500 text-center">
-                🔒 Your purchases are securely stored in Supabase database.<br />
-                Access your content anytime, anywhere with your login credentials.<br/>
-                Database Status: {isConnectedToDatabase ? '✅ Connected' : '⚠️ Demo Mode'}
+            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t">
+              <div className="text-xs text-gray-500 text-center space-y-1">
+                <div>🔒 Your purchases are securely stored in Supabase database.</div>
+                <div>Access your content anytime, anywhere with your login credentials.</div>
+                <div>Database Status: {isConnectedToDatabase ? '✅ Connected' : '⚠️ Demo Mode'}</div>
               </div>
             </div>
           )}
