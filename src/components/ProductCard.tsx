@@ -1,5 +1,5 @@
 
-import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle, Play } from "lucide-react";
+import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -38,11 +38,6 @@ const ProductCard = ({
   const navigate = useNavigate();
   const { hasAccess } = useUserAccess();
   const userHasAccess = hasAccess(product.id);
-
-  const handleDemoClick = () => {
-    // Demo video link - you can customize this URL
-    window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank');
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all duration-300 overflow-hidden">
@@ -166,11 +161,11 @@ const ProductCard = ({
               </Button>
               
               <Button
-                onClick={handleDemoClick}
-                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 text-xs sm:text-sm rounded-lg transition-all"
+                variant="outline"
+                onClick={() => onAddToCart(product.id)}
+                className="w-full border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-2 text-xs sm:text-sm rounded-lg transition-all"
               >
-                <Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                WATCH DEMO
+                Add to Cart
               </Button>
             </>
           )}
