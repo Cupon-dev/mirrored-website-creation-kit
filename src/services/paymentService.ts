@@ -70,15 +70,12 @@ export const verifyPaymentAndGrantAccess = async (
       withRazorpayId: paymentsWithRazorpayId.length
     });
 
-    // Try to auto-complete pending payments with Razorpay IDs using service role
+    // Try to auto-complete pending payments with Razorpay IDs
     for (const pendingPayment of pendingPayments) {
       if (pendingPayment.razorpay_payment_id && !pendingPayment.verified_at) {
         console.log('Auto-completing pending payment with Razorpay ID:', pendingPayment.id);
         
-        // Use service role key for this operation
-        const adminSupabase = supabase;
-        
-        const { error: updateError } = await adminSupabase
+        const { error: updateError } = await supabase
           .from('payments')
           .update({ 
             status: 'completed',
@@ -162,34 +159,22 @@ export const verifyPaymentAndGrantAccess = async (
         .maybeSingle();
 
       if (!existingAccess) {
-        // Grant new access using service role permissions
+        // Grant new access using direct insert
         const { error: accessError } = await supabase
-          .rpc('grant_user_access', {
-            p_user_id: userId,
-            p_product_id: productId,
-            p_payment_id: latestPayment.id
+          .from('user_product_access')
+          .insert({
+            user_id: userId,
+            product_id: productId,
+            payment_id: latestPayment.id
           });
 
         if (accessError) {
-          console.error('Error granting access via RPC:', accessError);
-          
-          // Fallback: Try direct insert (will work with service role policy)
-          const { error: directAccessError } = await supabase
-            .from('user_product_access')
-            .insert({
-              user_id: userId,
-              product_id: productId,
-              payment_id: latestPayment.id
-            });
-
-          if (directAccessError) {
-            console.error('Error granting access directly:', directAccessError);
-            return { 
-              success: false, 
-              error: 'Failed to grant product access',
-              debugInfo: { accessError, directAccessError, userId, paymentId: latestPayment.id, productId }
-            };
-          }
+          console.error('Error granting access:', accessError);
+          return { 
+            success: false, 
+            error: 'Failed to grant product access',
+            debugInfo: { accessError, userId, paymentId: latestPayment.id, productId }
+          };
         }
         console.log('Access granted successfully to product:', productId);
       } else {
