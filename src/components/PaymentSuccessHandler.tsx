@@ -48,8 +48,8 @@ const PaymentSuccessHandler = () => {
       try {
         console.log('Processing payment success for email:', userEmail);
         
-        // Add a small delay to allow webhook processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Add a delay to allow webhook processing
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         // Verify payment and grant access
         const result = await verifyPaymentAndGrantAccess(userEmail, user?.id);
@@ -61,7 +61,7 @@ const PaymentSuccessHandler = () => {
             whatsappGroup: result.whatsappGroup
           });
 
-          // Grant access locally
+          // Grant access locally if user is logged in
           if (user) {
             await grantAccess('digital-product-1');
           }
@@ -75,34 +75,33 @@ const PaymentSuccessHandler = () => {
             duration: 6000,
           });
 
-          // Auto redirect after 5 seconds
+          // Auto redirect after 8 seconds
           setTimeout(() => {
             navigate('/', { replace: true });
-          }, 5000);
+          }, 8000);
         } else {
+          // Payment processing - still redirect but with different message
           toast({
             title: "Payment Processing",
-            description: result.error || "Payment verification in progress...",
+            description: "Your payment was successful. Access will be granted shortly.",
             variant: "default",
           });
           
-          // Redirect to home anyway after a delay
           setTimeout(() => {
             navigate('/', { replace: true });
-          }, 5000);
+          }, 6000);
         }
       } catch (error) {
         console.error('Error processing payment:', error);
         toast({
           title: "Payment Received",
-          description: "Your payment was successful. Access will be granted shortly.",
+          description: "Your payment was successful. Please check back in a few minutes for access.",
           variant: "default",
         });
         
-        // Redirect to home
         setTimeout(() => {
           navigate('/', { replace: true });
-        }, 3000);
+        }, 5000);
       } finally {
         setIsProcessing(false);
       }
@@ -117,7 +116,7 @@ const PaymentSuccessHandler = () => {
         <div className="text-center max-w-md mx-auto">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
           <p className="text-green-700 text-lg font-medium">Verifying payment...</p>
-          <p className="text-gray-600 text-sm mt-2">Please wait while we process your payment</p>
+          <p className="text-gray-600 text-sm mt-2">Please wait while we process your payment and grant access</p>
         </div>
       </div>
     );
@@ -188,7 +187,7 @@ const PaymentSuccessHandler = () => {
           )}
           
           <div className="text-center">
-            <p className="text-sm text-gray-600 mb-3">Redirecting to home page in 5 seconds...</p>
+            <p className="text-sm text-gray-600 mb-3">Redirecting to home page in 8 seconds...</p>
             <Button
               onClick={() => navigate('/', { replace: true })}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"

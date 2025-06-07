@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,14 +131,27 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        const successUrl = `${window.location.origin}/payment-success?email=${encodeURIComponent(userEmail)}`;
-        const cancelUrl = `${window.location.origin}/cart`;
+        // Create proper success and cancel URLs
+        const baseUrl = window.location.origin;
+        const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success`;
+        const cancelUrl = `${baseUrl}/cart?status=cancelled`;
         
-        // Add success and cancel URLs to the Razorpay link
+        // Create the payment URL with proper redirects
         const razorpayUrl = new URL(razorpayProduct.products.razorpay_link);
+        
+        // Add customer details
         razorpayUrl.searchParams.set('prefill[email]', userEmail);
         razorpayUrl.searchParams.set('prefill[contact]', userPhone);
+        razorpayUrl.searchParams.set('prefill[name]', user?.name || name);
+        
+        // Add redirect URLs
+        razorpayUrl.searchParams.set('callback_url', successUrl);
+        razorpayUrl.searchParams.set('redirect[success]', successUrl);
+        razorpayUrl.searchParams.set('redirect[failure]', cancelUrl);
+        
+        // Add order details
         razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
+        razorpayUrl.searchParams.set('notes[customer_email]', userEmail);
         
         toast({
           title: "Opening Payment Gateway",
@@ -147,7 +159,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
           duration: 5000,
         });
         
-        // Open payment link in same tab for better mobile experience
+        console.log('Redirecting to payment URL:', razorpayUrl.toString());
+        
+        // Redirect to payment gateway
         window.location.href = razorpayUrl.toString();
         
       } else {
@@ -314,8 +328,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
             <strong>🚀 Simple Process:</strong><br/>
             1. Click "Pay Now" to open secure payment gateway<br/>
             2. Complete payment using any method<br/>
-            3. Access granted immediately after payment<br/>
-            4. Return to home page to access your content
+            3. You'll be automatically returned to our app<br/>
+            4. Access granted immediately after payment
           </p>
         </div>
 

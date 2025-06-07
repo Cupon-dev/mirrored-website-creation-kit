@@ -10,6 +10,7 @@ export const useUserAccess = () => {
 
   useEffect(() => {
     if (!user) {
+      setUserAccess([]);
       setIsLoading(false);
       return;
     }
@@ -17,6 +18,8 @@ export const useUserAccess = () => {
     const fetchUserAccess = async () => {
       try {
         setIsLoading(true);
+        console.log('Fetching user access for user:', user.id);
+        
         const { data, error } = await supabase
           .from('user_product_access')
           .select('product_id')
@@ -28,7 +31,9 @@ export const useUserAccess = () => {
         }
 
         if (data) {
-          setUserAccess(data.map(item => item.product_id));
+          const productIds = data.map(item => item.product_id);
+          console.log('User has access to products:', productIds);
+          setUserAccess(productIds);
         }
       } catch (error) {
         console.error('Error in fetchUserAccess:', error);
@@ -57,6 +62,8 @@ export const useUserAccess = () => {
         return;
       }
 
+      console.log('Granting access to product:', productId, 'for user:', user.id);
+
       // Grant access in database
       const { error } = await supabase
         .from('user_product_access')
@@ -78,9 +85,33 @@ export const useUserAccess = () => {
     }
   };
 
+  const refreshAccess = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_product_access')
+        .select('product_id')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error refreshing user access:', error);
+        return;
+      }
+
+      if (data) {
+        const productIds = data.map(item => item.product_id);
+        setUserAccess(productIds);
+      }
+    } catch (error) {
+      console.error('Error in refreshAccess:', error);
+    }
+  };
+
   return {
     hasAccess,
     grantAccess,
+    refreshAccess,
     userAccess,
     isLoading
   };
