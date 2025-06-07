@@ -20,59 +20,41 @@ export const grantProductAccess = async (
     };
   }
 
-  // Find the product that matches the payment amount
-  const matchingProduct = productsData.find(product => {
+  // Find products that match the payment amount
+  const paymentAmount = Number(latestPayment.amount || 0);
+  const matchingProducts = productsData.filter(product => {
     const productPrice = Number(product.price || 0);
-    const paymentAmount = Number(latestPayment.amount || 0);
     return Math.abs(productPrice - paymentAmount) < 0.01; // Allow for small floating point differences
   });
 
-  if (!matchingProduct) {
-    console.log('No product found matching payment amount:', latestPayment.amount);
-    // Fallback to first product if no exact match (for backward compatibility)
-    const productId = productsData[0].id;
-    console.log('Using fallback product:', productId);
+  console.log('Found matching products for payment amount:', paymentAmount, 'products:', matchingProducts.length);
+
+  // If no exact match, grant access to the first product (fallback for backward compatibility)
+  const productsToGrant = matchingProducts.length > 0 ? matchingProducts : [productsData[0]];
+
+  for (const product of productsToGrant) {
+    const productId = product.id;
+    console.log('Processing access grant for product:', productId, 'amount:', product.price);
     
+    // Check if access already exists for this specific product
     const { existingAccess, error: accessCheckError } = await checkExistingAccess(userId, productId);
 
     if (!existingAccess) {
+      // Grant access to the specific product that matches the payment
       const { error: accessError } = await grantUserAccess(userId, productId, latestPayment.id);
 
       if (accessError) {
-        console.error('Error granting fallback access:', accessError);
+        console.error('Error granting access to product:', productId, accessError);
         return { 
           success: false, 
           error: 'Failed to grant product access',
           debugInfo: { accessError, userId, paymentId: latestPayment.id, productId }
         };
       }
-      console.log('Fallback access granted successfully to product:', productId);
+      console.log('Access granted successfully to product:', productId);
+    } else {
+      console.log('Access already exists for product:', productId);
     }
-    
-    return { success: true };
-  }
-
-  const productId = matchingProduct.id;
-  console.log('Found matching product for payment amount:', productId, 'amount:', latestPayment.amount);
-  
-  // Check if access already exists for this specific product
-  const { existingAccess, error: accessCheckError } = await checkExistingAccess(userId, productId);
-
-  if (!existingAccess) {
-    // Grant access to the specific product that matches the payment
-    const { error: accessError } = await grantUserAccess(userId, productId, latestPayment.id);
-
-    if (accessError) {
-      console.error('Error granting access:', accessError);
-      return { 
-        success: false, 
-        error: 'Failed to grant product access',
-        debugInfo: { accessError, userId, paymentId: latestPayment.id, productId }
-      };
-    }
-    console.log('Access granted successfully to product:', productId);
-  } else {
-    console.log('Access already exists for product:', productId);
   }
 
   return { success: true };

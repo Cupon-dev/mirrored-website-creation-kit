@@ -1,406 +1,281 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? "https://vbrnyndzprufhtrwujdh.supabase.co";
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? "";
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface RazorpayWebhookPayload {
-  event: string;
-  payload: {
-    payment: {
-      entity: {
-        id: string;
-        order_id: string;
-        status: string;
-        amount: number;
-        currency: string;
-        method: string;
-        captured: boolean;
-        email: string;
-        contact: string;
-        created_at: number;
-        notes?: {
-          email?: string;
-          phone?: string;
-          order_id?: string;
-          customer_email?: string;
-          payment_id?: string;
-        };
-      };
-    };
-  };
 }
 
-const logStep = (step: string, details?: any) => {
-  const timestamp = new Date().toISOString();
-  const detailsStr = details ? ` - ${JSON.stringify(details, null, 2)}` : '';
-  console.log(`[${timestamp}] [RAZORPAY-WEBHOOK] ${step}${detailsStr}`);
-};
-
-const handler = async (req: Request): Promise<Response> => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    logStep('=== WEBHOOK REQUEST RECEIVED ===');
+    console.log('[RAZORPAY-WEBHOOK] === WEBHOOK REQUEST RECEIVED ===')
     
-    const webhookPayload: RazorpayWebhookPayload = await req.json();
-    logStep('Raw webhook payload received', webhookPayload);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    // Handle payment events
-    if (!['payment.captured', 'payment.authorized', 'order.paid', 'payment.failed'].includes(webhookPayload.event)) {
-      logStep('Ignoring non-payment event', { event: webhookPayload.event });
-      return new Response(JSON.stringify({ message: 'Event ignored' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const payload = await req.json()
+    console.log('[RAZORPAY-WEBHOOK] Raw webhook payload received -', JSON.stringify(payload, null, 2))
+
+    if (payload.event !== 'payment.captured') {
+      return new Response('Event not handled', { status: 200, headers: corsHeaders })
     }
 
-    const payment = webhookPayload.payload.payment.entity;
-    logStep('Processing payment entity', { 
-      paymentId: payment.id, 
-      orderId: payment.order_id,
-      status: payment.status,
-      amount: payment.amount,
-      captured: payment.captured,
-      email: payment.email,
-      contact: payment.contact
-    });
+    const paymentEntity = payload.payload.payment.entity
+    const paymentId = paymentEntity.id
+    const orderId = paymentEntity.order_id
+    const status = paymentEntity.status
+    const amount = paymentEntity.amount / 100 // Convert from paisa to rupees
+    const captured = paymentEntity.captured
+    const email = paymentEntity.email || paymentEntity.notes?.email
+    const phone = paymentEntity.contact || paymentEntity.notes?.phone
 
-    // Extract email with multiple fallbacks
-    const paymentEmail = payment.email || 
-                        payment.notes?.email || 
-                        payment.notes?.customer_email;
-    const paymentPhone = payment.contact || payment.notes?.phone;
-    const internalPaymentId = payment.notes?.payment_id;
+    console.log('[RAZORPAY-WEBHOOK] Processing payment entity -', {
+      paymentId,
+      orderId,
+      status,
+      amount,
+      captured,
+      email,
+      contact: phone
+    })
 
-    logStep('Extracted payment details', { 
-      email: paymentEmail, 
-      phone: paymentPhone,
-      internalPaymentId,
-      allNotes: payment.notes 
-    });
-
-    if (!paymentEmail) {
-      logStep('CRITICAL ERROR: No email found in payment data');
-      return new Response(JSON.stringify({ 
-        error: 'No email found in payment',
-        payment_data: payment
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!email) {
+      console.log('[RAZORPAY-WEBHOOK] No email found in payment data')
+      return new Response('No email found', { status: 400, headers: corsHeaders })
     }
 
-    // Enhanced payment record finding strategy
-    let paymentRecord = null;
-    let searchMethod = '';
+    console.log('[RAZORPAY-WEBHOOK] Extracted payment details -', {
+      email,
+      phone,
+      allNotes: paymentEntity.notes
+    })
 
-    // Strategy 1: Find by internal payment ID if provided
-    if (internalPaymentId) {
-      logStep('Searching by internal payment ID', { paymentId: internalPaymentId });
-      const { data: internalData, error: internalError } = await supabase
+    if (status !== 'captured' || !captured) {
+      console.log('[RAZORPAY-WEBHOOK] Payment not captured, skipping')
+      return new Response('Payment not captured', { status: 200, headers: corsHeaders })
+    }
+
+    // First, try to find payment by Razorpay order ID
+    console.log('[RAZORPAY-WEBHOOK] Searching by Razorpay order ID -', { orderId })
+    
+    let { data: existingPayment, error: paymentError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('razorpay_order_id', orderId)
+      .single()
+
+    let searchMethod = 'order_id'
+    let paymentRecord = existingPayment
+
+    if (paymentError || !existingPayment) {
+      console.log('[RAZORPAY-WEBHOOK] No payment found by order ID -', {})
+      
+      // Try to find by email for pending payments
+      console.log('[RAZORPAY-WEBHOOK] Searching by email for pending payments -', { email })
+      
+      const { data: pendingPayments, error: pendingError } = await supabase
         .from('payments')
         .select('*')
-        .eq('id', internalPaymentId)
-        .single();
-
-      if (internalData && !internalError) {
-        paymentRecord = internalData;
-        searchMethod = 'internal_payment_id';
-        logStep('Found payment by internal ID', { paymentId: paymentRecord.id });
-      } else {
-        logStep('No payment found by internal ID', { error: internalError?.message });
-      }
-    }
-
-    // Strategy 2: Find by Razorpay order ID
-    if (!paymentRecord && payment.order_id) {
-      logStep('Searching by Razorpay order ID', { orderId: payment.order_id });
-      const { data: orderData, error: orderError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('razorpay_order_id', payment.order_id)
-        .maybeSingle();
-
-      if (orderData && !orderError) {
-        paymentRecord = orderData;
-        searchMethod = 'order_id';
-        logStep('Found payment by order ID', { paymentId: paymentRecord.id });
-      } else {
-        logStep('No payment found by order ID', { error: orderError?.message });
-      }
-    }
-
-    // Strategy 3: Find most recent pending payment by email
-    if (!paymentRecord) {
-      logStep('Searching by email for pending payments', { email: paymentEmail });
-      const { data: emailData, error: emailError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('email', paymentEmail)
+        .eq('email', email)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
 
-      if (emailData && !emailError) {
-        paymentRecord = emailData;
-        searchMethod = 'email_pending';
-        logStep('Found pending payment by email', { paymentId: paymentRecord.id });
-      } else {
-        logStep('No pending payment found by email', { error: emailError?.message });
-      }
-    }
-
-    // Strategy 4: Find any recent payment by email (within last hour)
-    if (!paymentRecord) {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      logStep('Searching for recent payment by email', { email: paymentEmail, since: oneHourAgo });
-      
-      const { data: recentData, error: recentError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('email', paymentEmail)
-        .gte('created_at', oneHourAgo)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (recentData && !recentError) {
-        paymentRecord = recentData;
-        searchMethod = 'email_recent';
-        logStep('Found recent payment by email', { paymentId: paymentRecord.id });
-      } else {
-        logStep('No recent payment found by email', { error: recentError?.message });
-      }
-    }
-
-    // Strategy 5: Create new payment record if none found
-    if (!paymentRecord) {
-      logStep('Creating new payment record for webhook payment');
-      
-      const newPaymentData = {
-        email: paymentEmail,
-        mobile_number: paymentPhone || '',
-        amount: payment.amount / 100, // Convert paise to rupees
-        razorpay_payment_id: payment.id,
-        razorpay_order_id: payment.order_id || null,
-        status: payment.captured && payment.status === 'captured' ? 'completed' : 'pending',
-        google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
-        verified_at: payment.captured && payment.status === 'captured' ? new Date().toISOString() : null
-      };
-
-      logStep('Inserting new payment record', newPaymentData);
-      
-      const { data: newPayment, error: createError } = await supabase
-        .from('payments')
-        .insert(newPaymentData)
-        .select()
-        .single();
-
-      if (createError) {
-        logStep('ERROR creating new payment record', { error: createError });
-        return new Response(JSON.stringify({ 
-          error: 'Failed to create payment record',
-          details: createError
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      paymentRecord = newPayment;
-      searchMethod = 'created_new';
-      logStep('Created new payment record successfully', { paymentId: paymentRecord.id });
-    } else {
-      // Update existing payment record with complete information
-      logStep('Updating existing payment record', { 
-        paymentId: paymentRecord.id,
-        searchMethod,
-        currentStatus: paymentRecord.status
-      });
-
-      const updateData = {
-        razorpay_payment_id: payment.id,
-        status: payment.captured && payment.status === 'captured' ? 'completed' : 'failed',
-        verified_at: payment.captured && payment.status === 'captured' ? new Date().toISOString() : null,
-        ...(payment.order_id && { razorpay_order_id: payment.order_id }),
-        ...(paymentPhone && !paymentRecord.mobile_number && { mobile_number: paymentPhone })
-      };
-
-      logStep('Updating with data', updateData);
-
-      const { data: updatedPayment, error: updateError } = await supabase
-        .from('payments')
-        .update(updateData)
-        .eq('id', paymentRecord.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        logStep('ERROR updating payment record', { error: updateError });
-        return new Response(JSON.stringify({ 
-          error: 'Failed to update payment',
-          details: updateError
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      paymentRecord = updatedPayment;
-      logStep('Updated payment record successfully', { 
-        paymentId: paymentRecord.id,
-        newStatus: paymentRecord.status
-      });
-    }
-
-    // Grant user access if payment is completed
-    let userRecord = null;
-    let accessGranted = false;
-    
-    if (paymentRecord.status === 'completed') {
-      logStep('Payment completed, checking for user to grant access', { email: paymentEmail });
-      
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, name')
-        .eq('email', paymentEmail)
-        .maybeSingle();
-
-      if (userData && !userError) {
-        userRecord = userData;
-        logStep('Found user, granting product access', { 
-          userId: userRecord.id,
-          userName: userRecord.name
-        });
+      if (pendingError || !pendingPayments || pendingPayments.length === 0) {
+        console.log('[RAZORPAY-WEBHOOK] No pending payment found by email -', {})
         
-        // Get products to grant access to based on payment amount
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, price')
-          .eq('is_active', true);
+        // As last resort, find recent payment by email (within last hour)
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+        console.log('[RAZORPAY-WEBHOOK] Searching for recent payment by email -', { email, since: oneHourAgo })
+        
+        const { data: recentPayments, error: recentError } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('email', email)
+          .gte('created_at', oneHourAgo)
+          .order('created_at', { ascending: false })
+          .limit(1)
 
-        if (!productsError && productsData && productsData.length > 0) {
-          const paymentAmount = Number(paymentRecord.amount);
+        if (recentError || !recentPayments || recentPayments.length === 0) {
+          console.log('[RAZORPAY-WEBHOOK] No recent payment found, creating new record')
           
-          // Find products that match the payment amount
-          const matchingProducts = productsData.filter(product => {
-            const productPrice = Number(product.price);
-            return Math.abs(productPrice - paymentAmount) < 0.01;
-          });
-          
-          // If no exact match, use the first product (fallback)
-          const productsToGrant = matchingProducts.length > 0 ? matchingProducts : [productsData[0]];
-          
-          logStep('Granting access to products', { 
-            paymentAmount, 
-            matchingProducts: matchingProducts.length,
-            productsToGrant: productsToGrant.map(p => ({ id: p.id, price: p.price }))
-          });
-          
-          // Grant access to matching products
-          for (const product of productsToGrant) {
-            // Check if access already exists
-            const { data: existingAccess, error: accessCheckError } = await supabase
-              .from('user_product_access')
-              .select('id')
-              .eq('user_id', userRecord.id)
-              .eq('product_id', product.id)
-              .maybeSingle();
+          // Create a new payment record
+          const { data: newPayment, error: createError } = await supabase
+            .from('payments')
+            .insert({
+              email: email,
+              mobile_number: phone,
+              amount: amount,
+              razorpay_payment_id: paymentId,
+              razorpay_order_id: orderId,
+              status: 'completed',
+              verified_at: new Date().toISOString(),
+              google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link"
+            })
+            .select()
+            .single()
 
-            if (!existingAccess) {
-              // Grant new access
-              const { data: newAccess, error: accessError } = await supabase
-                .from('user_product_access')
-                .insert({
-                  user_id: userRecord.id,
-                  product_id: product.id,
-                  payment_id: paymentRecord.id
-                })
-                .select()
-                .single();
-
-              if (accessError) {
-                logStep('ERROR granting access', { error: accessError, productId: product.id });
-              } else {
-                logStep('Access granted successfully', { 
-                  accessId: newAccess.id,
-                  userId: userRecord.id,
-                  productId: product.id
-                });
-                accessGranted = true;
-              }
-            } else {
-              logStep('Access already exists', { existingAccessId: existingAccess.id, productId: product.id });
-              accessGranted = true;
-            }
+          if (createError) {
+            console.error('[RAZORPAY-WEBHOOK] Error creating payment record -', createError)
+            return new Response('Database error', { status: 500, headers: corsHeaders })
           }
+
+          paymentRecord = newPayment
+          searchMethod = 'created_new'
         } else {
-          logStep('No active products found to grant access to', { error: productsError });
+          paymentRecord = recentPayments[0]
+          searchMethod = 'email_recent'
+          console.log('[RAZORPAY-WEBHOOK] Found recent payment by email -', { paymentId: paymentRecord.id })
         }
       } else {
-        logStep('User not found, cannot grant access', { 
-          error: userError?.message,
-          email: paymentEmail,
-          suggestion: 'User needs to register first'
-        });
+        paymentRecord = pendingPayments[0]
+        searchMethod = 'email_pending'
+        console.log('[RAZORPAY-WEBHOOK] Found pending payment by email -', { paymentId: paymentRecord.id })
+      }
+    } else {
+      console.log('[RAZORPAY-WEBHOOK] Found payment by order ID -', { paymentId: paymentRecord.id })
+    }
+
+    // Update the payment record
+    console.log('[RAZORPAY-WEBHOOK] Updating existing payment record -', {
+      paymentId: paymentRecord.id,
+      searchMethod,
+      currentStatus: paymentRecord.status
+    })
+
+    const updateData = {
+      razorpay_payment_id: paymentId,
+      status: 'completed',
+      verified_at: new Date().toISOString(),
+      razorpay_order_id: orderId
+    }
+
+    console.log('[RAZORPAY-WEBHOOK] Updating with data -', updateData)
+
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update(updateData)
+      .eq('id', paymentRecord.id)
+
+    if (updateError) {
+      console.error('[RAZORPAY-WEBHOOK] ERROR updating payment record -', { error: updateError })
+      return new Response('Update failed', { status: 500, headers: corsHeaders })
+    }
+
+    console.log('[RAZORPAY-WEBHOOK] Updated payment record successfully -', {
+      paymentId: paymentRecord.id,
+      newStatus: 'completed'
+    })
+
+    // Grant product access if payment is completed
+    console.log('[RAZORPAY-WEBHOOK] Payment completed, checking for user to grant access -', { email })
+
+    // Find the user by email
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, name')
+      .eq('email', email)
+      .single()
+
+    let accessGranted = false
+
+    if (userError || !userData) {
+      console.log('[RAZORPAY-WEBHOOK] No user found with email, access will be granted when user logs in')
+    } else {
+      console.log('[RAZORPAY-WEBHOOK] Found user, granting product access -', {
+        userId: userData.id,
+        userName: userData.name
+      })
+
+      // Get all active products to determine which one to grant access to
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('id, price')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      if (productsError || !productsData || productsData.length === 0) {
+        console.log('[RAZORPAY-WEBHOOK] No active products found')
+      } else {
+        // Find the product that matches the payment amount, or grant access to all products with matching price
+        const matchingProducts = productsData.filter(product => {
+          const productPrice = Number(product.price || 0)
+          return Math.abs(productPrice - amount) < 0.01 // Allow for small floating point differences
+        })
+
+        console.log('[RAZORPAY-WEBHOOK] Granting access to products -', {
+          paymentAmount: amount,
+          matchingProducts: matchingProducts.length,
+          productsToGrant: matchingProducts
+        })
+
+        // Grant access to all matching products (or first product if no exact match)
+        const productsToGrantAccess = matchingProducts.length > 0 ? matchingProducts : [productsData[0]]
+
+        for (const product of productsToGrantAccess) {
+          // Check if access already exists
+          const { data: existingAccess, error: accessCheckError } = await supabase
+            .from('user_product_access')
+            .select('id, created_at')
+            .eq('user_id', userData.id)
+            .eq('product_id', product.id)
+            .maybeSingle()
+
+          if (existingAccess) {
+            console.log('[RAZORPAY-WEBHOOK] Access already exists -', {
+              existingAccessId: existingAccess.id,
+              productId: product.id
+            })
+            continue
+          }
+
+          // Grant access to this specific product
+          const { error: accessError } = await supabase
+            .from('user_product_access')
+            .insert({
+              user_id: userData.id,
+              product_id: product.id,
+              payment_id: paymentRecord.id
+            })
+
+          if (accessError) {
+            console.error('[RAZORPAY-WEBHOOK] ERROR granting access to product -', {
+              error: accessError,
+              productId: product.id,
+              userId: userData.id
+            })
+          } else {
+            console.log('[RAZORPAY-WEBHOOK] Successfully granted access to product -', {
+              productId: product.id,
+              userId: userData.id
+            })
+            accessGranted = true
+          }
+        }
       }
     }
 
-    logStep('=== WEBHOOK PROCESSING COMPLETED SUCCESSFULLY ===', {
-      paymentId: payment.id,
-      email: paymentEmail,
+    console.log('[RAZORPAY-WEBHOOK] === WEBHOOK PROCESSING COMPLETED SUCCESSFULLY === -', {
+      paymentId,
+      email,
       recordId: paymentRecord.id,
-      status: paymentRecord.status,
+      status: 'completed',
       searchMethod,
-      userFound: !!userRecord,
+      userFound: !!userData,
       accessGranted
-    });
+    })
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Payment processed successfully',
-      data: {
-        razorpay_payment_id: payment.id,
-        email: paymentEmail,
-        record_id: paymentRecord.id,
-        status: paymentRecord.status,
-        search_method: searchMethod,
-        user_found: !!userRecord,
-        access_granted: accessGranted
-      }
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response('Success', { status: 200, headers: corsHeaders })
 
-  } catch (error: any) {
-    logStep('CRITICAL ERROR in webhook processing', { 
-      error: error.message, 
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
-    
-    return new Response(JSON.stringify({ 
-      error: 'Webhook processing failed',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (error) {
+    console.error('[RAZORPAY-WEBHOOK] ERROR processing webhook -', error)
+    return new Response('Server error', { status: 500, headers: corsHeaders })
   }
-};
-
-serve(handler);
+})
