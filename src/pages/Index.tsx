@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
-import UserProfile from "@/components/UserProfile";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -195,13 +194,6 @@ const Index = () => {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         {/* Flash Offer Banner - Only show in home view */}
         {currentView === 'home' && <FlashOfferBanner />}
-
-        {/* User Profile Section */}
-        {user && (
-          <div className="mb-6">
-            <UserProfile />
-          </div>
-        )}
 
         {/* Library View */}
         {currentView === 'library' && (

@@ -80,7 +80,7 @@ const ProductCard = ({
           />
         </Button>
 
-        {/* Access Status */}
+        {/* Access Status - Only show if user actually has access */}
         {userHasAccess && (
           <div className="absolute bottom-2 left-2">
             <Badge className="bg-green-500 text-white text-xs px-2 py-1">

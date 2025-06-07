@@ -46,7 +46,7 @@ const ProductAccessButton = ({
           className={`w-full font-bold py-2 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition-all duration-300 ${
             isClicked 
               ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 scale-105' 
-              : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:scale-[1.02]'
+              : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02]'
           }`}
           disabled={!downloadLink}
         >
@@ -83,7 +83,7 @@ const ProductAccessButton = ({
     <div className="space-y-2 md:space-y-3">
       <Button
         onClick={onPurchase}
-        className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+        className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
       >
         <Download className="w-4 h-4 md:w-5 md:h-5 mr-2" />
         <span className="hidden md:inline">BUY NOW - ₹{price.toLocaleString('en-IN')}</span>
