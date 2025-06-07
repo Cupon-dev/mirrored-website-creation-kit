@@ -246,23 +246,23 @@ const handler = async (req: Request): Promise<Response> => {
     if (paymentRecord.status === 'completed') {
       logStep('Payment completed, checking for user to grant access', { email: paymentEmail });
       
-      const { data: user, error: userError } = await supabase
+      const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id, email, name')
         .eq('email', paymentEmail)
         .single();
 
-      if (user && !userError) {
+      if (userRecord && !userError) {
         logStep('Found user, granting product access', { 
-          userId: user.id,
-          userName: user.name
+          userId: userRecord.id,
+          userName: userRecord.name
         });
         
         // Check if access already exists
         const { data: existingAccess, error: accessCheckError } = await supabase
           .from('user_product_access')
           .select('id')
-          .eq('user_id', user.id)
+          .eq('user_id', userRecord.id)
           .eq('product_id', 'digital-product-1')
           .single();
 
@@ -271,7 +271,7 @@ const handler = async (req: Request): Promise<Response> => {
           const { data: newAccess, error: accessError } = await supabase
             .from('user_product_access')
             .insert({
-              user_id: user.id,
+              user_id: userRecord.id,
               product_id: 'digital-product-1',
               payment_id: paymentRecord.id
             })
@@ -283,7 +283,7 @@ const handler = async (req: Request): Promise<Response> => {
           } else {
             logStep('Access granted successfully', { 
               accessId: newAccess.id,
-              userId: user.id,
+              userId: userRecord.id,
               productId: 'digital-product-1'
             });
           }
@@ -305,8 +305,8 @@ const handler = async (req: Request): Promise<Response> => {
       recordId: paymentRecord.id,
       status: paymentRecord.status,
       searchMethod,
-      userFound: !!user,
-      accessGranted: paymentRecord.status === 'completed' && !!user
+      userFound: !!userRecord,
+      accessGranted: paymentRecord.status === 'completed' && !!userRecord
     });
 
     return new Response(JSON.stringify({ 
@@ -318,8 +318,8 @@ const handler = async (req: Request): Promise<Response> => {
         record_id: paymentRecord.id,
         status: paymentRecord.status,
         search_method: searchMethod,
-        user_found: !!user,
-        access_granted: paymentRecord.status === 'completed' && !!user
+        user_found: !!userRecord,
+        access_granted: paymentRecord.status === 'completed' && !!userRecord
       }
     }), {
       status: 200,

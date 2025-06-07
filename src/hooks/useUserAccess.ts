@@ -28,34 +28,50 @@ export const useUserAccess = () => {
       setIsLoading(true);
       console.log('Fetching user access for user:', user.id);
       
-      const { data, error } = await supabase
+      // First check user_product_access table
+      const { data: accessData, error: accessError } = await supabase
         .from('user_product_access')
         .select('product_id')
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error fetching user access:', error);
-        // Also check by email if user_id lookup fails
-        const { data: emailData, error: emailError } = await supabase
-          .from('payments')
-          .select('id')
-          .eq('email', user.email)
-          .eq('status', 'completed');
-
-        if (!emailError && emailData && emailData.length > 0) {
-          console.log('Found payment by email, granting access to digital-product-1');
-          setUserAccess(['digital-product-1']);
-        } else {
-          setUserAccess([]);
-        }
+      if (!accessError && accessData && accessData.length > 0) {
+        const productIds = accessData.map(item => item.product_id);
+        console.log('User has access to products via user_product_access:', productIds);
+        setUserAccess(productIds);
         return;
       }
 
-      if (data) {
-        const productIds = data.map(item => item.product_id);
-        console.log('User has access to products:', productIds);
-        setUserAccess(productIds);
+      // Fallback: Check by email in payments table for completed payments
+      console.log('No direct access found, checking payment records for email:', user.email);
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .select('id, email, status, verified_at')
+        .eq('email', user.email)
+        .eq('status', 'completed');
+
+      if (!paymentError && paymentData && paymentData.length > 0) {
+        console.log('Found completed payments, granting access to digital-product-1');
+        
+        // Auto-grant access for completed payments
+        for (const payment of paymentData) {
+          const { error: grantError } = await supabase
+            .from('user_product_access')
+            .insert({
+              user_id: user.id,
+              product_id: 'digital-product-1',
+              payment_id: payment.id
+            })
+            .select()
+            .single();
+
+          if (!grantError) {
+            console.log('Auto-granted access for payment:', payment.id);
+          }
+        }
+        
+        setUserAccess(['digital-product-1']);
       } else {
+        console.log('No completed payments found for user');
         setUserAccess([]);
       }
     } catch (error) {
@@ -87,12 +103,24 @@ export const useUserAccess = () => {
 
       console.log('Granting access to product:', productId, 'for user:', user.id);
 
+      // Find a payment record for this user
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('email', user.email)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const paymentId = paymentData && paymentData.length > 0 ? paymentData[0].id : null;
+
       // Grant access in database
       const { error } = await supabase
         .from('user_product_access')
         .insert({
           user_id: user.id,
-          product_id: productId
+          product_id: productId,
+          payment_id: paymentId
         });
 
       if (error) {

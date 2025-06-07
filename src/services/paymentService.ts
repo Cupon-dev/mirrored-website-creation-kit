@@ -132,12 +132,13 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       console.log('Granting access to user:', userId);
       
+      // Check if access already exists
       const { data: existingAccess, error: accessCheckError } = await supabase
         .from('user_product_access')
         .select('id, created_at')
         .eq('user_id', userId)
         .eq('product_id', 'digital-product-1')
-        .single();
+        .maybeSingle();
 
       if (!existingAccess) {
         const { error: accessError } = await supabase
