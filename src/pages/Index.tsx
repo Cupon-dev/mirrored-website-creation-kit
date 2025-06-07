@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
 import UserProfile from "@/components/UserProfile";
+import { useEffect } from "react"; // Add this if not already imported
 
 const Index = () => {
   const navigate = useNavigate();
@@ -20,11 +21,23 @@ const Index = () => {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [userPurchases, setUserPurchases] = useState<string[]>([]);
   
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
   const { addToCart, cartCount } = useCart();
-  const { user, logout, loginUser } = useAuth();
+  const { user, logout, loginUser, checkUserAccess, updateUserPurchases } = useAuth();
+
+  // ADD THIS NEW useEffect:
+  useEffect(() => {
+    if (user) {
+      // Load user's purchases from localStorage
+      const savedPurchases = localStorage.getItem(`purchases_${user.id}`);
+      if (savedPurchases) {
+        setUserPurchases(JSON.parse(savedPurchases));
+      }
+    }
+  }, [user]);
 
   const handleLogin = async () => {
     if (!loginIdentifier.trim()) return;
@@ -34,10 +47,33 @@ const Index = () => {
     setIsLoggingIn(false);
     
     if (result.success) {
-      setShowLoginDialog(false);
-      setLoginIdentifier('');
+      // ADD THESE NEW FUNCTIONS:
+  const handleCheckout = async (cartItems) => {
+    try {
+      const response = await fetch('/api/payment/create-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cartItems,
+          userId: user.id,
+          successUrl: `${window.location.origin}/payment/success`,
+          cancelUrl: `${window.location.origin}/payment/cancel`
+        })
+      });
+      
+      const { sessionUrl } = await response.json();
+      window.location.href = sessionUrl;
+    } catch (error) {
+      console.error('Payment failed:', error);
     }
   };
+    }
+
+  const accessDigitalContent = (productId) => {
+    // Navigate to content page or show content
+    navigate(`/content/${productId}`);
+  };
+    }
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
