@@ -39,6 +39,8 @@ const ProductCard = ({
   const navigate = useNavigate();
   const { hasAccess } = useUserAccess();
   const { user } = useAuth();
+  
+  // Only show as owned if user is logged in AND actually has access
   const userHasAccess = user && hasAccess(product.id);
 
   return (
@@ -80,7 +82,7 @@ const ProductCard = ({
           />
         </Button>
 
-        {/* Access Status - Only show if user actually has access */}
+        {/* Access Status - Only show if user actually has verified access */}
         {userHasAccess && (
           <div className="absolute bottom-2 left-2">
             <Badge className="bg-green-500 text-white text-xs px-2 py-1">
@@ -141,7 +143,7 @@ const ProductCard = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Responsive design */}
         <div className="space-y-2">
           {userHasAccess ? (
             <Button
@@ -150,7 +152,8 @@ const ProductCard = ({
               disabled={!product.download_link}
             >
               <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Access Your Content
+              <span className="hidden sm:inline">Access Your Content</span>
+              <span className="sm:hidden">Access</span>
             </Button>
           ) : (
             <>
@@ -159,7 +162,8 @@ const ProductCard = ({
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 sm:py-3 text-xs sm:text-sm rounded-lg shadow-lg transform transition hover:scale-[1.02]"
               >
                 <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                BUY NOW
+                <span className="hidden sm:inline">BUY NOW</span>
+                <span className="sm:hidden">BUY</span>
               </Button>
               
               <Button
@@ -167,7 +171,8 @@ const ProductCard = ({
                 onClick={() => onAddToCart(product.id)}
                 className="w-full border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-2 text-xs sm:text-sm rounded-lg transition-all"
               >
-                Add to Cart
+                <span className="hidden sm:inline">Add to Cart</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </>
           )}

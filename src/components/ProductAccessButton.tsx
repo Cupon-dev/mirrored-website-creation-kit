@@ -22,6 +22,8 @@ const ProductAccessButton = ({
   const { hasAccess } = useUserAccess();
   const { user } = useAuth();
   const [isClicked, setIsClicked] = useState(false);
+  
+  // Only show access if user is logged in AND actually has verified access
   const userHasAccess = user && hasAccess(productId);
 
   const handleLinkClick = () => {
@@ -40,10 +42,10 @@ const ProductAccessButton = ({
 
   if (userHasAccess) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 md:space-y-3">
         <Button
           onClick={handleLinkClick}
-          className={`w-full font-bold py-2 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition-all duration-300 ${
+          className={`w-full font-bold py-3 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition-all duration-300 ${
             isClicked 
               ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 scale-105' 
               : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02]'
@@ -69,7 +71,7 @@ const ProductAccessButton = ({
         <Button
           onClick={handleDemoClick}
           variant="outline"
-          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 text-sm"
+          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm"
         >
           <Play className="w-4 h-4 mr-2" />
           <span className="hidden md:inline">Watch Demo Video</span>
@@ -83,7 +85,7 @@ const ProductAccessButton = ({
     <div className="space-y-2 md:space-y-3">
       <Button
         onClick={onPurchase}
-        className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
+        className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
       >
         <Download className="w-4 h-4 md:w-5 md:h-5 mr-2" />
         <span className="hidden md:inline">BUY NOW - ₹{price.toLocaleString('en-IN')}</span>
@@ -93,7 +95,7 @@ const ProductAccessButton = ({
       <Button
         onClick={handleDemoClick}
         variant="outline"
-        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 text-sm"
+        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm"
       >
         <Play className="w-4 h-4 mr-2" />
         <span className="hidden md:inline">Watch Demo Video</span>
@@ -103,12 +105,15 @@ const ProductAccessButton = ({
       <Button
         disabled
         variant="outline"
-        className="w-full border-2 border-gray-300 text-gray-500 font-semibold py-2 md:py-4 text-sm md:text-lg rounded-xl cursor-not-allowed opacity-50"
+        className="w-full border-2 border-gray-300 text-gray-500 font-semibold py-3 md:py-4 text-sm md:text-lg rounded-xl cursor-not-allowed opacity-50"
       >
         <Lock className="w-4 h-4 md:w-5 md:h-5 mr-2" />
         <span className="hidden md:inline">Full Access</span>
         <span className="md:hidden">🔗</span>
-        <Badge className="ml-2 bg-gray-200 text-gray-600 text-xs">Purchase Required</Badge>
+        <Badge className="ml-2 bg-gray-200 text-gray-600 text-xs">
+          <span className="hidden sm:inline">Purchase Required</span>
+          <span className="sm:hidden">Buy</span>
+        </Badge>
       </Button>
     </div>
   );
