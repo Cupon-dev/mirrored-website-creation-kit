@@ -15,7 +15,7 @@ const Index = () => {
   const [searchParams] = useSearchParams();
   const { user, loginUser, logout } = useAuth();
   const { addToCart, cartCount } = useCart();
-  const { products, isLoading } = useProducts();
+  const { data: products, isLoading } = useProducts();
   
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [wishlist, setWishlist] = useState([]);
@@ -85,11 +85,13 @@ const Index = () => {
   useEffect(() => {
     const updateViewers = () => {
       const newViewers = {};
-      products.forEach(product => {
-        const baseViewing = product.base_viewing || Math.floor(Math.random() * 100) + 20;
-        const variation = Math.floor(Math.random() * 20) - 10;
-        newViewers[product.id] = Math.max(1, baseViewing + variation);
-      });
+      if (products && Array.isArray(products)) {
+        products.forEach(product => {
+          const baseViewing = product.base_viewing || Math.floor(Math.random() * 100) + 20;
+          const variation = Math.floor(Math.random() * 20) - 10;
+          newViewers[product.id] = Math.max(1, baseViewing + variation);
+        });
+      }
       setLiveViewing(newViewers);
     };
 
@@ -131,12 +133,12 @@ const Index = () => {
     );
   };
 
-  // Filter products
-  const filteredProducts = products.filter(product => {
+  // Filter products - add null check for products array
+  const filteredProducts = products && Array.isArray(products) ? products.filter(product => {
     const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
+  }) : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -282,9 +284,9 @@ const Index = () => {
                   />
                   
                   {/* Discount Badge */}
-                  {product.discount && (
+                  {product.discount_percentage && (
                     <Badge className="absolute top-2 left-2 bg-red-500 text-white text-xs">
-                      {product.discount}% OFF
+                      {product.discount_percentage}% OFF
                     </Badge>
                   )}
                   
@@ -320,14 +322,14 @@ const Index = () => {
                       <Star className="w-3 h-3 fill-current" />
                       <span className="text-xs text-gray-600 ml-1">{product.rating}</span>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2">({product.reviews})</span>
+                    <span className="text-xs text-gray-500 ml-2">({product.review_count})</span>
                   </div>
 
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-green-600">${product.price}</span>
+                      <span className="font-bold text-green-600">₹{product.price}</span>
                       {product.original_price && (
-                        <span className="text-xs text-gray-500 line-through">${product.original_price}</span>
+                        <span className="text-xs text-gray-500 line-through">₹{product.original_price}</span>
                       )}
                     </div>
                   </div>
