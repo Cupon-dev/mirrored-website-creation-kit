@@ -133,7 +133,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       if (razorpayProduct?.products?.razorpay_link) {
         // Create proper success and cancel URLs
         const baseUrl = window.location.origin;
-        const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success`;
+        const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success&redirect=true`;
         const cancelUrl = `${baseUrl}/cart?status=cancelled`;
         
         // Create the payment URL with proper redirects
@@ -144,10 +144,10 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         razorpayUrl.searchParams.set('prefill[contact]', userPhone);
         razorpayUrl.searchParams.set('prefill[name]', user?.name || name);
         
-        // Add redirect URLs
+        // CRITICAL: Add redirect URLs to ensure user returns to app
+        razorpayUrl.searchParams.set('redirect_url', successUrl);
         razorpayUrl.searchParams.set('callback_url', successUrl);
-        razorpayUrl.searchParams.set('redirect[success]', successUrl);
-        razorpayUrl.searchParams.set('redirect[failure]', cancelUrl);
+        razorpayUrl.searchParams.set('cancel_url', cancelUrl);
         
         // Add order details
         razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
@@ -161,8 +161,29 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         console.log('Redirecting to payment URL:', razorpayUrl.toString());
         
-        // Redirect to payment gateway
-        window.location.href = razorpayUrl.toString();
+        // Use window.open with specific parameters to ensure proper redirect
+        const paymentWindow = window.open(
+          razorpayUrl.toString(), 
+          '_blank',
+          'width=800,height=600,scrollbars=yes,resizable=yes'
+        );
+        
+        // Check if payment window was blocked
+        if (!paymentWindow) {
+          // Fallback to same tab redirect
+          window.location.href = razorpayUrl.toString();
+        } else {
+          // Monitor payment window for completion
+          const checkClosed = setInterval(() => {
+            if (paymentWindow.closed) {
+              clearInterval(checkClosed);
+              // Check for successful payment after window closes
+              setTimeout(() => {
+                window.location.href = '/payment-success?check=true';
+              }, 1000);
+            }
+          }, 1000);
+        }
         
       } else {
         throw new Error("Payment gateway not configured for this product");

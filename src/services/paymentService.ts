@@ -41,31 +41,21 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       console.log('Granting access to user:', userId);
       
-      // Check if access already exists
-      const { data: existingAccess } = await supabase
+      const { error: accessError } = await supabase
         .from('user_product_access')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('product_id', 'digital-product-1')
-        .single();
+        .upsert({
+          user_id: userId,
+          product_id: 'digital-product-1',
+          payment_id: latestPayment.id
+        }, {
+          onConflict: 'user_id,product_id'
+        });
 
-      if (!existingAccess) {
-        const { error: accessError } = await supabase
-          .from('user_product_access')
-          .insert({
-            user_id: userId,
-            product_id: 'digital-product-1',
-            payment_id: latestPayment.id
-          });
-
-        if (accessError) {
-          console.error('Error granting access:', accessError);
-          return { success: false, error: 'Failed to grant access' };
-        }
-        console.log('Access granted successfully');
-      } else {
-        console.log('User already has access to this product');
+      if (accessError) {
+        console.error('Error granting access:', accessError);
+        return { success: false, error: 'Failed to grant access' };
       }
+      console.log('Access granted successfully');
     }
 
     return {
@@ -109,15 +99,6 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
     
     const orderIdSuffix = Math.random().toString(36).substring(2, 8);
     const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
-
-    // Store the payment data for redirect
-    const paymentData = {
-      email,
-      phoneNumber,
-      amount,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('pending_payment', JSON.stringify(paymentData));
 
     // Create payment record
     const { data: payment, error: paymentError } = await supabase
