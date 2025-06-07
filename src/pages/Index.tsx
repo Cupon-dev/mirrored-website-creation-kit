@@ -81,13 +81,13 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [marketingBanners.length]);
 
-  // Live viewing simulation
+  // Live viewing simulation - fixed to remove non-existent property
   useEffect(() => {
     const updateViewers = () => {
       const newViewers = {};
       if (products && Array.isArray(products)) {
         products.forEach(product => {
-          const baseViewing = product.base_viewing || Math.floor(Math.random() * 100) + 20;
+          const baseViewing = Math.floor(Math.random() * 100) + 20;
           const variation = Math.floor(Math.random() * 20) - 10;
           newViewers[product.id] = Math.max(1, baseViewing + variation);
         });
