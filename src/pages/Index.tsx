@@ -18,11 +18,11 @@ const createSupabaseClient = () => {
         const queryBuilder = {
           eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
           order: (column, options) => ({
-            eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } }),
-            then: (resolve, reject) => simulateSupabaseQuery(table, 'select', { order: { column, ...options } }).then(resolve, reject)
-          }),
-          then: (resolve, reject) => simulateSupabaseQuery(table, 'select', { columns }).then(resolve, reject)
+            eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } })
+          })
         };
+        // Add promise-like behavior without conflicting with await
+        Object.assign(queryBuilder, simulateSupabaseQuery(table, 'select', { columns }));
         return queryBuilder;
       },
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
@@ -216,11 +216,12 @@ const Index = () => {
 
   const loadProductsFromDB = async () => {
     try {
-      const { data: productsData, error } = await supabaseClient
+      const result = await supabaseClient
         .from('products')
         .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .eq('is_active', true);
+      
+      const { data: productsData, error } = result;
       
       if (error || !productsData || productsData.length === 0) {
         console.log('No products found, loading demo data');
@@ -256,10 +257,11 @@ const Index = () => {
 
   const loadCategoriesFromDB = async () => {
     try {
-      const { data: categoriesData, error } = await supabaseClient
+      const result = await supabaseClient
         .from('categories')
-        .select('*')
-        .order('name', { ascending: true });
+        .select('*');
+      
+      const { data: categoriesData, error } = result;
       
       const defaultCategories = [
         { id: 'all', name: 'All Products', icon: '🛍️' },
