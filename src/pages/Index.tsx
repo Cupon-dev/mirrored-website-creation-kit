@@ -1,34 +1,116 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle } from "lucide-react";
+import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useProducts, useCategories } from "@/hooks/useProducts";
-import { useCart } from "@/hooks/useCart";
-import { useAuth } from "@/hooks/useAuth";
-import FlashOfferBanner from "@/components/FlashOfferBanner";
-import ProductCard from "@/components/ProductCard";
-import UserProfile from "@/components/UserProfile";
 
 const Index = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [wishlist, setWishlist] = useState([]);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [loginIdentifier, setLoginIdentifier] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [user, setUser] = useState({ id: 'mani', name: 'Mani' });
   const [userPurchases, setUserPurchases] = useState([]);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const [showPaymentCancel, setShowPaymentCancel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  const { data: categories = [] } = useCategories();
-  const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
-  const { addToCart, cartCount } = useCart();
-  const { user, logout, loginUser } = useAuth();
+  const [showLibrary, setShowLibrary] = useState(false);
+
+  // Sample products data
+  const products = [
+    {
+      id: '1',
+      name: 'Pink Bra',
+      originalPrice: 100,
+      price: 1,
+      discount: 99,
+      category: 'clothing',
+      image: '/api/placeholder/300/200',
+      rating: 4.9,
+      reviews: 789,
+      viewing: 7047,
+      sold: 5952,
+      brand: 'PINK',
+      grade: '',
+      tags: ['Instant Access']
+    },
+    {
+      id: '2',
+      name: 'Mallu bgrade collection',
+      originalPrice: 179,
+      price: 129.99,
+      discount: 31,
+      category: 'accessories',
+      image: '/api/placeholder/300/200',
+      rating: 4.7,
+      reviews: 789,
+      viewing: 6707,
+      sold: 6307,
+      brand: 'B-Grade',
+      grade: '',
+      tags: ['Instant Access']
+    },
+    {
+      id: '3',
+      name: 'Vintage Leather Handbag',
+      originalPrice: 129.99,
+      price: 89.99,
+      discount: 31,
+      category: 'bags',
+      image: '/api/placeholder/300/200',
+      rating: 4.8,
+      reviews: 156,
+      viewing: 3948,
+      sold: 11393,
+      brand: 'Heritage Craft',
+      grade: '',
+      tags: ['Instant Access'],
+      stock: 12
+    },
+    {
+      id: '4',
+      name: 'Classic Comfort Essential',
+      originalPrice: 29.99,
+      price: 19.99,
+      discount: 33,
+      category: 'clothing',
+      image: '/api/placeholder/300/200',
+      rating: 4.9,
+      reviews: 567,
+      viewing: 9636,
+      sold: 11219,
+      brand: 'Essentials',
+      grade: 'High Demand!',
+      tags: ['Instant Access']
+    },
+    {
+      id: '5',
+      name: 'Urban Style Casual Shirt',
+      originalPrice: 45.99,
+      price: 32.99,
+      discount: 28,
+      category: 'clothing',
+      image: '/api/placeholder/300/200',
+      rating: 4.7,
+      reviews: 896,
+      viewing: 9055,
+      sold: 3393,
+      brand: 'Urban Trends',
+      grade: 'High Demand!',
+      tags: ['Instant Access']
+    }
+  ];
+
+  const categories = [
+    { id: 'all', name: 'All Products', icon: '🛍️' },
+    { id: 'accessories', name: 'Accessories', icon: '💍' },
+    { id: 'clothing', name: 'Clothing', icon: '👕' },
+    { id: 'bags', name: 'Bags', icon: '👜' },
+    { id: 'shoes', name: 'Shoes', icon: '👠' },
+    { id: 'wallets', name: 'Wallets', icon: '👛' }
+  ];
 
   // Handle payment success/cancel from URL params
   useEffect(() => {
@@ -37,7 +119,6 @@ const Index = () => {
     const status = searchParams.get('status');
     
     if (status === 'success' && sessionId && productId && user) {
-      // Save purchase to localStorage
       const existingPurchases = JSON.parse(localStorage.getItem(`purchases_${user.id}`) || '[]');
       if (!existingPurchases.includes(productId)) {
         const updatedPurchases = [...existingPurchases, productId];
@@ -46,7 +127,6 @@ const Index = () => {
       }
       setShowPaymentSuccess(true);
       
-      // Clear URL params and hide success message after 3 seconds
       setTimeout(() => {
         setShowPaymentSuccess(false);
         navigate('/', { replace: true });
@@ -65,51 +145,29 @@ const Index = () => {
     if (user) {
       const savedPurchases = JSON.parse(localStorage.getItem(`purchases_${user.id}`) || '[]');
       setUserPurchases(savedPurchases);
-    } else {
-      setUserPurchases([]);
     }
   }, [user]);
-
-  const handleLogin = async () => {
-    if (!loginIdentifier.trim()) return;
-    
-    setIsLoggingIn(true);
-    const result = await loginUser(loginIdentifier);
-    setIsLoggingIn(false);
-    
-    if (result.success) {
-      setShowLoginDialog(false);
-      setLoginIdentifier('');
-    }
-  };
 
   const checkUserAccess = (productId) => {
     return userPurchases.includes(productId);
   };
 
-  const handlePurchase = async (product) => {
-    if (!user) {
-      setShowLoginDialog(true);
-      return;
-    }
+  const handlePurchase = (product) => {
+    // Redirect to Razorpay payment link
+    window.open('https://rzp.io/rzp/HtJXOouR', '_blank');
     
-    // Simulate payment process - in real app, this would redirect to payment processor
-    const confirmed = window.confirm(`Purchase ${product.name} for $${product.price}?`);
-    if (confirmed) {
-      // Simulate payment success
+    // Simulate purchase after 3 seconds (for demo)
+    setTimeout(() => {
       const updatedPurchases = [...userPurchases, product.id];
       setUserPurchases(updatedPurchases);
       localStorage.setItem(`purchases_${user.id}`, JSON.stringify(updatedPurchases));
-      
-      // Show success message
       setShowPaymentSuccess(true);
       setTimeout(() => setShowPaymentSuccess(false), 3000);
-    }
+    }, 3000);
   };
 
-  const accessDigitalContent = (productId) => {
-    const product = products.find(p => p.id === productId);
-    alert(`🎉 Accessing digital content for: ${product?.name || productId}\n\nContent unlocked! You now have full access to this digital product.`);
+  const accessDigitalContent = () => {
+    window.open('https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link', '_blank');
   };
 
   const toggleWishlist = (productId) => {
@@ -120,251 +178,273 @@ const Index = () => {
     );
   };
 
-  // Filter products based on search query
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = selectedCategory === 'all' 
+    ? products 
+    : products.filter(product => product.category === selectedCategory);
+
+  const purchasedProducts = products.filter(product => checkUserAccess(product.id));
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-blue-600">DigitalStore</h1>
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                P
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Welcome back, Mani</p>
+                <h1 className="text-xl font-bold">PremiumLeaks Store 🔥</h1>
               </div>
             </div>
-
-            {/* Search Bar */}
-            <div className="flex-1 max-w-md mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search products..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* User Actions */}
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="relative">
-                <Heart className="w-5 h-5" />
-                {wishlist.length > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                    {wishlist.length}
-                  </Badge>
-                )}
+              <Button variant="ghost" size="sm">
+                <Bell className="w-5 h-5" />
               </Button>
-
-              <Button variant="ghost" size="sm" className="relative">
-                <ShoppingBag className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                    {cartCount}
-                  </Badge>
-                )}
+              <Button variant="ghost" size="sm">
+                <User className="w-5 h-5" />
               </Button>
-
-              {user ? (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-700">Hi, {user.name || user.email}</span>
-                  <Button variant="ghost" size="sm" onClick={logout}>
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </Button>
-                </div>
-              ) : (
-                <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Login
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Login to Your Account</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input
-                        placeholder="Email or Username"
-                        value={loginIdentifier}
-                        onChange={(e) => setLoginIdentifier(e.target.value)}
-                      />
-                      <Button 
-                        onClick={handleLogin} 
-                        disabled={isLoggingIn}
-                        className="w-full"
-                      >
-                        {isLoggingIn ? 'Logging in...' : 'Login'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Flash Offer Banner */}
-      <FlashOfferBanner />
-
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 overflow-x-auto py-4">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md ${
-                selectedCategory === 'all'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              All Products
-            </button>
+      {/* Categories */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <h2 className="text-lg font-semibold mb-4">Categories</h2>
+          <div className="flex space-x-2 overflow-x-auto">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md ${
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full whitespace-nowrap ${
                   selectedCategory === category.id
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {category.name}
+                <span>{category.icon}</span>
+                <span className="text-sm">{category.name}</span>
               </button>
             ))}
           </div>
         </div>
-      </nav>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* User Purchases Summary */}
-        {user && userPurchases.length > 0 && (
-          <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-800 mb-2">Your Digital Library</h3>
-            <p className="text-green-700">
-              You have {userPurchases.length} purchased item{userPurchases.length !== 1 ? 's' : ''} with full access.
-            </p>
-          </div>
-        )}
+      {/* Products Grid */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {filteredProducts.map((product) => (
+            <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              {/* Product Image */}
+              <div className="relative">
+                <img 
+                  src={product.image} 
+                  alt={product.name}
+                  className="w-full h-48 object-cover"
+                />
+                {/* Discount Badge */}
+                <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                  -{product.discount}%
+                </div>
+                {/* Stock Info */}
+                {product.stock && (
+                  <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs">
+                    Only {product.stock} left!
+                  </div>
+                )}
+                {/* Wishlist */}
+                <button
+                  onClick={() => toggleWishlist(product.id)}
+                  className="absolute top-2 right-2 text-white hover:text-red-500 transition-colors"
+                  style={{ right: product.stock ? '80px' : '8px' }}
+                >
+                  <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current text-red-500' : ''}`} />
+                </button>
+                
+                {/* Owned Badge */}
+                {checkUserAccess(product.id) && (
+                  <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs flex items-center">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Owned
+                  </div>
+                )}
+              </div>
 
-        {/* Products Grid */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading products...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
-                  <img 
-                    src={product.image || "/api/placeholder/300/200"} 
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                  />
-                  {checkUserAccess(product.id) && (
-                    <div className="absolute top-2 right-2">
-                      <Badge className="bg-green-500 text-white text-xs">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Owned
-                      </Badge>
-                    </div>
-                  )}
+              {/* Product Info */}
+              <div className="p-3">
+                {/* Stats */}
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                  <div className="flex items-center">
+                    <Eye className="w-3 h-3 mr-1" />
+                    {product.viewing.toLocaleString()} viewing
+                  </div>
                 </div>
                 
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">{product.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
-                  
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xl font-bold text-blue-600">${product.price}</span>
-                    <button
-                      onClick={() => toggleWishlist(product.id)}
-                      className="text-red-500 hover:text-red-600 transition-colors"
-                    >
-                      <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current' : ''}`} />
-                    </button>
-                  </div>
-                  
-                  {/* Purchase Status */}
-                  {checkUserAccess(product.id) && (
-                    <div className="mb-3">
-                      <div className="flex items-center text-green-600 text-sm">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        <span>Access Granted - Content Available</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Action Buttons */}
-                  <div className="space-y-2">
-                    {checkUserAccess(product.id) ? (
-                      <Button 
-                        className="w-full bg-blue-500 hover:bg-blue-600" 
-                        onClick={() => accessDigitalContent(product.id)}
-                      >
-                        <Home className="w-4 h-4 mr-2" />
-                        Access Content
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button 
-                          className="flex-1 bg-green-600 hover:bg-green-700" 
-                          onClick={() => handlePurchase(product)}
-                        >
-                          Buy Now ${product.price}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => addToCart(product)}
-                          className="px-3"
-                        >
-                          <ShoppingBag className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex items-center text-xs text-blue-600 mb-2">
+                  <ShoppingBag className="w-3 h-3 mr-1" />
+                  {product.sold.toLocaleString()} sold
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
 
-        {filteredProducts.length === 0 && !isLoading && (
-          <div className="text-center py-12">
-            <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500">Try adjusting your search or category filter.</p>
-          </div>
-        )}
+                {/* Brand */}
+                <p className="text-xs text-gray-600 mb-1">{product.brand}</p>
+                {product.grade && (
+                  <div className="flex items-center text-xs text-red-600 mb-1">
+                    <span>📈 {product.grade}</span>
+                  </div>
+                )}
+
+                {/* Rating */}
+                <div className="flex items-center mb-2">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="text-sm font-medium ml-1">{product.rating}</span>
+                  <span className="text-xs text-gray-500 ml-1">({product.reviews})</span>
+                </div>
+
+                {/* Product Name */}
+                <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">{product.name}</h3>
+
+                {/* Price */}
+                <div className="flex items-center space-x-2 mb-3">
+                  <span className="text-lg font-bold text-black">₹{product.price}</span>
+                  <span className="text-sm text-gray-500 line-through">₹{product.originalPrice}</span>
+                  <span className="text-sm text-green-600 font-medium">
+                    Save ₹{(product.originalPrice - product.price).toFixed(0)}
+                  </span>
+                </div>
+
+                {/* Instant Access Tag */}
+                <div className="flex items-center text-xs text-green-600 mb-3">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Instant Access
+                </div>
+
+                {/* Action Buttons */}
+                {checkUserAccess(product.id) ? (
+                  <Button 
+                    className="w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2"
+                    onClick={accessDigitalContent}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    ACCESS NOW
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <Button 
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2"
+                      onClick={() => handlePurchase(product)}
+                    >
+                      <ShoppingBag className="w-4 h-4 mr-2" />
+                      BUY NOW
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-sm py-2"
+                      onClick={() => console.log('Add to cart:', product.id)}
+                    >
+                      Add to Cart
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </main>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
+        <div className="flex items-center justify-around py-2">
+          <button className="flex flex-col items-center p-2 text-blue-500">
+            <Home className="w-5 h-5" />
+            <span className="text-xs mt-1">Home</span>
+          </button>
+          <button className="flex flex-col items-center p-2 text-gray-500">
+            <Compass className="w-5 h-5" />
+            <span className="text-xs mt-1">Explore</span>
+          </button>
+          <button 
+            className="flex flex-col items-center p-2 text-gray-500"
+            onClick={() => setShowLibrary(true)}
+          >
+            <Library className="w-5 h-5" />
+            <span className="text-xs mt-1">Library</span>
+            {purchasedProducts.length > 0 && (
+              <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-green-500">
+                {purchasedProducts.length}
+              </Badge>
+            )}
+          </button>
+          <button className="flex flex-col items-center p-2 text-gray-500">
+            <Bell className="w-5 h-5" />
+            <span className="text-xs mt-1">Alerts</span>
+          </button>
+          <button className="flex flex-col items-center p-2 text-gray-500">
+            <User className="w-5 h-5" />
+            <span className="text-xs mt-1">Profile</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Library Modal */}
+      <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Library className="w-5 h-5 mr-2" />
+              My Digital Library ({purchasedProducts.length} items)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {purchasedProducts.length > 0 ? (
+              purchasedProducts.map((product) => (
+                <div key={product.id} className="bg-gray-50 rounded-lg p-4 border">
+                  <img 
+                    src={product.image} 
+                    alt={product.name}
+                    className="w-full h-32 object-cover rounded mb-3"
+                  />
+                  <h3 className="font-medium text-sm mb-2">{product.name}</h3>
+                  <div className="flex items-center text-green-600 text-xs mb-3">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Access Granted
+                  </div>
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-green-500 hover:bg-green-600"
+                    onClick={accessDigitalContent}
+                  >
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Open Content
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <Library className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No purchased items yet</p>
+                <p className="text-sm text-gray-400">Items you purchase will appear here</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Success Modal */}
       {showPaymentSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md mx-4">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h2>
-            <p className="text-gray-600 mb-4">Thank you for your purchase. Digital access has been granted!</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful! 🎉</h2>
+            <p className="text-gray-600 mb-4">Your purchase is complete. Digital access granted!</p>
             <div className="flex items-center justify-center text-green-600 mb-4">
-              <CheckCircle className="w-5 h-5 mr-2" />
-              <span className="text-sm font-medium">Content now available in your library</span>
+              <Library className="w-5 h-5 mr-2" />
+              <span className="text-sm font-medium">Content added to your library</span>
             </div>
-            <p className="text-sm text-gray-500">Redirecting to home page...</p>
+            <p className="text-xs text-gray-500">Auto-closing in 3 seconds...</p>
           </div>
         </div>
       )}
@@ -375,11 +455,14 @@ const Index = () => {
           <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md mx-4">
             <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Cancelled</h2>
-            <p className="text-gray-600 mb-4">Your payment was cancelled. No charges were made.</p>
-            <p className="text-sm text-gray-500">Redirecting to home page...</p>
+            <p className="text-gray-600 mb-4">No charges were made to your account</p>
+            <p className="text-xs text-gray-500">Redirecting...</p>
           </div>
         </div>
       )}
+
+      {/* Add bottom padding to prevent content from being hidden behind bottom nav */}
+      <div className="h-20"></div>
     </div>
   );
 };
