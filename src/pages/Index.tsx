@@ -396,6 +396,103 @@ const Index = () => {
     } catch (error) {
       console.error('Error loading categories:', error);
     }
+  };
+
+  const loadDemoData = () => {
+    // Fallback demo data if database fails
+    const demoProducts = [
+      {
+        id: 'prod_001_pink_bra',
+        name: 'Pink Bra',
+        original_price: 100,
+        price: 1,
+        discount: 99,
+        category_id: 'clothing',
+        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
+        rating: 4.9,
+        reviews: 789,
+        base_viewing: 7047,
+        sold_count: 5952,
+        brand: 'PINK',
+        is_high_demand: false,
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
+      },
+      {
+        id: 'prod_002_mallu_collection',
+        name: 'Mallu bgrade collection',
+        original_price: 179,
+        price: 129.99,
+        discount: 31,
+        category_id: 'accessories',
+        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
+        rating: 4.7,
+        reviews: 789,
+        base_viewing: 6707,
+        sold_count: 6307,
+        brand: 'B-Grade',
+        is_high_demand: false,
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
+      },
+      {
+        id: 'prod_003_vintage_handbag',
+        name: 'Vintage Leather Handbag',
+        original_price: 129.99,
+        price: 89.99,
+        discount: 31,
+        category_id: 'bags',
+        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
+        rating: 4.8,
+        reviews: 156,
+        base_viewing: 3948,
+        sold_count: 11393,
+        brand: 'Heritage Craft',
+        is_high_demand: false,
+        stock_count: 12,
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
+      },
+      {
+        id: 'prod_004_comfort_essential',
+        name: 'Classic Comfort Essential',
+        original_price: 29.99,
+        price: 19.99,
+        discount: 33,
+        category_id: 'clothing',
+        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
+        rating: 4.9,
+        reviews: 567,
+        base_viewing: 9636,
+        sold_count: 11219,
+        brand: 'Essentials',
+        is_high_demand: true,
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
+      },
+      {
+        id: 'prod_005_urban_shirt',
+        name: 'Urban Style Casual Shirt',
+        original_price: 45.99,
+        price: 32.99,
+        discount: 28,
+        category_id: 'clothing',
+        image_url: 'https://vbrnyndzprufhtrwujdh.supabase.co/storage/v1/object/sign/product-images/Screenshot%202025-06-07%20at%2010.02.25%20AM.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80OWY4MGU5Ny04ZWYwLTQ1MjEtOTQzMS03MDFkZmI3YWM5ZTIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwcm9kdWN0LWltYWdlcy9TY3JlZW5zaG90IDIwMjUtMDYtMDcgYXQgMTAuMDIuMjUgQU0ucG5nIiwiaWF0IjoxNzQ5Mjg1MDAyLCJleHAiOjI2MTMxOTg2MDJ9.erQGuXhEskqvCT73hjBCJVCyu5-a99KtofttVskYM8w',
+        rating: 4.7,
+        reviews: 896,
+        base_viewing: 9055,
+        sold_count: 3393,
+        brand: 'Urban Trends',
+        is_high_demand: true,
+        access_link: 'https://drive.google.com/drive/folders/1YZ6H6eE3gEDgu0BZ9M7S5655SyRUgTQI?usp=share_link'
+      }
+    ];
+    
+    setProducts(demoProducts);
+    setCategories([
+      { id: 'all', name: 'All Products', icon: '🛍️' },
+      { id: 'accessories', name: 'Accessories', icon: '💍' },
+      { id: 'clothing', name: 'Clothing', icon: '👕' },
+      { id: 'bags', name: 'Bags', icon: '👜' },
+      { id: 'shoes', name: 'Shoes', icon: '👠' },
+      { id: 'wallets', name: 'Wallets', icon: '👛' }
+    ]);
   };4.8,
           reviews: 156,
           base_viewing: 3948,
