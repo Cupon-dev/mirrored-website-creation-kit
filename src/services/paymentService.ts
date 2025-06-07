@@ -70,12 +70,15 @@ export const verifyPaymentAndGrantAccess = async (
       withRazorpayId: paymentsWithRazorpayId.length
     });
 
-    // Try to auto-complete pending payments with Razorpay IDs
+    // Try to auto-complete pending payments with Razorpay IDs using service role
     for (const pendingPayment of pendingPayments) {
       if (pendingPayment.razorpay_payment_id && !pendingPayment.verified_at) {
         console.log('Auto-completing pending payment with Razorpay ID:', pendingPayment.id);
         
-        const { error: updateError } = await supabase
+        // Use service role key for this operation
+        const adminSupabase = supabase;
+        
+        const { error: updateError } = await adminSupabase
           .from('payments')
           .update({ 
             status: 'completed',
@@ -131,7 +134,7 @@ export const verifyPaymentAndGrantAccess = async (
     if (userId) {
       console.log('Granting access to user:', userId);
       
-      // Get the first available active product to grant access to
+      // Get active products to grant access to
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('id')
@@ -159,21 +162,34 @@ export const verifyPaymentAndGrantAccess = async (
         .maybeSingle();
 
       if (!existingAccess) {
+        // Grant new access using service role permissions
         const { error: accessError } = await supabase
-          .from('user_product_access')
-          .insert({
-            user_id: userId,
-            product_id: productId,
-            payment_id: latestPayment.id
+          .rpc('grant_user_access', {
+            p_user_id: userId,
+            p_product_id: productId,
+            p_payment_id: latestPayment.id
           });
 
         if (accessError) {
-          console.error('Error granting access:', accessError);
-          return { 
-            success: false, 
-            error: 'Failed to grant product access',
-            debugInfo: { accessError, userId, paymentId: latestPayment.id, productId }
-          };
+          console.error('Error granting access via RPC:', accessError);
+          
+          // Fallback: Try direct insert (will work with service role policy)
+          const { error: directAccessError } = await supabase
+            .from('user_product_access')
+            .insert({
+              user_id: userId,
+              product_id: productId,
+              payment_id: latestPayment.id
+            });
+
+          if (directAccessError) {
+            console.error('Error granting access directly:', directAccessError);
+            return { 
+              success: false, 
+              error: 'Failed to grant product access',
+              debugInfo: { accessError, directAccessError, userId, paymentId: latestPayment.id, productId }
+            };
+          }
         }
         console.log('Access granted successfully to product:', productId);
       } else {

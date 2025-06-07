@@ -258,37 +258,50 @@ const handler = async (req: Request): Promise<Response> => {
           userName: userRecord.name
         });
         
-        // Check if access already exists
-        const { data: existingAccess, error: accessCheckError } = await supabase
-          .from('user_product_access')
+        // Get active products to grant access to
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
           .select('id')
-          .eq('user_id', userRecord.id)
-          .eq('product_id', 'digital-product-1')
-          .single();
+          .eq('is_active', true);
 
-        if (!existingAccess) {
-          // Grant new access
-          const { data: newAccess, error: accessError } = await supabase
-            .from('user_product_access')
-            .insert({
-              user_id: userRecord.id,
-              product_id: 'digital-product-1',
-              payment_id: paymentRecord.id
-            })
-            .select()
-            .single();
+        if (!productsError && productsData && productsData.length > 0) {
+          // Grant access to all active products
+          for (const product of productsData) {
+            // Check if access already exists
+            const { data: existingAccess, error: accessCheckError } = await supabase
+              .from('user_product_access')
+              .select('id')
+              .eq('user_id', userRecord.id)
+              .eq('product_id', product.id)
+              .single();
 
-          if (accessError) {
-            logStep('ERROR granting access', { error: accessError });
-          } else {
-            logStep('Access granted successfully', { 
-              accessId: newAccess.id,
-              userId: userRecord.id,
-              productId: 'digital-product-1'
-            });
+            if (!existingAccess) {
+              // Grant new access
+              const { data: newAccess, error: accessError } = await supabase
+                .from('user_product_access')
+                .insert({
+                  user_id: userRecord.id,
+                  product_id: product.id,
+                  payment_id: paymentRecord.id
+                })
+                .select()
+                .single();
+
+              if (accessError) {
+                logStep('ERROR granting access', { error: accessError, productId: product.id });
+              } else {
+                logStep('Access granted successfully', { 
+                  accessId: newAccess.id,
+                  userId: userRecord.id,
+                  productId: product.id
+                });
+              }
+            } else {
+              logStep('Access already exists', { existingAccessId: existingAccess.id, productId: product.id });
+            }
           }
         } else {
-          logStep('Access already exists', { existingAccessId: existingAccess.id });
+          logStep('No active products found to grant access to', { error: productsError });
         }
       } else {
         logStep('User not found, cannot grant access', { 

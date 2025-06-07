@@ -28,7 +28,7 @@ export const useUserAccess = () => {
       setIsLoading(true);
       console.log('Fetching user access for user:', user.id);
       
-      // First check user_product_access table
+      // Query user_product_access table with proper user authentication
       const { data: accessData, error: accessError } = await supabase
         .from('user_product_access')
         .select('product_id')
@@ -52,35 +52,43 @@ export const useUserAccess = () => {
       if (!paymentError && paymentData && paymentData.length > 0) {
         console.log('Found completed payments, fetching available products to grant access');
         
-        // Get the first available product to grant access to
+        // Get active products
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('id')
-          .eq('is_active', true)
-          .limit(1);
+          .eq('is_active', true);
 
         if (!productsError && productsData && productsData.length > 0) {
-          const productId = productsData[0].id;
-          console.log('Found product to grant access to:', productId);
+          // Auto-grant access for all active products if payment exists
+          const productIds = productsData.map(p => p.id);
+          console.log('Found products to grant access to:', productIds);
           
-          // Auto-grant access for completed payments
-          for (const payment of paymentData) {
-            const { error: grantError } = await supabase
-              .from('user_product_access')
-              .insert({
-                user_id: user.id,
-                product_id: productId,
-                payment_id: payment.id
-              })
-              .select()
-              .single();
+          // Try to grant access for each product
+          for (const productId of productIds) {
+            for (const payment of paymentData) {
+              try {
+                const { error: grantError } = await supabase
+                  .from('user_product_access')
+                  .insert({
+                    user_id: user.id,
+                    product_id: productId,
+                    payment_id: payment.id
+                  })
+                  .select()
+                  .single();
 
-            if (!grantError) {
-              console.log('Auto-granted access for payment:', payment.id);
+                if (!grantError) {
+                  console.log('Auto-granted access for payment:', payment.id, 'product:', productId);
+                } else if (grantError.code !== '23505') { // Ignore duplicate key errors
+                  console.error('Error granting access:', grantError);
+                }
+              } catch (error) {
+                console.error('Error in auto-grant access:', error);
+              }
             }
           }
           
-          setUserAccess([productId]);
+          setUserAccess(productIds);
         } else {
           console.log('No active products found to grant access to');
           setUserAccess([]);
