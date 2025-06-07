@@ -5,7 +5,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? "https://vbrnyndzprufhtrwujdh.supabase.co";
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? "";
 
-// Use service role key to bypass RLS
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
@@ -40,8 +39,9 @@ interface RazorpayWebhookPayload {
 }
 
 const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[RAZORPAY-WEBHOOK] ${step}${detailsStr}`);
+  const timestamp = new Date().toISOString();
+  const detailsStr = details ? ` - ${JSON.stringify(details, null, 2)}` : '';
+  console.log(`[${timestamp}] [RAZORPAY-WEBHOOK] ${step}${detailsStr}`);
 };
 
 const handler = async (req: Request): Promise<Response> => {
@@ -53,10 +53,10 @@ const handler = async (req: Request): Promise<Response> => {
     logStep('=== WEBHOOK REQUEST RECEIVED ===');
     
     const webhookPayload: RazorpayWebhookPayload = await req.json();
-    logStep('Webhook event received', { event: webhookPayload.event });
+    logStep('Raw webhook payload received', webhookPayload);
 
-    // Handle different Razorpay events
-    if (!['payment.captured', 'payment.authorized', 'order.paid'].includes(webhookPayload.event)) {
+    // Handle payment events
+    if (!['payment.captured', 'payment.authorized', 'order.paid', 'payment.failed'].includes(webhookPayload.event)) {
       logStep('Ignoring non-payment event', { event: webhookPayload.event });
       return new Response(JSON.stringify({ message: 'Event ignored' }), {
         status: 200,
@@ -65,172 +65,262 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const payment = webhookPayload.payload.payment.entity;
-    logStep('Processing payment', { 
+    logStep('Processing payment entity', { 
       paymentId: payment.id, 
       orderId: payment.order_id,
       status: payment.status,
       amount: payment.amount,
-      captured: payment.captured
+      captured: payment.captured,
+      email: payment.email,
+      contact: payment.contact
     });
 
-    // Extract email from multiple sources
+    // Extract email with multiple fallbacks
     const paymentEmail = payment.email || 
                         payment.notes?.email || 
                         payment.notes?.customer_email;
     const paymentPhone = payment.contact || payment.notes?.phone;
 
-    logStep('Payment details extracted', { 
+    logStep('Extracted payment details', { 
       email: paymentEmail, 
       phone: paymentPhone,
-      notes: payment.notes 
+      allNotes: payment.notes 
     });
 
     if (!paymentEmail) {
-      logStep('ERROR: No email found in payment data', { payment });
-      return new Response(JSON.stringify({ error: 'No email found in payment' }), {
+      logStep('CRITICAL ERROR: No email found in payment data');
+      return new Response(JSON.stringify({ 
+        error: 'No email found in payment',
+        payment_data: payment
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // First, try to find payment record by razorpay_order_id
+    // Enhanced payment record finding strategy
     let paymentRecord = null;
+    let searchMethod = '';
+
+    // Strategy 1: Find by Razorpay order ID
     if (payment.order_id) {
-      logStep('Looking for payment by order_id', { orderId: payment.order_id });
+      logStep('Searching by Razorpay order ID', { orderId: payment.order_id });
       const { data: orderData, error: orderError } = await supabase
         .from('payments')
         .select('*')
         .eq('razorpay_order_id', payment.order_id)
         .single();
 
-      if (!orderError && orderData) {
+      if (orderData && !orderError) {
         paymentRecord = orderData;
-        logStep('Found payment by order_id', { paymentId: paymentRecord.id });
+        searchMethod = 'order_id';
+        logStep('Found payment by order ID', { paymentId: paymentRecord.id });
       } else {
-        logStep('No payment found by order_id', { error: orderError });
+        logStep('No payment found by order ID', { error: orderError?.message });
       }
     }
 
-    // If not found by order_id, try to find by email and pending status
+    // Strategy 2: Find most recent pending payment by email
     if (!paymentRecord) {
-      logStep('Looking for payment by email and pending status', { email: paymentEmail });
+      logStep('Searching by email for pending payments', { email: paymentEmail });
       const { data: emailData, error: emailError } = await supabase
         .from('payments')
         .select('*')
         .eq('email', paymentEmail)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (!emailError && emailData) {
-        paymentRecord = emailData;
-        logStep('Found payment by email', { paymentId: paymentRecord.id });
+      if (emailData && emailData.length > 0) {
+        paymentRecord = emailData[0];
+        searchMethod = 'email_pending';
+        logStep('Found pending payment by email', { paymentId: paymentRecord.id });
       } else {
-        logStep('No pending payment found by email', { error: emailError });
+        logStep('No pending payment found by email', { error: emailError?.message });
       }
     }
 
-    // If still not found, create a new payment record
+    // Strategy 3: Find any recent payment by email (within last hour)
     if (!paymentRecord) {
-      logStep('Creating new payment record for captured payment');
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      logStep('Searching for recent payment by email', { email: paymentEmail, since: oneHourAgo });
+      
+      const { data: recentData, error: recentError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('email', paymentEmail)
+        .gte('created_at', oneHourAgo)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentData && recentData.length > 0) {
+        paymentRecord = recentData[0];
+        searchMethod = 'email_recent';
+        logStep('Found recent payment by email', { paymentId: paymentRecord.id });
+      } else {
+        logStep('No recent payment found by email', { error: recentError?.message });
+      }
+    }
+
+    // Strategy 4: Create new payment record if none found
+    if (!paymentRecord) {
+      logStep('Creating new payment record for webhook payment');
+      
+      const newPaymentData = {
+        email: paymentEmail,
+        mobile_number: paymentPhone || '',
+        amount: payment.amount / 100, // Convert paise to rupees
+        razorpay_payment_id: payment.id,
+        razorpay_order_id: payment.order_id || null,
+        status: payment.captured && payment.status === 'captured' ? 'completed' : 'pending',
+        google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
+        verified_at: payment.captured && payment.status === 'captured' ? new Date().toISOString() : null
+      };
+
+      logStep('Inserting new payment record', newPaymentData);
+      
       const { data: newPayment, error: createError } = await supabase
         .from('payments')
-        .insert({
-          email: paymentEmail,
-          mobile_number: paymentPhone || '',
-          amount: payment.amount / 100, // Convert paise to rupees
-          razorpay_payment_id: payment.id,
-          razorpay_order_id: payment.order_id,
-          status: 'completed',
-          google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link",
-          verified_at: new Date().toISOString()
-        })
+        .insert(newPaymentData)
         .select()
         .single();
 
       if (createError) {
         logStep('ERROR creating new payment record', { error: createError });
-        return new Response(JSON.stringify({ error: 'Failed to create payment record' }), {
+        return new Response(JSON.stringify({ 
+          error: 'Failed to create payment record',
+          details: createError
+        }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       paymentRecord = newPayment;
-      logStep('Created new payment record', { paymentId: paymentRecord.id });
+      searchMethod = 'created_new';
+      logStep('Created new payment record successfully', { paymentId: paymentRecord.id });
     } else {
-      // Update existing payment record
-      logStep('Updating existing payment record', { paymentId: paymentRecord.id });
+      // Update existing payment record with complete information
+      logStep('Updating existing payment record', { 
+        paymentId: paymentRecord.id,
+        searchMethod,
+        currentStatus: paymentRecord.status
+      });
+
+      const updateData = {
+        razorpay_payment_id: payment.id,
+        status: payment.captured && payment.status === 'captured' ? 'completed' : 'failed',
+        verified_at: payment.captured && payment.status === 'captured' ? new Date().toISOString() : null,
+        ...(payment.order_id && { razorpay_order_id: payment.order_id }),
+        ...(paymentPhone && !paymentRecord.mobile_number && { mobile_number: paymentPhone })
+      };
+
+      logStep('Updating with data', updateData);
+
       const { data: updatedPayment, error: updateError } = await supabase
         .from('payments')
-        .update({ 
-          status: 'completed',
-          razorpay_payment_id: payment.id,
-          verified_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', paymentRecord.id)
         .select()
         .single();
 
       if (updateError) {
         logStep('ERROR updating payment record', { error: updateError });
-        return new Response(JSON.stringify({ error: 'Failed to update payment' }), {
+        return new Response(JSON.stringify({ 
+          error: 'Failed to update payment',
+          details: updateError
+        }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       paymentRecord = updatedPayment;
-      logStep('Updated payment record successfully', { paymentId: paymentRecord.id });
+      logStep('Updated payment record successfully', { 
+        paymentId: paymentRecord.id,
+        newStatus: paymentRecord.status
+      });
     }
 
-    // Grant user access
-    logStep('Looking for user to grant access', { email: paymentEmail });
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', paymentEmail)
-      .single();
-
-    if (user && !userError) {
-      logStep('Found user, granting access', { userId: user.id });
+    // Grant user access if payment is completed
+    if (paymentRecord.status === 'completed') {
+      logStep('Payment completed, checking for user to grant access', { email: paymentEmail });
       
-      // Grant access to digital-product-1
-      const { error: accessError } = await supabase
-        .from('user_product_access')
-        .upsert({
-          user_id: user.id,
-          product_id: 'digital-product-1',
-          payment_id: paymentRecord.id
-        }, {
-          onConflict: 'user_id,product_id'
-        });
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id, email, name')
+        .eq('email', paymentEmail)
+        .single();
 
-      if (accessError) {
-        logStep('ERROR granting access', { error: accessError });
+      if (user && !userError) {
+        logStep('Found user, granting product access', { 
+          userId: user.id,
+          userName: user.name
+        });
+        
+        // Check if access already exists
+        const { data: existingAccess, error: accessCheckError } = await supabase
+          .from('user_product_access')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('product_id', 'digital-product-1')
+          .single();
+
+        if (!existingAccess) {
+          // Grant new access
+          const { data: newAccess, error: accessError } = await supabase
+            .from('user_product_access')
+            .insert({
+              user_id: user.id,
+              product_id: 'digital-product-1',
+              payment_id: paymentRecord.id
+            })
+            .select()
+            .single();
+
+          if (accessError) {
+            logStep('ERROR granting access', { error: accessError });
+          } else {
+            logStep('Access granted successfully', { 
+              accessId: newAccess.id,
+              userId: user.id,
+              productId: 'digital-product-1'
+            });
+          }
+        } else {
+          logStep('Access already exists', { existingAccessId: existingAccess.id });
+        }
       } else {
-        logStep('Access granted successfully', { userId: user.id, productId: 'digital-product-1' });
+        logStep('User not found, cannot grant access', { 
+          error: userError?.message,
+          email: paymentEmail,
+          suggestion: 'User needs to register first'
+        });
       }
-    } else {
-      logStep('User not found or error occurred', { error: userError, email: paymentEmail });
     }
 
-    logStep('=== WEBHOOK PROCESSING COMPLETED ===', {
-      success: true,
+    logStep('=== WEBHOOK PROCESSING COMPLETED SUCCESSFULLY ===', {
       paymentId: payment.id,
       email: paymentEmail,
       recordId: paymentRecord.id,
-      userFound: !!user
+      status: paymentRecord.status,
+      searchMethod,
+      userFound: !!user,
+      accessGranted: paymentRecord.status === 'completed' && !!user
     });
 
     return new Response(JSON.stringify({ 
+      success: true,
       message: 'Payment processed successfully',
-      payment_id: payment.id,
-      email: paymentEmail,
-      record_id: paymentRecord.id,
-      user_found: !!user,
-      access_granted: user && !userError
+      data: {
+        razorpay_payment_id: payment.id,
+        email: paymentEmail,
+        record_id: paymentRecord.id,
+        status: paymentRecord.status,
+        search_method: searchMethod,
+        user_found: !!user,
+        access_granted: paymentRecord.status === 'completed' && !!user
+      }
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -239,11 +329,13 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     logStep('CRITICAL ERROR in webhook processing', { 
       error: error.message, 
-      stack: error.stack 
+      stack: error.stack,
+      timestamp: new Date().toISOString()
     });
     
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: 'Webhook processing failed',
+      message: error.message,
       timestamp: new Date().toISOString()
     }), {
       status: 500,

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PaymentVerificationResult {
@@ -14,10 +15,10 @@ export const verifyPaymentAndGrantAccess = async (
   userId?: string
 ): Promise<PaymentVerificationResult> => {
   try {
-    console.log('=== ENHANCED PAYMENT VERIFICATION ===');
-    console.log('Verifying payment for email:', email, 'userId:', userId);
+    console.log('=== PAYMENT VERIFICATION STARTED ===');
+    console.log('Email:', email, 'User ID:', userId);
 
-    // Check for completed payments for this email with enhanced query
+    // Enhanced payment query with better filtering
     const { data: payments, error: paymentError } = await supabase
       .from('payments')
       .select('*')
@@ -25,8 +26,8 @@ export const verifyPaymentAndGrantAccess = async (
       .order('created_at', { ascending: false });
 
     console.log('Payment query result:', { 
-      paymentsCount: payments?.length || 0, 
-      paymentError,
+      paymentsFound: payments?.length || 0, 
+      error: paymentError?.message,
       payments: payments?.map(p => ({
         id: p.id,
         status: p.status,
@@ -39,7 +40,7 @@ export const verifyPaymentAndGrantAccess = async (
     });
 
     if (paymentError) {
-      console.error('Database error checking payments:', paymentError);
+      console.error('Database error:', paymentError);
       return { 
         success: false, 
         error: 'Database error while checking payments',
@@ -48,48 +49,65 @@ export const verifyPaymentAndGrantAccess = async (
     }
 
     if (!payments || payments.length === 0) {
-      console.log('No payment records found for email:', email);
+      console.log('No payment records found');
       return { 
         success: false, 
-        error: 'No payment records found for this email',
-        debugInfo: { 
-          email,
-          suggestion: 'Payment may not have been initiated yet or email mismatch'
-        }
+        error: 'No payment records found',
+        debugInfo: { email, totalPayments: 0 }
       };
     }
 
-    // Detailed analysis of payment statuses
+    // Analyze payment statuses
     const completedPayments = payments.filter(p => p.status === 'completed');
     const pendingPayments = payments.filter(p => p.status === 'pending');
     const failedPayments = payments.filter(p => p.status === 'failed');
+    const paymentsWithRazorpayId = payments.filter(p => p.razorpay_payment_id);
 
-    console.log('Payment status breakdown:', {
+    console.log('Payment analysis:', {
       total: payments.length,
       completed: completedPayments.length,
       pending: pendingPayments.length,
-      failed: failedPayments.length
+      failed: failedPayments.length,
+      withRazorpayId: paymentsWithRazorpayId.length
     });
 
-    // Check for payments with Razorpay payment IDs but still pending
-    const paymentsWithRazorpayId = payments.filter(p => p.razorpay_payment_id);
-    console.log('Payments with Razorpay payment IDs:', paymentsWithRazorpayId.length);
+    // Try to auto-complete pending payments with Razorpay IDs
+    for (const pendingPayment of pendingPayments) {
+      if (pendingPayment.razorpay_payment_id && !pendingPayment.verified_at) {
+        console.log('Auto-completing pending payment with Razorpay ID:', pendingPayment.id);
+        
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update({ 
+            status: 'completed',
+            verified_at: new Date().toISOString()
+          })
+          .eq('id', pendingPayment.id);
+
+        if (!updateError) {
+          console.log('Successfully auto-completed payment:', pendingPayment.id);
+          // Add to completed payments
+          completedPayments.push({
+            ...pendingPayment,
+            status: 'completed',
+            verified_at: new Date().toISOString()
+          });
+        } else {
+          console.error('Failed to auto-complete payment:', updateError);
+        }
+      }
+    }
 
     if (completedPayments.length === 0) {
-      // More detailed error messaging
       let errorMessage = 'No completed payments found.';
       let suggestion = '';
 
       if (pendingPayments.length > 0) {
         errorMessage = 'Payment found but still processing.';
-        suggestion = 'Your payment is being processed. Please wait a few minutes and try again.';
-        
-        if (paymentsWithRazorpayId.length > 0) {
-          suggestion += ' If this persists, please contact support with your payment ID.';
-        }
+        suggestion = 'Your payment is being processed. Please wait and try again.';
       } else if (failedPayments.length > 0) {
         errorMessage = 'Payment failed. Please try again.';
-        suggestion = 'Your previous payment attempt failed. Please initiate a new payment.';
+        suggestion = 'Previous payment attempts failed. Please make a new payment.';
       }
 
       return { 
@@ -101,43 +119,25 @@ export const verifyPaymentAndGrantAccess = async (
           completedPayments: 0,
           pendingPayments: pendingPayments.length,
           failedPayments: failedPayments.length,
-          paymentsWithRazorpayId: paymentsWithRazorpayId.length,
           suggestion,
-          latestPayment: payments[0] ? {
-            id: payments[0].id,
-            status: payments[0].status,
-            amount: payments[0].amount,
-            created_at: payments[0].created_at,
-            razorpay_payment_id: payments[0].razorpay_payment_id
-          } : null
+          latestPayment: payments[0]
         }
       };
     }
 
     const latestPayment = completedPayments[0];
-    console.log('Using latest completed payment:', {
-      id: latestPayment.id,
-      amount: latestPayment.amount,
-      razorpay_payment_id: latestPayment.razorpay_payment_id,
-      verified_at: latestPayment.verified_at
-    });
+    console.log('Using latest completed payment:', latestPayment.id);
 
-    // Grant access to the user if they're logged in
+    // Grant access if user is logged in
     if (userId) {
       console.log('Granting access to user:', userId);
       
-      // Check if access already exists
       const { data: existingAccess, error: accessCheckError } = await supabase
         .from('user_product_access')
         .select('id, created_at')
         .eq('user_id', userId)
         .eq('product_id', 'digital-product-1')
         .single();
-
-      console.log('Existing access check:', { 
-        hasAccess: !!existingAccess, 
-        accessCheckError: accessCheckError?.message 
-      });
 
       if (!existingAccess) {
         const { error: accessError } = await supabase
@@ -158,7 +158,7 @@ export const verifyPaymentAndGrantAccess = async (
         }
         console.log('Access granted successfully');
       } else {
-        console.log('Access already exists since:', existingAccess.created_at);
+        console.log('Access already exists');
       }
     }
 
@@ -172,23 +172,17 @@ export const verifyPaymentAndGrantAccess = async (
         paymentId: latestPayment.id,
         razorpayPaymentId: latestPayment.razorpay_payment_id,
         paymentAmount: latestPayment.amount,
-        paymentDate: latestPayment.created_at,
-        verifiedAt: latestPayment.verified_at,
-        totalPaymentsChecked: payments.length
+        totalPaymentsChecked: payments.length,
+        completedPayments: completedPayments.length
       }
     };
 
   } catch (error) {
-    console.error('Critical error in payment verification:', error);
+    console.error('Payment verification error:', error);
     return { 
       success: false, 
       error: 'Payment verification system error',
-      debugInfo: { 
-        error: error.message,
-        email,
-        userId,
-        timestamp: new Date().toISOString()
-      }
+      debugInfo: { error: error.message, email, userId }
     };
   }
 };
@@ -197,9 +191,8 @@ export const checkPaymentStatus = async (email: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase
       .from('payments')
-      .select('status')
+      .select('status, razorpay_payment_id')
       .eq('email', email)
-      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -208,7 +201,13 @@ export const checkPaymentStatus = async (email: string): Promise<boolean> => {
       return false;
     }
 
-    return data && data.length > 0;
+    if (data && data.length > 0) {
+      const payment = data[0];
+      // Consider payment successful if it's completed OR has a Razorpay payment ID
+      return payment.status === 'completed' || !!payment.razorpay_payment_id;
+    }
+
+    return false;
   } catch (error) {
     console.error('Payment status check error:', error);
     return false;
@@ -222,7 +221,6 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
     const orderIdSuffix = Math.random().toString(36).substring(2, 8);
     const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
 
-    // Create payment record
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert([{
@@ -241,6 +239,7 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
       throw new Error('Failed to create payment record');
     }
 
+    console.log('Payment initialized successfully:', payment.id);
     return {
       success: true,
       paymentId: payment.id,
@@ -253,5 +252,59 @@ export const initializePayment = async (email: string, phoneNumber: string, amou
       success: false,
       error: error.message
     };
+  }
+};
+
+// New function to manually fix stuck payments
+export const fixStuckPayments = async (email: string) => {
+  try {
+    console.log('Fixing stuck payments for:', email);
+    
+    // Find payments with Razorpay payment IDs but still pending
+    const { data: stuckPayments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('email', email)
+      .eq('status', 'pending')
+      .not('razorpay_payment_id', 'is', null);
+
+    if (error) {
+      console.error('Error finding stuck payments:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!stuckPayments || stuckPayments.length === 0) {
+      console.log('No stuck payments found');
+      return { success: true, message: 'No stuck payments found' };
+    }
+
+    console.log('Found stuck payments:', stuckPayments.length);
+    
+    // Update all stuck payments to completed
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({ 
+        status: 'completed',
+        verified_at: new Date().toISOString()
+      })
+      .eq('email', email)
+      .eq('status', 'pending')
+      .not('razorpay_payment_id', 'is', null);
+
+    if (updateError) {
+      console.error('Error fixing stuck payments:', updateError);
+      return { success: false, error: updateError.message };
+    }
+
+    console.log('Successfully fixed stuck payments');
+    return { 
+      success: true, 
+      message: `Fixed ${stuckPayments.length} stuck payment(s)`,
+      fixedCount: stuckPayments.length
+    };
+
+  } catch (error) {
+    console.error('Fix stuck payments error:', error);
+    return { success: false, error: error.message };
   }
 };
