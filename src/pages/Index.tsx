@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Compass, Bell, User, LogOut, LogIn, CheckCircle, XCircle, Eye, Star, ExternalLink, Library, Phone, Mail, X, Database } from "lucide-react";
@@ -15,12 +14,17 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const createSupabaseClient = () => {
   return {
     from: (table) => ({
-      select: (columns = '*') => ({
-        eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-        order: (column, options) => ({
-          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } })
-        })
-      }),
+      select: (columns = '*') => {
+        const queryBuilder = {
+          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
+          order: (column, options) => ({
+            eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns, order: { column, ...options } }),
+            then: (resolve, reject) => simulateSupabaseQuery(table, 'select', { order: { column, ...options } }).then(resolve, reject)
+          }),
+          then: (resolve, reject) => simulateSupabaseQuery(table, 'select', { columns }).then(resolve, reject)
+        };
+        return queryBuilder;
+      },
       insert: (data) => simulateSupabaseQuery(table, 'insert', data),
       update: (data) => ({
         eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
