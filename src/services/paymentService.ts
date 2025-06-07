@@ -6,6 +6,7 @@ export interface PaymentVerificationResult {
   driveLink?: string;
   whatsappGroup?: string;
   error?: string;
+  debugInfo?: any;
 }
 
 export const verifyPaymentAndGrantAccess = async (
@@ -13,6 +14,7 @@ export const verifyPaymentAndGrantAccess = async (
   userId?: string
 ): Promise<PaymentVerificationResult> => {
   try {
+    console.log('=== PAYMENT VERIFICATION DEBUG ===');
     console.log('Verifying payment for email:', email, 'userId:', userId);
 
     // Check for completed payments for this email
@@ -20,33 +22,73 @@ export const verifyPaymentAndGrantAccess = async (
       .from('payments')
       .select('*')
       .eq('email', email)
-      .eq('status', 'completed')
       .order('created_at', { ascending: false });
+
+    console.log('Payment query result:', { payments, paymentError });
 
     if (paymentError) {
       console.error('Error checking payments:', paymentError);
-      return { success: false, error: 'Failed to verify payment' };
+      return { 
+        success: false, 
+        error: 'Failed to verify payment',
+        debugInfo: { paymentError }
+      };
     }
 
     if (!payments || payments.length === 0) {
-      console.log('No completed payments found for email:', email);
-      return { success: false, error: 'No completed payments found' };
+      console.log('No payments found for email:', email);
+      return { 
+        success: false, 
+        error: 'No payments found',
+        debugInfo: { paymentsFound: 0, email }
+      };
     }
 
-    const latestPayment = payments[0];
-    console.log('Found completed payment:', latestPayment.id);
+    // Log all payment statuses
+    console.log('Found payments with statuses:', payments.map(p => ({
+      id: p.id,
+      status: p.status,
+      amount: p.amount,
+      created_at: p.created_at
+    })));
+
+    // Check for any completed payments
+    const completedPayments = payments.filter(p => p.status === 'completed');
+    console.log('Completed payments:', completedPayments.length);
+
+    if (completedPayments.length === 0) {
+      // Check for pending payments that might need manual verification
+      const pendingPayments = payments.filter(p => p.status === 'pending');
+      console.log('Pending payments found:', pendingPayments.length);
+      
+      return { 
+        success: false, 
+        error: 'No completed payments found. Payment may still be processing.',
+        debugInfo: { 
+          totalPayments: payments.length,
+          completedPayments: 0,
+          pendingPayments: pendingPayments.length,
+          paymentStatuses: payments.map(p => p.status)
+        }
+      };
+    }
+
+    const latestPayment = completedPayments[0];
+    console.log('Using latest completed payment:', latestPayment.id);
 
     // Grant access to the user if they're logged in
     if (userId) {
       console.log('Granting access to user:', userId);
       
       // Check if access already exists
-      const { data: existingAccess } = await supabase
+      const { data: existingAccess, error: accessCheckError } = await supabase
         .from('user_product_access')
         .select('id')
         .eq('user_id', userId)
         .eq('product_id', 'digital-product-1')
         .single();
+
+      console.log('Existing access check:', { existingAccess, accessCheckError });
 
       if (!existingAccess) {
         const { error: accessError } = await supabase
@@ -59,7 +101,11 @@ export const verifyPaymentAndGrantAccess = async (
 
         if (accessError) {
           console.error('Error granting access:', accessError);
-          return { success: false, error: 'Failed to grant access' };
+          return { 
+            success: false, 
+            error: 'Failed to grant access',
+            debugInfo: { accessError }
+          };
         }
         console.log('Access granted successfully');
       } else {
@@ -71,12 +117,21 @@ export const verifyPaymentAndGrantAccess = async (
       success: true,
       accessGranted: true,
       driveLink: latestPayment.google_drive_link || '',
-      whatsappGroup: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
+      whatsappGroup: "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X",
+      debugInfo: {
+        paymentId: latestPayment.id,
+        paymentAmount: latestPayment.amount,
+        paymentDate: latestPayment.created_at
+      }
     };
 
   } catch (error) {
     console.error('Payment verification error:', error);
-    return { success: false, error: 'Payment verification failed' };
+    return { 
+      success: false, 
+      error: 'Payment verification failed',
+      debugInfo: { error: error.message }
+    };
   }
 };
 

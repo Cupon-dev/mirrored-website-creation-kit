@@ -1,12 +1,12 @@
-
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { User, Download, ShoppingBag, CheckCircle, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { verifyPaymentAndGrantAccess } from '@/services/paymentService';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface PurchasedProduct {
   id: string;
@@ -23,6 +23,8 @@ const UserProfile = () => {
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -48,14 +50,32 @@ const UserProfile = () => {
     try {
       console.log('Verifying payments for user:', user.email);
       const result = await verifyPaymentAndGrantAccess(user.email, user.id);
+      
+      // Store debug info for display
+      setDebugInfo(result.debugInfo);
+      
       if (result.success) {
         console.log('Payment verification successful, refreshing access');
         await refreshAccess();
+        toast({
+          title: "Access Granted! 🎉",
+          description: "Your purchase has been verified and access granted.",
+        });
       } else {
-        console.log('No payments found or verification failed');
+        console.log('Payment verification failed:', result.error);
+        toast({
+          title: "Payment Check",
+          description: result.error || "No completed payments found",
+          variant: "default",
+        });
       }
     } catch (error) {
       console.error('Payment verification error:', error);
+      toast({
+        title: "Verification Error",
+        description: "Failed to check payment status. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsVerifying(false);
       setIsLoading(false);
@@ -99,6 +119,16 @@ const UserProfile = () => {
     await verifyUserPayments();
   };
 
+  const handleDebugToggle = () => {
+    if (debugInfo) {
+      console.log('=== DEBUG INFO ===', debugInfo);
+      toast({
+        title: "Debug Info",
+        description: "Check console for detailed payment information",
+      });
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -133,17 +163,54 @@ const UserProfile = () => {
           </div>
         </div>
         
-        <Button
-          onClick={handleRefresh}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-          disabled={isLoading}
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {debugInfo && (
+            <Button
+              onClick={handleDebugToggle}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Debug</span>
+            </Button>
+          )}
+          
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        </div>
       </div>
+
+      {/* Payment Status Debug Info */}
+      {debugInfo && userAccess.length === 0 && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">Payment Status</p>
+              <p className="text-xs text-yellow-700">
+                {debugInfo.totalPayments > 0 
+                  ? `Found ${debugInfo.totalPayments} payment(s), ${debugInfo.completedPayments || 0} completed`
+                  : 'No payments found in database'
+                }
+              </p>
+              {debugInfo.pendingPayments > 0 && (
+                <p className="text-xs text-yellow-700">
+                  {debugInfo.pendingPayments} payment(s) still pending - may need webhook processing
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Purchased Products */}
       {purchasedProducts.length > 0 && (
