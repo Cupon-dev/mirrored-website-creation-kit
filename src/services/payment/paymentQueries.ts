@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const getPaymentsByEmail = async (email: string) => {
@@ -14,9 +13,8 @@ export const getPaymentsByEmail = async (email: string) => {
 export const getActiveProducts = async () => {
   const { data: productsData, error: productsError } = await supabase
     .from('products')
-    .select('id')
-    .eq('is_active', true)
-    .limit(1);
+    .select('id, price')
+    .eq('is_active', true);
 
   return { productsData, error: productsError };
 };

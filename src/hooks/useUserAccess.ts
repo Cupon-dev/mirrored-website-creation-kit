@@ -41,56 +41,64 @@ export const useUserAccess = () => {
         return;
       }
 
-      // Fallback: Check by email in payments table for completed payments
+      // If no direct access found, check payment records to see if we need to grant access
       console.log('No direct access found, checking payment records for email:', user.email);
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
-        .select('id, email, status, verified_at')
+        .select('id, email, status, verified_at, amount')
         .eq('email', user.email)
         .eq('status', 'completed');
 
       if (!paymentError && paymentData && paymentData.length > 0) {
-        console.log('Found completed payments, fetching available products to grant access');
+        console.log('Found completed payments, determining which products to grant access to');
         
-        // Get active products
+        // For each completed payment, we need to determine which product it was for
+        // This is a simplified approach - in a real system, you'd have payment_items or order_items
+        // For now, we'll grant access to the first active product for each payment
         const { data: productsData, error: productsError } = await supabase
           .from('products')
-          .select('id')
-          .eq('is_active', true);
+          .select('id, price')
+          .eq('is_active', true)
+          .order('created_at', { ascending: true });
 
         if (!productsError && productsData && productsData.length > 0) {
-          // Auto-grant access for all active products if payment exists
-          const productIds = productsData.map(p => p.id);
-          console.log('Found products to grant access to:', productIds);
+          const grantedProductIds: string[] = [];
           
-          // Try to grant access for each product
-          for (const productId of productIds) {
-            for (const payment of paymentData) {
+          // Match payments to products based on amount (simplified logic)
+          for (const payment of paymentData) {
+            // Find a product that matches the payment amount
+            const matchingProduct = productsData.find(p => 
+              Math.abs(Number(p.price) - Number(payment.amount)) < 0.01
+            );
+            
+            if (matchingProduct && !grantedProductIds.includes(matchingProduct.id)) {
               try {
+                // Grant access for this specific product
                 const { error: grantError } = await supabase
                   .from('user_product_access')
                   .insert({
                     user_id: user.id,
-                    product_id: productId,
+                    product_id: matchingProduct.id,
                     payment_id: payment.id
                   })
                   .select()
                   .single();
 
                 if (!grantError) {
-                  console.log('Auto-granted access for payment:', payment.id, 'product:', productId);
+                  console.log('Granted access for payment:', payment.id, 'product:', matchingProduct.id);
+                  grantedProductIds.push(matchingProduct.id);
                 } else if (grantError.code !== '23505') { // Ignore duplicate key errors
                   console.error('Error granting access:', grantError);
                 }
               } catch (error) {
-                console.error('Error in auto-grant access:', error);
+                console.error('Error in grant access:', error);
               }
             }
           }
           
-          setUserAccess(productIds);
+          setUserAccess(grantedProductIds);
         } else {
-          console.log('No active products found to grant access to');
+          console.log('No active products found');
           setUserAccess([]);
         }
       } else {
@@ -126,34 +134,51 @@ export const useUserAccess = () => {
 
       console.log('Granting access to product:', productId, 'for user:', user.id);
 
-      // Find a payment record for this user
+      // Find a payment record for this user that matches this product
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
-        .select('id')
+        .select('id, amount')
         .eq('email', user.email)
         .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .order('created_at', { ascending: false });
 
-      const paymentId = paymentData && paymentData.length > 0 ? paymentData[0].id : null;
+      if (!paymentError && paymentData && paymentData.length > 0) {
+        // Get the product details to match with payment amount
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('price')
+          .eq('id', productId)
+          .single();
 
-      // Grant access in database
-      const { error } = await supabase
-        .from('user_product_access')
-        .insert({
-          user_id: user.id,
-          product_id: productId,
-          payment_id: paymentId
-        });
+        if (!productError && productData) {
+          // Find a payment that matches this product's price
+          const matchingPayment = paymentData.find(p => 
+            Math.abs(Number(p.amount) - Number(productData.price)) < 0.01
+          );
 
-      if (error) {
-        console.error('Error granting access:', error);
-        return;
+          if (matchingPayment) {
+            // Grant access in database
+            const { error } = await supabase
+              .from('user_product_access')
+              .insert({
+                user_id: user.id,
+                product_id: productId,
+                payment_id: matchingPayment.id
+              });
+
+            if (error && error.code !== '23505') { // Ignore duplicate key errors
+              console.error('Error granting access:', error);
+              return;
+            }
+
+            // Update local state
+            setUserAccess(prev => [...prev, productId]);
+            console.log('Access granted successfully for product:', productId);
+          } else {
+            console.log('No matching payment found for product:', productId);
+          }
+        }
       }
-
-      // Update local state
-      setUserAccess(prev => [...prev, productId]);
-      console.log('Access granted successfully for product:', productId);
     } catch (error) {
       console.error('Error in grantAccess:', error);
     }
