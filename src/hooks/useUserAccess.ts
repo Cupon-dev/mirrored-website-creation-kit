@@ -10,11 +10,13 @@ export const useUserAccess = () => {
 
   useEffect(() => {
     if (!user) {
+      console.log('No user found, clearing access');
       setUserAccess([]);
       setIsLoading(false);
       return;
     }
 
+    console.log('User found, fetching access for:', user.email, user.id);
     fetchUserAccess();
   }, [user]);
 
@@ -44,6 +46,7 @@ export const useUserAccess = () => {
         console.log('User has access to products:', productIds);
         setUserAccess(productIds);
       } else {
+        console.log('No access data found for user');
         setUserAccess([]);
       }
     } catch (error) {
@@ -56,7 +59,9 @@ export const useUserAccess = () => {
 
   const hasAccess = (productId: string) => {
     const access = userAccess.includes(productId);
-    console.log(`Checking access for product ${productId}:`, access, 'User access list:', userAccess);
+    console.log(`Checking access for product ${productId}:`, access);
+    console.log('Current user access list:', userAccess);
+    console.log('User ID:', user?.id);
     return access;
   };
 

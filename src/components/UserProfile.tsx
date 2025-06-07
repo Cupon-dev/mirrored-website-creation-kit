@@ -26,6 +26,7 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (user) {
+      console.log('UserProfile: User found, access loading:', accessLoading, 'access:', userAccess);
       if (userAccess.length > 0) {
         fetchPurchasedProducts();
       } else if (!accessLoading) {
@@ -44,11 +45,12 @@ const UserProfile = () => {
     try {
       console.log('Verifying payments for user:', user.email);
       const result = await verifyPaymentAndGrantAccess(user.email, user.id);
+      console.log('Payment verification result:', result);
       if (result.success) {
         console.log('Payment verification successful, refreshing access');
         await refreshAccess();
       } else {
-        console.log('No payments found or verification failed');
+        console.log('No payments found or verification failed:', result.error);
         setIsLoading(false);
       }
     } catch (error) {
@@ -93,6 +95,7 @@ const UserProfile = () => {
 
   const handleRefresh = async () => {
     setIsLoading(true);
+    console.log('Manual refresh triggered');
     await refreshAccess();
     if (user?.email) {
       await verifyUserPayments();
@@ -110,6 +113,9 @@ const UserProfile = () => {
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
           <div className="h-20 bg-gray-200 rounded"></div>
         </div>
+        <p className="text-sm text-gray-500 mt-2">
+          {isVerifying ? 'Verifying payments...' : 'Loading your profile...'}
+        </p>
       </div>
     );
   }
@@ -127,7 +133,12 @@ const UserProfile = () => {
             {userAccess.length > 0 && (
               <Badge className="bg-green-100 text-green-800 text-xs mt-1">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                Verified Access
+                Verified Access ({userAccess.length} products)
+              </Badge>
+            )}
+            {userAccess.length === 0 && (
+              <Badge className="bg-yellow-100 text-yellow-800 text-xs mt-1">
+                No Access Found
               </Badge>
             )}
           </div>
@@ -143,6 +154,14 @@ const UserProfile = () => {
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">Refresh</span>
         </Button>
+      </div>
+
+      {/* Debug Info for Development */}
+      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs">
+        <p><strong>Debug Info:</strong></p>
+        <p>User ID: {user.id}</p>
+        <p>Access List: {JSON.stringify(userAccess)}</p>
+        <p>Products Found: {purchasedProducts.length}</p>
       </div>
 
       {/* Stats */}
