@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useUserAccess } from "@/hooks/useUserAccess";
+import { useAuth } from "@/hooks/useAuth";
 import FOMOCounter from "./FOMOCounter";
 
 interface Product {
@@ -37,7 +38,8 @@ const ProductCard = ({
 }: ProductCardProps) => {
   const navigate = useNavigate();
   const { hasAccess } = useUserAccess();
-  const userHasAccess = hasAccess(product.id);
+  const { user } = useAuth();
+  const userHasAccess = user && hasAccess(product.id);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all duration-300 overflow-hidden">

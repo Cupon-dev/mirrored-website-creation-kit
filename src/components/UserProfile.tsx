@@ -190,14 +190,6 @@ const UserProfile = () => {
           <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-500 text-sm sm:text-base">No products purchased yet</p>
           <p className="text-xs sm:text-sm text-gray-400">Start shopping to see your products here!</p>
-          <Button
-            onClick={verifyUserPayments}
-            variant="outline"
-            className="mt-3 text-xs sm:text-sm"
-            disabled={isVerifying}
-          >
-            {isVerifying ? 'Checking...' : 'Check for Recent Purchases'}
-          </Button>
         </div>
       )}
     </div>

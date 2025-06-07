@@ -8,6 +8,7 @@ import { useProduct } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import FOMOCounter from "@/components/FOMOCounter";
 import { useUserAccess } from "@/hooks/useUserAccess";
+import { useAuth } from "@/hooks/useAuth";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,7 @@ const ProductDetail = () => {
   const { data: product, isLoading } = useProduct(id!);
   const { addToCart } = useCart();
   const { hasAccess } = useUserAccess();
+  const { user } = useAuth();
 
   if (isLoading) {
     return (
@@ -55,7 +57,7 @@ const ProductDetail = () => {
     }
   };
 
-  const userHasAccess = hasAccess(product.id);
+  const userHasAccess = user && hasAccess(product.id);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -164,7 +166,7 @@ const ProductDetail = () => {
               </div>
             </div>
 
-            {/* Quantity Selector */}
+            {/* Quantity Selector - Only show if user doesn't have access */}
             {!userHasAccess && (
               <div className="space-y-4">
                 <div className="flex items-center flex-wrap gap-4">
