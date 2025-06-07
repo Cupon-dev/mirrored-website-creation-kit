@@ -2,11 +2,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const supabaseUrl = "https://vbrnyndzprufhtrwujdh.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicm55bmR6cHJ1Zmh0cnd1amRoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODY2NjE1MywiZXhwIjoyMDY0MjQyMTUzfQ.j7Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z";
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? "https://vbrnyndzprufhtrwujdh.supabase.co";
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? "";
 
 // Use service role key to bypass RLS
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +63,14 @@ const handler = async (req: Request): Promise<Response> => {
     const paymentPhone = payment.contact || payment.notes?.phone;
 
     console.log('Payment details - Email:', paymentEmail, 'Phone:', paymentPhone);
+
+    if (!paymentEmail) {
+      console.error('No email found in payment data');
+      return new Response(JSON.stringify({ error: 'No email found in payment' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Update payment record to completed
     const { data: paymentRecord, error: updateError } = await supabase

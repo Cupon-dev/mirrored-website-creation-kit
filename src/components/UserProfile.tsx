@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, Calendar, Award, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { User, Download, ShoppingBag, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -145,22 +145,6 @@ const UserProfile = () => {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-        <div className="text-center">
-          <div className="text-lg sm:text-2xl font-bold text-green-600">{user.visit_count || 0}</div>
-          <div className="text-xs text-gray-500">Total Visits</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg sm:text-2xl font-bold text-blue-600">{purchasedProducts.length}</div>
-          <div className="text-xs text-gray-500">Products Owned</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg sm:text-2xl font-bold text-purple-600">{user.login_streak || 0}</div>
-          <div className="text-xs text-gray-500">Login Streak</div>
-        </div>
-      </div>
-
       {/* Purchased Products */}
       {purchasedProducts.length > 0 && (
         <div>
@@ -181,7 +165,7 @@ const UserProfile = () => {
                   <div className="flex items-center flex-wrap gap-2 text-xs">
                     <span className="text-gray-500">₹{Number(product.price).toLocaleString('en-IN')}</span>
                     <Badge variant="outline" className="text-xs">
-                      <Calendar className="w-3 h-3 mr-1" />
+                      <CheckCircle className="w-3 h-3 mr-1" />
                       Purchased
                     </Badge>
                   </div>
@@ -203,7 +187,7 @@ const UserProfile = () => {
 
       {purchasedProducts.length === 0 && (
         <div className="text-center py-6 sm:py-8">
-          <Award className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
+          <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-gray-500 text-sm sm:text-base">No products purchased yet</p>
           <p className="text-xs sm:text-sm text-gray-400">Start shopping to see your products here!</p>
           <Button
