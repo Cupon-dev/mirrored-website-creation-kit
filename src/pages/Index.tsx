@@ -10,14 +10,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 const SUPABASE_URL = 'https://vbrnyndzprufhtrwujdh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicm55bmR6cHJ1Zmh0cnd1amRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NjYxNTMsImV4cCI6MjA2NDI0MjE1M30.XEQb2WI6K6bplu6O59pUhQ5QbLz16rQEDStM-yi-ocw';
 
+// Type definitions for the simulated Supabase client
+interface QueryParams {
+  column?: string;
+  value?: any;
+  columns?: string;
+  order?: {
+    column: string;
+    ascending?: boolean;
+  };
+  data?: any;
+}
+
 // Real Supabase client simulation
 const createSupabaseClient = () => {
   return {
-    from: (table) => ({
+    from: (table: string) => ({
       select: (columns = '*') => {
         const queryBuilder = {
-          eq: (column, value) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
-          order: (column, options) => simulateSupabaseQuery(table, 'select', { order: { column, ...options }, columns })
+          eq: (column: string, value: any) => simulateSupabaseQuery(table, 'select', { column, value, columns }),
+          order: (column: string, options: { ascending?: boolean } = {}) => simulateSupabaseQuery(table, 'select', { order: { column, ...options }, columns })
         };
         // If no chaining, return the query directly
         return Object.assign(
@@ -25,17 +37,17 @@ const createSupabaseClient = () => {
           queryBuilder
         );
       },
-      insert: (data) => simulateSupabaseQuery(table, 'insert', data),
-      update: (data) => ({
-        eq: (column, value) => simulateSupabaseQuery(table, 'update', { data, column, value })
+      insert: (data: any) => simulateSupabaseQuery(table, 'insert', data),
+      update: (data: any) => ({
+        eq: (column: string, value: any) => simulateSupabaseQuery(table, 'update', { data, column, value })
       }),
       delete: () => ({
-        eq: (column, value) => simulateSupabaseQuery(table, 'delete', { column, value })
+        eq: (column: string, value: any) => simulateSupabaseQuery(table, 'delete', { column, value })
       })
     }),
     auth: {
-      signUp: (credentials) => simulateAuth('signUp', credentials),
-      signInWithPassword: (credentials) => simulateAuth('signIn', credentials),
+      signUp: (credentials: any) => simulateAuth('signUp', credentials),
+      signInWithPassword: (credentials: any) => simulateAuth('signIn', credentials),
       signOut: () => simulateAuth('signOut', {}),
       getUser: () => simulateAuth('getUser', {})
     }
@@ -43,7 +55,7 @@ const createSupabaseClient = () => {
 };
 
 // Simulate Supabase database operations
-const simulateSupabaseQuery = async (table, operation, params = {}) => {
+const simulateSupabaseQuery = async (table: string, operation: string, params: QueryParams = {}) => {
   try {
     console.log(`🔄 Supabase ${operation} on ${table}:`, params);
     
@@ -54,13 +66,13 @@ const simulateSupabaseQuery = async (table, operation, params = {}) => {
       case 'select':
         let result = tableData;
         if (params.column && params.value !== undefined) {
-          result = tableData.filter(row => row[params.column] === params.value);
+          result = tableData.filter((row: any) => row[params.column!] === params.value);
         }
         if (params.order) {
-          result.sort((a, b) => {
-            const aVal = a[params.order.column];
-            const bVal = b[params.order.column];
-            return params.order.ascending === false ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+          result.sort((a: any, b: any) => {
+            const aVal = a[params.order!.column];
+            const bVal = b[params.order!.column];
+            return params.order!.ascending === false ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
           });
         }
         console.log(`✅ Supabase SELECT from ${table}:`, result.length, 'rows');
@@ -68,7 +80,7 @@ const simulateSupabaseQuery = async (table, operation, params = {}) => {
         
       case 'insert':
         const insertData = Array.isArray(params) ? params : [params];
-        const newRows = insertData.map(row => ({
+        const newRows = insertData.map((row: any) => ({
           ...row,
           id: row.id || `${table}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           created_at: row.created_at || new Date().toISOString(),
@@ -80,17 +92,17 @@ const simulateSupabaseQuery = async (table, operation, params = {}) => {
         return { data: newRows, error: null };
         
       case 'update':
-        const updatedRows = tableData.map(row => 
-          row[params.column] === params.value 
+        const updatedRows = tableData.map((row: any) => 
+          row[params.column!] === params.value 
             ? { ...row, ...params.data, updated_at: new Date().toISOString() }
             : row
         );
         localStorage.setItem(storageKey, JSON.stringify(updatedRows));
         console.log(`✅ Supabase UPDATE in ${table}:`, 'completed');
-        return { data: updatedRows.filter(row => row[params.column] === params.value), error: null };
+        return { data: updatedRows.filter((row: any) => row[params.column!] === params.value), error: null };
         
       case 'delete':
-        const filteredData = tableData.filter(row => row[params.column] !== params.value);
+        const filteredData = tableData.filter((row: any) => row[params.column!] !== params.value);
         localStorage.setItem(storageKey, JSON.stringify(filteredData));
         console.log(`✅ Supabase DELETE from ${table}:`, 'completed');
         return { data: [], error: null };
@@ -98,14 +110,14 @@ const simulateSupabaseQuery = async (table, operation, params = {}) => {
       default:
         return { data: [], error: { message: 'Unknown operation' } };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Supabase ${operation} error:`, error);
     return { data: null, error: { message: error.message } };
   }
 };
 
 // Simulate Supabase Auth
-const simulateAuth = async (operation, params) => {
+const simulateAuth = async (operation: string, params: any) => {
   try {
     console.log(`🔄 Supabase Auth ${operation}:`, params);
     
@@ -137,7 +149,7 @@ const simulateAuth = async (operation, params) => {
       default:
         return { data: { user: null }, error: { message: 'Unknown auth operation' } };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Supabase Auth ${operation} error:`, error);
     return { data: { user: null }, error: { message: error.message } };
   }
@@ -219,10 +231,14 @@ const Index = () => {
       const result = await supabaseClient
         .from('products')
         .select('*')
-        .eq('is_active', true)
+        .eq('is_active', true);
+      
+      const orderedResult = await supabaseClient
+        .from('products')
+        .select('*')
         .order('created_at', { ascending: false });
       
-      const { data: productsData, error } = result;
+      const { data: productsData, error } = orderedResult;
       
       if (error || !productsData || productsData.length === 0) {
         console.log('No products found, loading demo data');
@@ -230,7 +246,7 @@ const Index = () => {
         return;
       }
       
-      const transformedProducts = productsData.map(product => ({
+      const transformedProducts = productsData.map((product: any) => ({
         id: product.id,
         name: product.name,
         original_price: product.original_price,
@@ -281,7 +297,7 @@ const Index = () => {
       
       const transformedCategories = [
         { id: 'all', name: 'All Products', icon: '🛍️' },
-        ...categoriesData.map(cat => ({
+        ...categoriesData.map((cat: any) => ({
           id: cat.id,
           name: cat.name,
           icon: cat.icon || '📦'
@@ -351,7 +367,7 @@ const Index = () => {
   };
 
   // User authentication functions
-  const authenticateUser = async (identifier) => {
+  const authenticateUser = async (identifier: string) => {
     try {
       const result = await supabaseClient
         .from('users')
@@ -393,7 +409,6 @@ const Index = () => {
         };
       }
 
-      // Fetch user purchases/access
       const accessResult = await supabaseClient
         .from('user_product_access')
         .select('*')
@@ -405,7 +420,7 @@ const Index = () => {
       localStorage.setItem('currentUser', JSON.stringify(userData));
       
       return { success: true, user: userData };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Authentication error:', error);
       return { success: false, error: error.message };
     }
@@ -444,7 +459,7 @@ const Index = () => {
     };
   }, [searchParams]);
 
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = products.filter((product: any) => {
     const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.brand?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -590,7 +605,7 @@ const Index = () => {
 
           {/* Categories */}
           <div className="flex space-x-2 overflow-x-auto pb-2">
-            {categories.map((category) => (
+            {categories.map((category: any) => (
               <Button
                 key={category.id}
                 variant={selectedCategory === category.id ? "default" : "outline"}
@@ -611,8 +626,8 @@ const Index = () => {
             <h2 className="text-xl font-bold mb-4">My Library</h2>
             {userPurchases.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userPurchases.map((purchase) => {
-                  const product = products.find(p => p.id === purchase.product_id);
+                {userPurchases.map((purchase: any) => {
+                  const product = products.find((p: any) => p.id === purchase.product_id);
                   if (!product) return null;
                   
                   return (
@@ -644,7 +659,7 @@ const Index = () => {
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((product) => (
+          {filteredProducts.map((product: any) => (
             <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
               <div className="relative">
                 <img 
@@ -669,7 +684,7 @@ const Index = () => {
                   className="absolute top-2 right-2 bg-white/80 hover:bg-white"
                   onClick={() => {
                     const newWishlist = wishlist.includes(product.id)
-                      ? wishlist.filter(id => id !== product.id)
+                      ? wishlist.filter((id: string) => id !== product.id)
                       : [...wishlist, product.id];
                     setWishlist(newWishlist);
                   }}
