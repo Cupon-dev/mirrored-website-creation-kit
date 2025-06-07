@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,9 +132,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
       const razorpayProduct = cartItems.find(item => item.products?.razorpay_link);
       
       if (razorpayProduct?.products?.razorpay_link) {
-        // Create proper success and cancel URLs
+        // Create proper success and cancel URLs with better redirect handling
         const baseUrl = window.location.origin;
-        const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success&redirect=true`;
+        const successUrl = `${baseUrl}/payment-success?email=${encodeURIComponent(userEmail)}&status=success&payment_id=${paymentResult.paymentId}`;
         const cancelUrl = `${baseUrl}/cart?status=cancelled`;
         
         // Create the payment URL with proper redirects
@@ -152,6 +153,7 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         // Add order details
         razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
         razorpayUrl.searchParams.set('notes[customer_email]', userEmail);
+        razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId);
         
         toast({
           title: "Opening Payment Gateway",
@@ -161,29 +163,8 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         
         console.log('Redirecting to payment URL:', razorpayUrl.toString());
         
-        // Use window.open with specific parameters to ensure proper redirect
-        const paymentWindow = window.open(
-          razorpayUrl.toString(), 
-          '_blank',
-          'width=800,height=600,scrollbars=yes,resizable=yes'
-        );
-        
-        // Check if payment window was blocked
-        if (!paymentWindow) {
-          // Fallback to same tab redirect
-          window.location.href = razorpayUrl.toString();
-        } else {
-          // Monitor payment window for completion
-          const checkClosed = setInterval(() => {
-            if (paymentWindow.closed) {
-              clearInterval(checkClosed);
-              // Check for successful payment after window closes
-              setTimeout(() => {
-                window.location.href = '/payment-success?check=true';
-              }, 1000);
-            }
-          }, 1000);
-        }
+        // Redirect to payment page
+        window.location.href = razorpayUrl.toString();
         
       } else {
         throw new Error("Payment gateway not configured for this product");

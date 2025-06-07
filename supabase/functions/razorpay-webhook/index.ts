@@ -32,6 +32,7 @@ interface RazorpayWebhookPayload {
           phone?: string;
           order_id?: string;
           customer_email?: string;
+          payment_id?: string;
         };
       };
     };
@@ -80,10 +81,12 @@ const handler = async (req: Request): Promise<Response> => {
                         payment.notes?.email || 
                         payment.notes?.customer_email;
     const paymentPhone = payment.contact || payment.notes?.phone;
+    const internalPaymentId = payment.notes?.payment_id;
 
     logStep('Extracted payment details', { 
       email: paymentEmail, 
       phone: paymentPhone,
+      internalPaymentId,
       allNotes: payment.notes 
     });
 
@@ -102,14 +105,32 @@ const handler = async (req: Request): Promise<Response> => {
     let paymentRecord = null;
     let searchMethod = '';
 
-    // Strategy 1: Find by Razorpay order ID
-    if (payment.order_id) {
+    // Strategy 1: Find by internal payment ID if provided
+    if (internalPaymentId) {
+      logStep('Searching by internal payment ID', { paymentId: internalPaymentId });
+      const { data: internalData, error: internalError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', internalPaymentId)
+        .single();
+
+      if (internalData && !internalError) {
+        paymentRecord = internalData;
+        searchMethod = 'internal_payment_id';
+        logStep('Found payment by internal ID', { paymentId: paymentRecord.id });
+      } else {
+        logStep('No payment found by internal ID', { error: internalError?.message });
+      }
+    }
+
+    // Strategy 2: Find by Razorpay order ID
+    if (!paymentRecord && payment.order_id) {
       logStep('Searching by Razorpay order ID', { orderId: payment.order_id });
       const { data: orderData, error: orderError } = await supabase
         .from('payments')
         .select('*')
         .eq('razorpay_order_id', payment.order_id)
-        .single();
+        .maybeSingle();
 
       if (orderData && !orderError) {
         paymentRecord = orderData;
@@ -120,7 +141,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Strategy 2: Find most recent pending payment by email
+    // Strategy 3: Find most recent pending payment by email
     if (!paymentRecord) {
       logStep('Searching by email for pending payments', { email: paymentEmail });
       const { data: emailData, error: emailError } = await supabase
@@ -129,10 +150,11 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('email', paymentEmail)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (emailData && emailData.length > 0) {
-        paymentRecord = emailData[0];
+      if (emailData && !emailError) {
+        paymentRecord = emailData;
         searchMethod = 'email_pending';
         logStep('Found pending payment by email', { paymentId: paymentRecord.id });
       } else {
@@ -140,7 +162,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Strategy 3: Find any recent payment by email (within last hour)
+    // Strategy 4: Find any recent payment by email (within last hour)
     if (!paymentRecord) {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       logStep('Searching for recent payment by email', { email: paymentEmail, since: oneHourAgo });
@@ -151,10 +173,11 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('email', paymentEmail)
         .gte('created_at', oneHourAgo)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (recentData && recentData.length > 0) {
-        paymentRecord = recentData[0];
+      if (recentData && !recentError) {
+        paymentRecord = recentData;
         searchMethod = 'email_recent';
         logStep('Found recent payment by email', { paymentId: paymentRecord.id });
       } else {
@@ -162,7 +185,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Strategy 4: Create new payment record if none found
+    // Strategy 5: Create new payment record if none found
     if (!paymentRecord) {
       logStep('Creating new payment record for webhook payment');
       
@@ -243,37 +266,58 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Grant user access if payment is completed
+    let userRecord = null;
+    let accessGranted = false;
+    
     if (paymentRecord.status === 'completed') {
       logStep('Payment completed, checking for user to grant access', { email: paymentEmail });
       
-      const { data: userRecord, error: userError } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, email, name')
         .eq('email', paymentEmail)
-        .single();
+        .maybeSingle();
 
-      if (userRecord && !userError) {
+      if (userData && !userError) {
+        userRecord = userData;
         logStep('Found user, granting product access', { 
           userId: userRecord.id,
           userName: userRecord.name
         });
         
-        // Get active products to grant access to
+        // Get products to grant access to based on payment amount
         const { data: productsData, error: productsError } = await supabase
           .from('products')
-          .select('id')
+          .select('id, price')
           .eq('is_active', true);
 
         if (!productsError && productsData && productsData.length > 0) {
-          // Grant access to all active products
-          for (const product of productsData) {
+          const paymentAmount = Number(paymentRecord.amount);
+          
+          // Find products that match the payment amount
+          const matchingProducts = productsData.filter(product => {
+            const productPrice = Number(product.price);
+            return Math.abs(productPrice - paymentAmount) < 0.01;
+          });
+          
+          // If no exact match, use the first product (fallback)
+          const productsToGrant = matchingProducts.length > 0 ? matchingProducts : [productsData[0]];
+          
+          logStep('Granting access to products', { 
+            paymentAmount, 
+            matchingProducts: matchingProducts.length,
+            productsToGrant: productsToGrant.map(p => ({ id: p.id, price: p.price }))
+          });
+          
+          // Grant access to matching products
+          for (const product of productsToGrant) {
             // Check if access already exists
             const { data: existingAccess, error: accessCheckError } = await supabase
               .from('user_product_access')
               .select('id')
               .eq('user_id', userRecord.id)
               .eq('product_id', product.id)
-              .single();
+              .maybeSingle();
 
             if (!existingAccess) {
               // Grant new access
@@ -295,9 +339,11 @@ const handler = async (req: Request): Promise<Response> => {
                   userId: userRecord.id,
                   productId: product.id
                 });
+                accessGranted = true;
               }
             } else {
               logStep('Access already exists', { existingAccessId: existingAccess.id, productId: product.id });
+              accessGranted = true;
             }
           }
         } else {
@@ -319,7 +365,7 @@ const handler = async (req: Request): Promise<Response> => {
       status: paymentRecord.status,
       searchMethod,
       userFound: !!userRecord,
-      accessGranted: paymentRecord.status === 'completed' && !!userRecord
+      accessGranted
     });
 
     return new Response(JSON.stringify({ 
@@ -332,7 +378,7 @@ const handler = async (req: Request): Promise<Response> => {
         status: paymentRecord.status,
         search_method: searchMethod,
         user_found: !!userRecord,
-        access_granted: paymentRecord.status === 'completed' && !!userRecord
+        access_granted: accessGranted
       }
     }), {
       status: 200,
