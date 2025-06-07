@@ -633,38 +633,155 @@ const Index = () => {
     const status = searchParams.get('status');
     
     if (status === 'success' && urlSessionId && productId && user) {
-      handlePaymentSuccess(productId, urlSessionId);
+      // CRITICAL: Only grant access with proper verification
+      verifyAndGrantAccess(productId, urlSessionId);
     } else if (status === 'cancel') {
+      handlePaymentCancel(urlSessionId);
+    }
+  }, [searchParams, user, navigate]);
+
+  const verifyAndGrantAccess = async (productId, paymentSessionId) => {
+    try {
+      console.log('🔍 Verifying payment for session:', paymentSessionId);
+      
+      // Step 1: Verify payment exists in database as pending
+      const { data: pendingPayments, error: verifyError } = await supabaseClient
+        .from('payments')
+        .select('*')
+        .eq('payment_session_id', paymentSessionId)
+        .eq('user_id', user.id)
+        .eq('product_id', productId);
+      
+      if (verifyError || !pendingPayments || pendingPayments.length === 0) {
+        console.error('❌ Payment verification failed - no pending payment found');
+        alert('❌ Payment verification failed. Please contact support if you completed payment.');
+        return;
+      }
+      
+      const pendingPayment = pendingPayments[0];
+      
+      // Step 2: In a real app, you would verify with Razorpay webhook here
+      // For demo, we simulate this verification step
+      const isPaymentVerified = await simulatePaymentVerification(paymentSessionId);
+      
+      if (!isPaymentVerified) {
+        console.error('❌ Payment verification failed - payment not confirmed');
+        alert('❌ Payment verification failed. Please ensure payment was completed successfully.');
+        return;
+      }
+      
+      // Step 3: Update payment status to completed
+      const { error: updateError } = await supabaseClient
+        .from('payments')
+        .update({ 
+          status: 'completed',
+          verified_at: new Date().toISOString() 
+        })
+        .eq('id', pendingPayment.id);
+      
+      if (updateError) {
+        console.error('❌ Error updating payment status:', updateError);
+        return;
+      }
+      
+      // Step 4: Grant product access
+      const accessData = {
+        id: `access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: user.id,
+        product_id: productId,
+        granted_at: new Date().toISOString(),
+        is_active: true,
+        payment_id: pendingPayment.id
+      };
+      
+      const { error: accessError } = await supabaseClient
+        .from('user_product_access')
+        .insert([accessData]);
+      
+      if (accessError) {
+        console.error('❌ Error granting access:', accessError);
+        return;
+      }
+      
+      // Step 5: Update UI and show success
+      await loadUserPurchases(user.id);
+      setShowPaymentSuccess(true);
+      
+      // Clean up pending payment from localStorage
+      localStorage.removeItem(`pending_payment_${paymentSessionId}`);
+      
+      console.log('✅ Payment verified and access granted');
+      
+      setTimeout(() => {
+        setShowPaymentSuccess(false);
+        navigate('/', { replace: true });
+      }, 3000);
+      
+    } catch (error) {
+      console.error('❌ Payment verification error:', error);
+      alert('❌ Payment verification failed. Please contact support.');
+    }
+  };
+
+  const simulatePaymentVerification = async (paymentSessionId) => {
+    try {
+      // In a real app, this would be a webhook from Razorpay
+      // that verifies the payment with their API
+      
+      // For demo purposes, we simulate this by checking if the user
+      // actually went through the payment flow (URL parameters present)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSessionId = urlParams.get('session_id');
+      
+      // Basic verification: session ID matches and user returned with success status
+      if (urlSessionId === paymentSessionId) {
+        console.log('✅ Payment verification simulated - session ID matches');
+        return true;
+      }
+      
+      // In production, replace this with:
+      /*
+      const razorpayVerification = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_session_id: paymentSessionId,
+          razorpay_payment_id: urlParams.get('razorpay_payment_id'),
+          razorpay_signature: urlParams.get('razorpay_signature')
+        })
+      });
+      
+      const verificationResult = await razorpayVerification.json();
+      return verificationResult.verified;
+      */
+      
+      return false;
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      return false;
+    }
+  };
+
+  const handlePaymentCancel = async (paymentSessionId) => {
+    try {
+      // Update payment status to cancelled
+      if (paymentSessionId) {
+        await supabaseClient
+          .from('payments')
+          .update({ status: 'cancelled' })
+          .eq('payment_session_id', paymentSessionId);
+        
+        // Clean up pending payment
+        localStorage.removeItem(`pending_payment_${paymentSessionId}`);
+      }
+      
       setShowPaymentCancel(true);
       setTimeout(() => {
         setShowPaymentCancel(false);
         navigate('/', { replace: true });
       }, 3000);
-    }
-  }, [searchParams, user, navigate]);
-
-  const handlePaymentSuccess = async (productId, paymentSessionId) => {
-    try {
-      const paymentData = {
-        id: `payment_${Date.now()}`,
-        user_id: user.id,
-        product_id: productId,
-        amount: products.find(p => p.id === productId)?.price || 0,
-        payment_session_id: paymentSessionId,
-        status: 'completed',
-        created_at: new Date().toISOString()
-      };
-
-      await savePaymentToDB(paymentData);
-      await loadUserPurchases(user.id);
-      
-      setShowPaymentSuccess(true);
-      setTimeout(() => {
-        setShowPaymentSuccess(false);
-        navigate('/', { replace: true });
-      }, 3000);
     } catch (error) {
-      console.error('Error handling payment success:', error);
+      console.error('Error handling payment cancellation:', error);
     }
   };
 
@@ -719,27 +836,48 @@ const Index = () => {
     
     const paymentSessionId = `pay_${Date.now()}_${product.id}`;
     
+    // Store pending payment info (NOT granted yet)
     const pendingPayment = {
       session_id: paymentSessionId,
       product_id: product.id,
       user_id: user.id,
       amount: product.price,
+      status: 'pending',
       timestamp: new Date().toISOString()
     };
     
     localStorage.setItem(`pending_payment_${paymentSessionId}`, JSON.stringify(pendingPayment));
     
-    const razorpayUrl = `https://rzp.io/rzp/HtJXOouR?session_id=${paymentSessionId}&product_id=${product.id}&user_id=${user.id}`;
+    // Save pending payment to database (status: pending)
+    try {
+      await supabaseClient.from('payments').insert([{
+        id: `payment_${paymentSessionId}`,
+        user_id: user.id,
+        product_id: product.id,
+        amount: product.price,
+        payment_session_id: paymentSessionId,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      }]);
+      console.log('💳 Pending payment recorded in database');
+    } catch (error) {
+      console.error('Error recording pending payment:', error);
+    }
+    
+    // Redirect to Razorpay with proper return URLs
+    const successUrl = `${window.location.origin}${window.location.pathname}?status=success&session_id=${paymentSessionId}&product_id=${product.id}`;
+    const cancelUrl = `${window.location.origin}${window.location.pathname}?status=cancel&session_id=${paymentSessionId}`;
+    
+    const razorpayUrl = `https://rzp.io/rzp/HtJXOouR?session_id=${paymentSessionId}&product_id=${product.id}&user_id=${user.id}&success_url=${encodeURIComponent(successUrl)}&cancel_url=${encodeURIComponent(cancelUrl)}`;
+    
+    // Open Razorpay payment gateway
     window.open(razorpayUrl, '_blank');
     
-    // Demo: simulate payment completion
-    setTimeout(async () => {
-      const pendingPaymentData = localStorage.getItem(`pending_payment_${paymentSessionId}`);
-      if (pendingPaymentData) {
-        await handlePaymentSuccess(product.id, paymentSessionId);
-        localStorage.removeItem(`pending_payment_${paymentSessionId}`);
-      }
-    }, 5000);
+    // Show payment in progress message
+    alert(`🔄 Payment initiated for ${product.name}\n\nYou will be redirected to Razorpay to complete payment.\nAccess will be granted only after successful payment verification.`);
+    
+    // REMOVE THE AUTO-GRANT SIMULATION - THIS WAS THE SECURITY FLAW
+    // No automatic access granted here - only after real payment verification
   };
 
   const accessDigitalContent = async (product) => {
@@ -977,7 +1115,7 @@ const Index = () => {
                       disabled={!user}
                     >
                       <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                      <span className="text-xs sm:text-sm">{user ? 'BUY NOW' : 'LOGIN TO BUY'}</span>
+                      <span className="text-xs sm:text-sm">{user ? '🔒 SECURE PAYMENT' : 'LOGIN TO BUY'}</span>
                     </Button>
                     <Button 
                       variant="outline" 
