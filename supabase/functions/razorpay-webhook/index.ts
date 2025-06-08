@@ -197,29 +197,47 @@ serve(async (req) => {
       // Get all active products to determine which one to grant access to
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, price')
+        .select('id, price, name')
         .eq('is_active', true)
         .order('created_at', { ascending: true })
 
       if (productsError || !productsData || productsData.length === 0) {
         console.log('[RAZORPAY-WEBHOOK] No active products found')
       } else {
-        // Find the product that matches the payment amount, or grant access to all products with matching price
-        const matchingProducts = productsData.filter(product => {
-          const productPrice = Number(product.price || 0)
-          return Math.abs(productPrice - amount) < 0.01 // Allow for small floating point differences
+        console.log('[RAZORPAY-WEBHOOK] Available products -', {
+          paymentAmount: amount,
+          products: productsData.map(p => ({ id: p.id, name: p.name, price: p.price }))
         })
 
-        console.log('[RAZORPAY-WEBHOOK] Granting access to products -', {
+        // Find the product that matches the payment amount
+        const matchingProducts = productsData.filter(product => {
+          const productPrice = Number(product.price || 0)
+          const matches = Math.abs(productPrice - amount) < 0.01 // Allow for small floating point differences
+          console.log('[RAZORPAY-WEBHOOK] Checking product match -', {
+            productName: product.name,
+            productPrice,
+            paymentAmount: amount,
+            matches
+          })
+          return matches
+        })
+
+        console.log('[RAZORPAY-WEBHOOK] Found matching products -', {
           paymentAmount: amount,
-          matchingProducts: matchingProducts.length,
-          productsToGrant: matchingProducts
+          matchingCount: matchingProducts.length,
+          matchingProducts: matchingProducts.map(p => ({ id: p.id, name: p.name, price: p.price }))
         })
 
         // Grant access to all matching products (or first product if no exact match)
         const productsToGrantAccess = matchingProducts.length > 0 ? matchingProducts : [productsData[0]]
 
         for (const product of productsToGrantAccess) {
+          console.log('[RAZORPAY-WEBHOOK] Processing access grant for product -', {
+            productId: product.id,
+            productName: product.name,
+            productPrice: product.price
+          })
+
           // Check if access already exists
           const { data: existingAccess, error: accessCheckError } = await supabase
             .from('user_product_access')
@@ -231,12 +249,20 @@ serve(async (req) => {
           if (existingAccess) {
             console.log('[RAZORPAY-WEBHOOK] Access already exists -', {
               existingAccessId: existingAccess.id,
-              productId: product.id
+              productId: product.id,
+              productName: product.name
             })
             continue
           }
 
           // Grant access to this specific product
+          console.log('[RAZORPAY-WEBHOOK] Granting access to product -', {
+            userId: userData.id,
+            productId: product.id,
+            productName: product.name,
+            paymentId: paymentRecord.id
+          })
+
           const { error: accessError } = await supabase
             .from('user_product_access')
             .insert({
@@ -249,11 +275,13 @@ serve(async (req) => {
             console.error('[RAZORPAY-WEBHOOK] ERROR granting access to product -', {
               error: accessError,
               productId: product.id,
+              productName: product.name,
               userId: userData.id
             })
           } else {
             console.log('[RAZORPAY-WEBHOOK] Successfully granted access to product -', {
               productId: product.id,
+              productName: product.name,
               userId: userData.id
             })
             accessGranted = true
