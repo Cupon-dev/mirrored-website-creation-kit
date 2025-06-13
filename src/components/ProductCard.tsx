@@ -73,26 +73,26 @@ const ProductCard = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-all duration-300 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-all duration-300 overflow-hidden h-full flex flex-col">
       {/* Image Container */}
       <div className="relative">
         <img 
           src={product.image_url} 
           alt={product.name}
-          className="w-full h-32 sm:h-40 md:h-48 object-cover cursor-pointer"
+          className="w-full h-28 sm:h-32 md:h-36 object-cover cursor-pointer"
           onClick={() => navigate(`/product/${product.id}`)}
         />
         
         {/* Top Badges */}
-        <div className="absolute top-2 left-2 flex flex-col gap-1">
-          {product.discount_percentage > 0 && (
+        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
+          {product.discount_percentage > 0 && product.discount_percentage <= 50 && (
             <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5">
               -{product.discount_percentage}%
             </Badge>
           )}
           {product.stock_quantity <= 20 && (
             <Badge className="bg-orange-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
-              Only {product.stock_quantity} left!
+              {product.stock_quantity} left!
             </Badge>
           )}
         </div>
@@ -102,127 +102,80 @@ const ProductCard = ({
           variant="ghost"
           size="sm"
           onClick={() => onWishlistToggle(product.id)}
-          className="absolute top-2 right-2 p-1.5 h-auto bg-white/80 hover:bg-white rounded-full"
+          className="absolute top-1.5 right-1.5 p-1 h-auto bg-white/80 hover:bg-white rounded-full"
         >
           <Heart 
-            className={`w-3 h-3 sm:w-4 sm:h-4 ${
+            className={`w-3 h-3 ${
               isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'
             }`} 
           />
         </Button>
 
         {/* Bottom Left Badges */}
-        <div className="absolute bottom-2 left-2 flex flex-col gap-1">
-          {/* Access Status */}
+        <div className="absolute bottom-1.5 left-1.5 flex flex-col gap-1">
           {userHasAccess && (
-            <Badge className="bg-green-500 text-white text-xs px-2 py-1">
-              <CheckCircle className="w-3 h-3 mr-1" />
+            <Badge className="bg-green-500 text-white text-xs px-2 py-0.5">
+              <CheckCircle className="w-2.5 h-2.5 mr-1" />
               Owned
             </Badge>
           )}
-          
-          {/* High Demand Badge - Moved to bottom left */}
           <FOMOCounter productId={product.id} showOnlyHighDemand={true} />
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
-        {/* FOMO Counter - Regular view without high demand */}
+      <div className="p-2.5 sm:p-3 space-y-2 flex-1 flex flex-col">
+        {/* FOMO Counter */}
         <FOMOCounter productId={product.id} hideHighDemand={true} />
 
         {/* Brand & Rating */}
         <div className="flex items-center justify-between text-xs">
           {product.brand && (
-            <span className="text-gray-500 truncate">{product.brand}</span>
+            <span className="text-gray-500 truncate text-xs">{product.brand}</span>
           )}
           <div className="flex items-center space-x-1">
-            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-            <span className="font-medium">{product.rating}</span>
-            <span className="text-gray-500">({product.review_count})</span>
+            <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+            <span className="font-medium text-xs">{product.rating}</span>
+            <span className="text-gray-500 text-xs">({product.review_count})</span>
           </div>
         </div>
 
         {/* Product Name */}
         <h3 
-          className="font-semibold text-gray-900 text-sm sm:text-base line-clamp-2 cursor-pointer hover:text-green-600 transition-colors"
+          className="font-semibold text-gray-900 text-xs sm:text-sm line-clamp-2 cursor-pointer hover:text-green-600 transition-colors"
           onClick={() => navigate(`/product/${product.id}`)}
         >
           {product.name}
         </h3>
 
         {/* Price */}
-        <div className="flex items-center flex-wrap gap-1 sm:gap-2">
-          <span className="text-base sm:text-lg font-bold text-gray-900">
+        <div className="flex items-center flex-wrap gap-1">
+          <span className="text-sm sm:text-base font-bold text-gray-900">
             ₹{Number(product.price).toLocaleString('en-IN')}
           </span>
           {product.original_price && (
-            <span className="text-xs sm:text-sm text-gray-500 line-through">
+            <span className="text-xs text-gray-500 line-through">
               ₹{Number(product.original_price).toLocaleString('en-IN')}
             </span>
           )}
-          {product.discount_percentage > 0 && (
-            <Badge className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5">
-              Save ₹{(Number(product.original_price) - Number(product.price)).toLocaleString('en-IN')}
-            </Badge>
-          )}
-        </div>
-
-        {/* Trust Signals */}
-        <div className="flex items-center gap-2 text-xs text-green-600">
-          <div className="flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            <span>Instant Access</span>
-          </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-2">
+        <div className="space-y-1.5 mt-auto">
           {userHasAccess ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {/* Access Button */}
               <Button
                 onClick={() => product.download_link && window.open(product.download_link, '_blank')}
-                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-2 sm:py-3 text-xs sm:text-sm rounded-lg"
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-1.5 sm:py-2 text-xs rounded-lg"
                 disabled={!product.download_link}
               >
-                <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Access Your Content</span>
+                <ExternalLink className="w-3 h-3 mr-1" />
+                <span className="hidden sm:inline">Access Content</span>
                 <span className="sm:hidden">Access</span>
               </Button>
               
               {/* Demo Button */}
-              <Button
-                onClick={handleDemoClick}
-                variant="outline"
-                className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 text-xs sm:text-sm rounded-lg"
-              >
-                <Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Watch Demo</span>
-                <span className="sm:hidden">Demo</span>
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Button 
-                onClick={handlePurchaseClick}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 sm:py-3 text-xs sm:text-sm rounded-lg shadow-lg transform transition hover:scale-[1.02]"
-              >
-                <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">BUY NOW</span>
-                <span className="sm:hidden">BUY</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleAddToCartClick}
-                className="w-full border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-2 text-xs sm:text-sm rounded-lg transition-all"
-              >
-                <span className="hidden sm:inline">Add to Cart</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-              
-              {/* Demo Button for non-owners */}
               <Button
                 onClick={handleDemoClick}
                 variant="outline"
@@ -232,6 +185,39 @@ const ProductCard = ({
                 <span className="hidden sm:inline">Watch Demo</span>
                 <span className="sm:hidden">Demo</span>
               </Button>
+            </div>
+          ) : (
+            <>
+              <Button 
+                onClick={handlePurchaseClick}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-1.5 sm:py-2 text-xs rounded-lg"
+              >
+                <ShoppingBag className="w-3 h-3 mr-1" />
+                <span className="hidden sm:inline">BUY NOW</span>
+                <span className="sm:hidden">BUY</span>
+              </Button>
+              
+              {/* Add to Cart and Demo in single line */}
+              <div className="flex gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={handleAddToCartClick}
+                  className="flex-1 border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-1.5 text-xs rounded-lg"
+                >
+                  <span className="hidden sm:inline">Add to Cart</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+                
+                <Button
+                  onClick={handleDemoClick}
+                  variant="outline"
+                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 py-1.5 text-xs rounded-lg"
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  <span className="hidden sm:inline">Demo</span>
+                  <span className="sm:hidden">Demo</span>
+                </Button>
+              </div>
             </>
           )}
         </div>

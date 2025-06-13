@@ -99,22 +99,22 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       {/* Header */}
-      <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-40">
+      <header className="bg-white px-4 py-2.5 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xs md:text-sm">P</span>
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
+              <span className="text-white font-bold text-xs">P</span>
             </div>
             <div className="hidden sm:block">
               {user ? (
                 <>
                   <p className="text-xs text-gray-500">Welcome back, {user.name}</p>
-                  <p className="font-semibold text-gray-900 text-sm md:text-base">
+                  <p className="font-semibold text-gray-900 text-sm">
                     {currentView === 'library' ? 'Your Library 📚' : 'PremiumLeaks Store 🔥'}
                   </p>
                 </>
               ) : (
-                <p className="font-semibold text-gray-900 text-sm md:text-base">PremiumLeaks Store 🔥</p>
+                <p className="font-semibold text-gray-900 text-sm">PremiumLeaks Store 🔥</p>
               )}
             </div>
           </div>
@@ -124,7 +124,7 @@ const Index = () => {
               onClick={() => navigate('/cart')}
               className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ShoppingBag className="w-5 h-5 md:w-6 md:h-6 text-gray-600" />
+              <ShoppingBag className="w-5 h-5 text-gray-600" />
               {cartCount > 0 && (
                 <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                   {cartCount}
@@ -191,9 +191,9 @@ const Index = () => {
 
       {/* Login Helper Message */}
       {!user && currentView === 'home' && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-1.5">
           <div className="max-w-7xl mx-auto text-center">
-            <p className="text-sm text-blue-700">
+            <p className="text-xs text-blue-700">
               💡 <strong>Returning user?</strong> Click the login icon above and enter your email or mobile number to access your purchased products instantly!
             </p>
           </div>
@@ -202,37 +202,37 @@ const Index = () => {
 
       {/* Search Bar - Only show in home view */}
       {currentView === 'home' && (
-        <div className="px-4 py-3 md:py-4 bg-white border-b">
+        <div className="px-4 py-2.5 bg-white border-b">
           <div className="max-w-7xl mx-auto relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input 
               placeholder="Find your next digital treasure..." 
-              className="pl-10 pr-4 py-2 md:py-3 rounded-xl border-gray-200 focus:border-green-400 text-sm md:text-base transition-all"
+              className="pl-10 pr-4 py-2 rounded-xl border-gray-200 focus:border-green-400 text-sm transition-all"
             />
           </div>
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4 py-3">
         {/* Flash Offer Banner - Only show in home view */}
         {currentView === 'home' && <FlashOfferBanner />}
 
         {/* Library View */}
         {currentView === 'library' && (
-          <div className="mb-6">
+          <div className="mb-4">
             {user ? (
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">Your Digital Library</h2>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900">Your Digital Library</h2>
                   <Badge className="bg-green-100 text-green-800">
                     {ownedProducts.length} {ownedProducts.length === 1 ? 'Product' : 'Products'}
                   </Badge>
                 </div>
                 {ownedProducts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Library className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Your library is empty</h3>
-                    <p className="text-gray-500 mb-4">Start shopping to add products to your library!</p>
+                  <div className="text-center py-8">
+                    <Library className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <h3 className="text-base font-medium text-gray-900 mb-2">Your library is empty</h3>
+                    <p className="text-gray-500 mb-3 text-sm">Start shopping to add products to your library!</p>
                     <Button 
                       onClick={() => setCurrentView('home')}
                       className="bg-green-500 hover:bg-green-600"
@@ -243,10 +243,10 @@ const Index = () => {
                 ) : null}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Please log in</h3>
-                <p className="text-gray-500 mb-4">Log in to view your digital library</p>
+              <div className="text-center py-8">
+                <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <h3 className="text-base font-medium text-gray-900 mb-2">Please log in</h3>
+                <p className="text-gray-500 mb-3 text-sm">Log in to view your digital library</p>
                 <Button 
                   onClick={() => setShowLoginDialog(true)}
                   className="bg-green-500 hover:bg-green-600"
@@ -260,15 +260,15 @@ const Index = () => {
 
         {/* Categories - Only show in home view */}
         {currentView === 'home' && (
-          <div className="mb-4 md:mb-6">
-            <div className="flex items-center justify-between mb-3 md:mb-4">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Categories</h3>
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm md:text-base font-semibold text-gray-900">Categories</h3>
             </div>
-            <div className="flex space-x-2 md:space-x-3 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
               <Button
                 variant={selectedCategory === 'all' ? "default" : "outline"}
                 onClick={() => setSelectedCategory('all')}
-                className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
+                className={`rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-all active:scale-95 ${
                   selectedCategory === 'all'
                     ? "bg-green-500 text-white hover:bg-green-600" 
                     : "border-gray-200 hover:border-green-400 hover:bg-green-50"
@@ -281,13 +281,13 @@ const Index = () => {
                   key={category.id}
                   variant={selectedCategory === category.id ? "default" : "outline"}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`rounded-full px-3 md:px-4 py-2 text-xs md:text-sm whitespace-nowrap transition-all active:scale-95 ${
+                  className={`rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-all active:scale-95 ${
                     selectedCategory === category.id
                       ? "bg-green-500 text-white hover:bg-green-600" 
                       : "border-gray-200 hover:border-green-400 hover:bg-green-50"
                   }`}
                 >
-                  {category.icon && <span className="mr-1 md:mr-2">{category.icon}</span>}
+                  {category.icon && <span className="mr-1">{category.icon}</span>}
                   {category.name}
                 </Button>
               ))}
@@ -297,7 +297,7 @@ const Index = () => {
 
         {/* Product Grid */}
         {displayProducts.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 md:gap-3 mb-6">
             {displayProducts.map((product) => (
               <ProductCard
                 key={product.id}
