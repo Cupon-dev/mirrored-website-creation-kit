@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Lock, ExternalLink, Sparkles, Play } from 'lucide-react';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductAccessButtonProps {
   productId: string;
@@ -21,9 +22,9 @@ const ProductAccessButton = ({
 }: ProductAccessButtonProps) => {
   const { hasAccess } = useUserAccess();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isClicked, setIsClicked] = useState(false);
   
-  // Only show access if user is logged in AND actually has verified access
   const userHasAccess = user && hasAccess(productId);
 
   const handleLinkClick = () => {
@@ -36,8 +37,19 @@ const ProductAccessButton = ({
   };
 
   const handleDemoClick = () => {
-    // Demo video link
     window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank');
+  };
+
+  const handlePurchaseClick = () => {
+    if (userHasAccess) {
+      toast({
+        title: "Already Owned! 🎉",
+        description: "You already have access to this product. Check your library!",
+        variant: "default",
+      });
+      return;
+    }
+    onPurchase();
   };
 
   if (userHasAccess) {
@@ -71,7 +83,7 @@ const ProductAccessButton = ({
         <Button
           onClick={handleDemoClick}
           variant="outline"
-          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm"
+          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm rounded-xl"
         >
           <Play className="w-4 h-4 mr-2" />
           <span className="hidden md:inline">Watch Demo Video</span>
@@ -84,7 +96,7 @@ const ProductAccessButton = ({
   return (
     <div className="space-y-2 md:space-y-3">
       <Button
-        onClick={onPurchase}
+        onClick={handlePurchaseClick}
         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 md:py-4 text-sm md:text-lg rounded-xl shadow-lg transform transition hover:scale-[1.02]"
       >
         <Download className="w-4 h-4 md:w-5 md:h-5 mr-2" />
@@ -95,7 +107,7 @@ const ProductAccessButton = ({
       <Button
         onClick={handleDemoClick}
         variant="outline"
-        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm"
+        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-2 md:py-3 text-sm rounded-xl"
       >
         <Play className="w-4 h-4 mr-2" />
         <span className="hidden md:inline">Watch Demo Video</span>

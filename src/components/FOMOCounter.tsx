@@ -6,9 +6,11 @@ import { useSharedAnalytics } from '@/contexts/AnalyticsContext';
 
 interface FOMOCounterProps {
   productId: string;
+  showOnlyHighDemand?: boolean;
+  hideHighDemand?: boolean;
 }
 
-const FOMOCounter = ({ productId }: FOMOCounterProps) => {
+const FOMOCounter = ({ productId, showOnlyHighDemand = false, hideHighDemand = false }: FOMOCounterProps) => {
   const { getAnalytics } = useSharedAnalytics();
   const analytics = getAnalytics(productId);
   const [animatedViewers, setAnimatedViewers] = useState(analytics.current_viewers);
@@ -22,6 +24,37 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
     setAnimatedPurchases(analytics.total_purchases);
   }, [analytics.total_purchases]);
 
+  const isHighDemand = animatedViewers > 8000;
+
+  // Show only high demand badge (for image overlay)
+  if (showOnlyHighDemand) {
+    return isHighDemand ? (
+      <Badge className="bg-red-100 text-red-800 px-1.5 sm:px-2 py-0.5 sm:py-1 flex items-center space-x-1 animate-bounce text-xs whitespace-nowrap">
+        <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
+        <span className="font-medium hidden sm:inline">High Demand!</span>
+        <span className="font-medium sm:hidden">🔥</span>
+      </Badge>
+    ) : null;
+  }
+
+  // Regular view without high demand badge
+  if (hideHighDemand) {
+    return (
+      <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2 md:mb-3">
+        <Badge className="bg-green-100 text-green-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-pulse text-xs whitespace-nowrap">
+          <Eye className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
+          <span className="font-medium">{animatedViewers.toLocaleString('en-IN')} viewing</span>
+        </Badge>
+        
+        <Badge className="bg-blue-100 text-blue-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 text-xs whitespace-nowrap">
+          <ShoppingBag className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
+          <span className="font-medium">{animatedPurchases.toLocaleString('en-IN')} sold</span>
+        </Badge>
+      </div>
+    );
+  }
+
+  // Full view with all badges (default)
   return (
     <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2 md:mb-3">
       <Badge className="bg-green-100 text-green-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-pulse text-xs whitespace-nowrap">
@@ -34,7 +67,7 @@ const FOMOCounter = ({ productId }: FOMOCounterProps) => {
         <span className="font-medium">{animatedPurchases.toLocaleString('en-IN')} sold</span>
       </Badge>
 
-      {animatedViewers > 8000 && (
+      {isHighDemand && (
         <Badge className="bg-red-100 text-red-800 px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 flex items-center space-x-1 animate-bounce text-xs whitespace-nowrap">
           <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 flex-shrink-0" />
           <span className="font-medium hidden sm:inline">High Demand!</span>

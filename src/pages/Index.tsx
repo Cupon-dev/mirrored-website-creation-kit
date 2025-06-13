@@ -10,6 +10,7 @@ import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserAccess } from "@/hooks/useUserAccess";
+import { useToast } from "@/hooks/use-toast";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
 
@@ -27,8 +28,9 @@ const Index = () => {
   const { addToCart, cartCount } = useCart();
   const { user, logout, loginUser } = useAuth();
   const { userAccess, hasAccess } = useUserAccess();
+  const { toast } = useToast();
 
-  // Filter products for library view
+  // Filter products for library view - only products user actually has access to
   const ownedProducts = products.filter(product => user && hasAccess(product.id));
 
   const handleLogin = async () => {
@@ -53,11 +55,31 @@ const Index = () => {
   };
 
   const handlePurchase = (productId: string) => {
+    // Check if user already has access
+    if (user && hasAccess(productId)) {
+      toast({
+        title: "Already Owned! 🎉",
+        description: "You already have access to this product. Check your library!",
+        variant: "default",
+      });
+      return;
+    }
+    
     addToCart({ productId });
     navigate('/cart');
   };
 
   const handleAddToCart = (productId: string) => {
+    // Check if user already has access
+    if (user && hasAccess(productId)) {
+      toast({
+        title: "Already Owned! 🎉",
+        description: "You already have access to this product. Check your library!",
+        variant: "default",
+      });
+      return;
+    }
+    
     addToCart({ productId });
   };
 
@@ -315,6 +337,11 @@ const Index = () => {
             <Library className="w-5 h-5" />
             <span className="text-xs font-medium">Library</span>
             {currentView === 'library' && <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>}
+            {user && ownedProducts.length > 0 && (
+              <Badge className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {ownedProducts.length}
+              </Badge>
+            )}
           </Button>
           
           <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
