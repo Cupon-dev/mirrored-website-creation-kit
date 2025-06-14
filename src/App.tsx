@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AuthWrapper from "@/components/AuthWrapper";
 import { AnalyticsProvider } from "@/contexts/AnalyticsContext";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
@@ -26,6 +27,7 @@ const App = () => (
           <AuthWrapper>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/payment-success" element={<PaymentSuccessHandler />} />

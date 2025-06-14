@@ -1,5 +1,5 @@
 
-import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle, Play } from "lucide-react";
+import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle, Play, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +48,12 @@ const ProductCard = ({
     window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank');
   };
 
+  const handleAccessClick = () => {
+    if (userHasAccess && product.download_link) {
+      window.open(product.download_link, '_blank');
+    }
+  };
+
   const handlePurchaseClick = () => {
     if (userHasAccess) {
       toast({
@@ -79,19 +85,19 @@ const ProductCard = ({
         <img 
           src={product.image_url} 
           alt={product.name}
-          className="w-full h-28 sm:h-32 md:h-36 object-cover cursor-pointer"
+          className="w-full h-24 sm:h-28 md:h-32 object-cover cursor-pointer"
           onClick={() => navigate(`/product/${product.id}`)}
         />
         
         {/* Top Badges */}
-        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
+        <div className="absolute top-1 left-1 flex flex-col gap-1">
           {product.discount_percentage > 0 && product.discount_percentage <= 50 && (
-            <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5">
+            <Badge className="bg-red-500 text-white text-xs px-1 py-0.5">
               -{product.discount_percentage}%
             </Badge>
           )}
           {product.stock_quantity <= 20 && (
-            <Badge className="bg-orange-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
+            <Badge className="bg-orange-500 text-white text-xs px-1 py-0.5 animate-pulse">
               {product.stock_quantity} left!
             </Badge>
           )}
@@ -102,7 +108,7 @@ const ProductCard = ({
           variant="ghost"
           size="sm"
           onClick={() => onWishlistToggle(product.id)}
-          className="absolute top-1.5 right-1.5 p-1 h-auto bg-white/80 hover:bg-white rounded-full"
+          className="absolute top-1 right-1 p-1 h-auto bg-white/80 hover:bg-white rounded-full"
         >
           <Heart 
             className={`w-3 h-3 ${
@@ -112,10 +118,10 @@ const ProductCard = ({
         </Button>
 
         {/* Bottom Left Badges */}
-        <div className="absolute bottom-1.5 left-1.5 flex flex-col gap-1">
+        <div className="absolute bottom-1 left-1 flex flex-col gap-1">
           {userHasAccess && (
-            <Badge className="bg-green-500 text-white text-xs px-2 py-0.5">
-              <CheckCircle className="w-2.5 h-2.5 mr-1" />
+            <Badge className="bg-green-500 text-white text-xs px-1.5 py-0.5">
+              <CheckCircle className="w-2 h-2 mr-1" />
               Owned
             </Badge>
           )}
@@ -124,7 +130,7 @@ const ProductCard = ({
       </div>
 
       {/* Content */}
-      <div className="p-2.5 sm:p-3 space-y-2 flex-1 flex flex-col">
+      <div className="p-2 sm:p-2.5 space-y-1.5 flex-1 flex flex-col">
         {/* FOMO Counter */}
         <FOMOCounter productId={product.id} hideHighDemand={true} />
 
@@ -134,7 +140,7 @@ const ProductCard = ({
             <span className="text-gray-500 truncate text-xs">{product.brand}</span>
           )}
           <div className="flex items-center space-x-1">
-            <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+            <Star className="w-2 h-2 fill-yellow-400 text-yellow-400" />
             <span className="font-medium text-xs">{product.rating}</span>
             <span className="text-gray-500 text-xs">({product.review_count})</span>
           </div>
@@ -161,12 +167,12 @@ const ProductCard = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-1.5 mt-auto">
+        <div className="space-y-1 mt-auto">
           {userHasAccess ? (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {/* Access Button */}
               <Button
-                onClick={() => product.download_link && window.open(product.download_link, '_blank')}
+                onClick={handleAccessClick}
                 className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-1.5 sm:py-2 text-xs rounded-lg"
                 disabled={!product.download_link}
               >
@@ -179,7 +185,7 @@ const ProductCard = ({
               <Button
                 onClick={handleDemoClick}
                 variant="outline"
-                className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-1.5 text-xs rounded-lg"
+                className="w-full border-blue-300 text-blue-700 hover:bg-blue-50 py-1 text-xs rounded-lg"
               >
                 <Play className="w-3 h-3 mr-1" />
                 <span className="hidden sm:inline">Watch Demo</span>
@@ -197,21 +203,22 @@ const ProductCard = ({
                 <span className="sm:hidden">BUY</span>
               </Button>
               
-              {/* Add to Cart and Demo in single line */}
-              <div className="flex gap-1.5">
+              {/* Access and Demo in single line */}
+              <div className="flex gap-1">
                 <Button
                   variant="outline"
                   onClick={handleAddToCartClick}
-                  className="flex-1 border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-1.5 text-xs rounded-lg"
+                  className="flex-1 border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-1 text-xs rounded-lg"
                 >
-                  <span className="hidden sm:inline">Add to Cart</span>
-                  <span className="sm:hidden">Add</span>
+                  <Lock className="w-3 h-3 mr-1" />
+                  <span className="hidden sm:inline">Access</span>
+                  <span className="sm:hidden">🔒</span>
                 </Button>
                 
                 <Button
                   onClick={handleDemoClick}
                   variant="outline"
-                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 py-1.5 text-xs rounded-lg"
+                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 py-1 text-xs rounded-lg"
                 >
                   <Play className="w-3 h-3 mr-1" />
                   <span className="hidden sm:inline">Demo</span>

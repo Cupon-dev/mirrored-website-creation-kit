@@ -3,44 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Save, Eye, Edit, Trash2, Package, ShoppingCart, Users } from "lucide-react";
+import { ArrowLeft, Package, ShoppingCart, Users, Edit } from "lucide-react";
 import { useCategories, useProducts } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import ImageUpload from "@/components/ImageUpload";
+import AdminProductForm from "@/components/AdminProductForm";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: categories = [] } = useCategories();
-  const { data: products = [] } = useProducts();
+  const { data: products = [], refetch: refetchProducts } = useProducts();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [currentView, setCurrentView] = useState<"dashboard" | "products" | "categories" | "payments">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "products" | "categories">("dashboard");
   
-  const [productForm, setProductForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    original_price: "",
-    discount_percentage: "",
-    category_id: "",
-    stock_quantity: "",
-    brand: "",
-    image_url: "",
-    gallery_images: "",
-    razorpay_link: "",
-    tags: "",
-    rating: "",
-    review_count: ""
-  });
-
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     icon: ""
@@ -57,62 +37,6 @@ const Admin = () => {
       toast({
         title: "Invalid Password",
         description: "Please enter the correct admin password.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleAddProduct = async () => {
-    try {
-      const galleryArray = productForm.gallery_images ? productForm.gallery_images.split(',').map(url => url.trim()) : [];
-      const tagsArray = productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [];
-
-      const { error } = await supabase
-        .from('products')
-        .insert([{
-          name: productForm.name,
-          description: productForm.description,
-          price: parseFloat(productForm.price),
-          original_price: productForm.original_price ? parseFloat(productForm.original_price) : null,
-          discount_percentage: productForm.discount_percentage ? parseInt(productForm.discount_percentage) : 0,
-          category_id: productForm.category_id,
-          stock_quantity: parseInt(productForm.stock_quantity),
-          brand: productForm.brand,
-          image_url: productForm.image_url,
-          gallery_images: galleryArray,
-          razorpay_link: productForm.razorpay_link,
-          tags: tagsArray,
-          rating: productForm.rating ? parseFloat(productForm.rating) : 0,
-          review_count: productForm.review_count ? parseInt(productForm.review_count) : 0
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Product Added!",
-        description: "Product has been added successfully."
-      });
-
-      setProductForm({
-        name: "",
-        description: "",
-        price: "",
-        original_price: "",
-        discount_percentage: "",
-        category_id: "",
-        stock_quantity: "",
-        brand: "",
-        image_url: "",
-        gallery_images: "",
-        razorpay_link: "",
-        tags: "",
-        rating: "",
-        review_count: ""
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
         variant: "destructive"
       });
     }
@@ -269,175 +193,7 @@ const Admin = () => {
         {/* Products View */}
         {currentView === "products" && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5" />
-                  <span>Add New Product</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Product Name</Label>
-                      <Input
-                        id="name"
-                        value={productForm.name}
-                        onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-                        placeholder="Enter product name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="brand">Brand</Label>
-                      <Input
-                        id="brand"
-                        value={productForm.brand}
-                        onChange={(e) => setProductForm({...productForm, brand: e.target.value})}
-                        placeholder="Enter brand name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="price">Price</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        value={productForm.price}
-                        onChange={(e) => setProductForm({...productForm, price: e.target.value})}
-                        placeholder="Enter price"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="original_price">Original Price</Label>
-                      <Input
-                        id="original_price"
-                        type="number"
-                        value={productForm.original_price}
-                        onChange={(e) => setProductForm({...productForm, original_price: e.target.value})}
-                        placeholder="Enter original price"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="discount">Discount %</Label>
-                      <Input
-                        id="discount"
-                        type="number"
-                        value={productForm.discount_percentage}
-                        onChange={(e) => setProductForm({...productForm, discount_percentage: e.target.value})}
-                        placeholder="Enter discount percentage"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="stock">Stock Quantity</Label>
-                      <Input
-                        id="stock"
-                        type="number"
-                        value={productForm.stock_quantity}
-                        onChange={(e) => setProductForm({...productForm, stock_quantity: e.target.value})}
-                        placeholder="Enter stock quantity"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column */}
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="rating">Rating</Label>
-                      <Input
-                        id="rating"
-                        type="number"
-                        step="0.1"
-                        max="5"
-                        value={productForm.rating}
-                        onChange={(e) => setProductForm({...productForm, rating: e.target.value})}
-                        placeholder="Enter rating (0-5)"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="review_count">Review Count</Label>
-                      <Input
-                        id="review_count"
-                        type="number"
-                        value={productForm.review_count}
-                        onChange={(e) => setProductForm({...productForm, review_count: e.target.value})}
-                        placeholder="Enter review count"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="category">Category</Label>
-                      <Select value={productForm.category_id} onValueChange={(value) => setProductForm({...productForm, category_id: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.icon} {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="razorpay_link">Razorpay Payment Link</Label>
-                      <Input
-                        id="razorpay_link"
-                        value={productForm.razorpay_link}
-                        onChange={(e) => setProductForm({...productForm, razorpay_link: e.target.value})}
-                        placeholder="Enter Razorpay payment link"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tags">Tags (comma separated)</Label>
-                      <Input
-                        id="tags"
-                        value={productForm.tags}
-                        onChange={(e) => setProductForm({...productForm, tags: e.target.value})}
-                        placeholder="Enter tags separated by commas"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Full Width Fields */}
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={productForm.description}
-                    onChange={(e) => setProductForm({...productForm, description: e.target.value})}
-                    placeholder="Enter product description"
-                    rows={3}
-                  />
-                </div>
-
-                {/* Image Upload Section */}
-                <div>
-                  <Label>Main Product Image</Label>
-                  <ImageUpload
-                    currentImage={productForm.image_url}
-                    onImageUpload={(url) => setProductForm({...productForm, image_url: url})}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="gallery_images">Additional Gallery Images (comma separated URLs)</Label>
-                  <Textarea
-                    id="gallery_images"
-                    value={productForm.gallery_images}
-                    onChange={(e) => setProductForm({...productForm, gallery_images: e.target.value})}
-                    placeholder="Enter additional image URLs separated by commas"
-                    rows={2}
-                  />
-                </div>
-
-                <Button onClick={handleAddProduct} className="w-full bg-green-600 hover:bg-green-700">
-                  <Save className="w-4 h-4 mr-2" />
-                  Add Product
-                </Button>
-              </CardContent>
-            </Card>
+            <AdminProductForm onProductAdded={refetchProducts} />
 
             {/* Existing Products */}
             <Card>
@@ -453,7 +209,7 @@ const Admin = () => {
                         <div>
                           <h3 className="font-medium">{product.name}</h3>
                           <p className="text-sm text-gray-500">{product.brand}</p>
-                          <p className="text-sm font-medium">${product.price}</p>
+                          <p className="text-sm font-medium">₹{product.price}</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -477,10 +233,7 @@ const Admin = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5" />
-                  <span>Add New Category</span>
-                </CardTitle>
+                <CardTitle>Add New Category</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -502,7 +255,6 @@ const Admin = () => {
                   />
                 </div>
                 <Button onClick={handleAddCategory} className="w-full bg-green-600 hover:bg-green-700">
-                  <Save className="w-4 h-4 mr-2" />
                   Add Category
                 </Button>
               </CardContent>
