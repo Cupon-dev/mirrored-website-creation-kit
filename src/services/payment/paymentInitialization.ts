@@ -1,42 +1,97 @@
 
+import { supabase } from '@/integrations/supabase/client';
 import { createPaymentRecord } from './paymentQueries';
 import type { PaymentInitializationResult } from './types';
 
 export const initializePayment = async (
-  email: string, 
-  phoneNumber: string, 
-  amount: number
+  email: string,
+  phoneNumber: string,
+  amount: number,
+  productId: string
 ): Promise<PaymentInitializationResult> => {
   try {
-    console.log('Initializing payment for:', email, amount);
-    
-    const orderIdSuffix = Math.random().toString(36).substring(2, 8);
-    const razorpayOrderId = `order_${Date.now()}_${orderIdSuffix}`;
+    console.log('Initializing payment for:', { email, phoneNumber, amount, productId });
 
+    // Create payment record in our database first
     const { payment, error: paymentError } = await createPaymentRecord(
-      email, 
-      phoneNumber, 
-      amount, 
-      razorpayOrderId
+      email,
+      phoneNumber,
+      amount,
+      '' // We'll update with order ID after Razorpay response
     );
 
-    if (paymentError) {
+    if (paymentError || !payment) {
       console.error('Error creating payment record:', paymentError);
-      throw new Error('Failed to create payment record');
+      return {
+        success: false,
+        error: 'Failed to create payment record'
+      };
     }
 
-    console.log('Payment initialized successfully:', payment.id);
+    // Create Razorpay order
+    const orderData = {
+      amount: amount * 100, // Convert to paisa
+      currency: 'INR',
+      receipt: payment.id,
+      notes: {
+        email: email,
+        phone: phoneNumber,
+        product_id: productId,
+        payment_id: payment.id
+      }
+    };
+
+    // Call our edge function to create Razorpay order
+    const { data: orderResponse, error: orderError } = await supabase.functions.invoke(
+      'create-razorpay-order',
+      {
+        body: orderData
+      }
+    );
+
+    if (orderError || !orderResponse?.success) {
+      console.error('Error creating Razorpay order:', orderError);
+      return {
+        success: false,
+        error: 'Failed to create payment order'
+      };
+    }
+
+    // Update payment record with Razorpay order ID
+    await supabase
+      .from('payments')
+      .update({ razorpay_order_id: orderResponse.order.id })
+      .eq('id', payment.id);
+
+    // Store pending payment info in localStorage
+    localStorage.setItem('pending_payment', JSON.stringify({
+      paymentId: payment.id,
+      email: email,
+      amount: amount,
+      productId: productId
+    }));
+
+    console.log('Payment initialization successful:', orderResponse.order);
+
     return {
       success: true,
-      paymentId: payment.id,
-      razorpayOrderId: razorpayOrderId
+      orderId: orderResponse.order.id,
+      amount: amount,
+      currency: 'INR',
+      name: 'PremiumLeaks',
+      description: 'Digital Product Purchase',
+      prefill: {
+        email: email,
+        contact: phoneNumber
+      },
+      notes: orderData.notes
     };
 
   } catch (error) {
     console.error('Payment initialization error:', error);
     return {
       success: false,
-      error: error.message
+      error: 'Payment system error'
     };
   }
 };

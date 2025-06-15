@@ -87,7 +87,7 @@ const UserProfile = () => {
       if (result.success) {
         console.log('Payment verification successful');
         await refreshAccess();
-        await fetchPaymentStats(); // Refresh stats
+        await fetchPaymentStats();
         toast({
           title: "Access Granted! 🎉",
           description: "Your purchase has been verified and access granted.",
@@ -325,6 +325,21 @@ const UserProfile = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* No products message */}
+      {purchasedProducts.length === 0 && (
+        <div className="text-center py-8">
+          <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-gray-900 mb-2">No products yet</h3>
+          <p className="text-gray-500 mb-3 text-sm">Start shopping to build your digital library!</p>
+          <Button 
+            onClick={() => window.location.href = '/'}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            Browse Products
+          </Button>
         </div>
       )}
     </div>

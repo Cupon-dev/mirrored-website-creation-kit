@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Library, Bell, User, LogOut, LogIn } from "lucide-react";
@@ -12,6 +11,7 @@ import { useUserAccess } from "@/hooks/useUserAccess";
 import { useToast } from "@/hooks/use-toast";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
+import UserProfile from "@/components/UserProfile";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -165,6 +165,13 @@ const Index = () => {
       <div className="max-w-7xl mx-auto px-4 py-2">
         {/* Flash Offer Banner - Only show in home view */}
         {currentView === 'home' && <FlashOfferBanner />}
+
+        {/* User Profile - Only show when logged in */}
+        {user && currentView === 'home' && (
+          <div className="mb-4">
+            <UserProfile />
+          </div>
+        )}
 
         {/* Library View */}
         {currentView === 'library' && (
