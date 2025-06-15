@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Heart, Home, Library, Bell, User, LogOut, LogIn } from "lucide-react";
+import { Search, ShoppingBag, Heart, Home, Library, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,18 +12,18 @@ import { useUserAccess } from "@/hooks/useUserAccess";
 import { useToast } from "@/hooks/use-toast";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
-import UserProfile from "@/components/UserProfile";
+import ProfilePage from "@/components/ProfilePage";
 
 const Index = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [currentView, setCurrentView] = useState<'home' | 'library'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'library' | 'profile'>('home');
   const [wishlist, setWishlist] = useState<string[]>([]);
   
   const { data: categories = [] } = useCategories();
   const { data: products = [], isLoading } = useProducts(selectedCategory === 'all' ? undefined : selectedCategory);
   const { addToCart, cartCount } = useCart();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { userAccess, hasAccess } = useUserAccess();
   const { toast } = useToast();
 
@@ -82,6 +83,11 @@ const Index = () => {
     );
   }
 
+  // Show profile page
+  if (currentView === 'profile') {
+    return <ProfilePage onBack={() => setCurrentView('home')} />;
+  }
+
   const displayProducts = currentView === 'library' ? ownedProducts : availableProducts;
 
   return (
@@ -94,16 +100,9 @@ const Index = () => {
               <span className="text-white font-bold text-xs">P</span>
             </div>
             <div className="hidden sm:block">
-              {user ? (
-                <>
-                  <p className="text-xs text-gray-500">Welcome back, {user.name}</p>
-                  <p className="font-semibold text-gray-900 text-sm">
-                    {currentView === 'library' ? 'Your Library 📚' : 'PremiumLeaks Store 🔥'}
-                  </p>
-                </>
-              ) : (
-                <p className="font-semibold text-gray-900 text-sm">PremiumLeaks Store 🔥</p>
-              )}
+              <p className="font-semibold text-gray-900 text-sm">
+                {currentView === 'library' ? 'Your Library 📚' : 'PremiumLeaks Store 🔥'}
+              </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -119,26 +118,6 @@ const Index = () => {
                 </Badge>
               )}
             </Button>
-            
-            {user ? (
-              <Button
-                variant="ghost"
-                onClick={logout}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5 text-gray-600" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/login')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Login"
-              >
-                <LogIn className="w-5 h-5 text-gray-600" />
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -170,13 +149,6 @@ const Index = () => {
       <div className="max-w-7xl mx-auto px-4 py-2">
         {/* Flash Offer Banner - Only show in home view */}
         {currentView === 'home' && <FlashOfferBanner />}
-
-        {/* User Profile - Only show when logged in and in home view */}
-        {user && currentView === 'home' && (
-          <div className="mb-4">
-            <UserProfile />
-          </div>
-        )}
 
         {/* Library View */}
         {currentView === 'library' && (
@@ -298,11 +270,6 @@ const Index = () => {
             <Library className="w-5 h-5" />
             <span className="text-xs font-medium">Library</span>
             {currentView === 'library' && <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>}
-            {user && ownedProducts.length > 0 && (
-              <Badge className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {ownedProducts.length}
-              </Badge>
-            )}
           </Button>
           
           <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
@@ -313,11 +280,14 @@ const Index = () => {
           {user ? (
             <Button 
               variant="ghost" 
-              className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all"
-              onClick={logout}
+              className={`flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all ${
+                currentView === 'profile' ? 'text-gray-800' : 'text-gray-400'
+              }`}
+              onClick={() => setCurrentView('profile')}
             >
-              <LogOut className="w-5 h-5 text-gray-400" />
-              <span className="text-xs text-gray-400">Logout</span>
+              <User className="w-5 h-5" />
+              <span className="text-xs font-medium">Profile</span>
+              {currentView === 'profile' && <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>}
             </Button>
           ) : (
             <Button 
