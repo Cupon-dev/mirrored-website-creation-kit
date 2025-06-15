@@ -2,21 +2,25 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Lock, ExternalLink, Sparkles, Play } from 'lucide-react';
+import { Download, ExternalLink, Sparkles, Play } from 'lucide-react';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProductAccessButtonProps {
   productId: string;
-  downloadLink?: string;
+  accessLink?: string;
+  demoLink?: string;
+  downloadLink?: string; // Keep for backward compatibility
   price: number;
   onPurchase: () => void;
 }
 
 const ProductAccessButton = ({ 
   productId, 
-  downloadLink, 
+  accessLink,
+  demoLink,
+  downloadLink, // Backward compatibility
   price, 
   onPurchase 
 }: ProductAccessButtonProps) => {
@@ -28,16 +32,22 @@ const ProductAccessButton = ({
   const userHasAccess = user && hasAccess(productId);
 
   const handleLinkClick = () => {
-    if (userHasAccess && downloadLink) {
-      setIsClicked(true);
-      window.open(downloadLink, '_blank');
-      
-      setTimeout(() => setIsClicked(false), 2000);
+    if (userHasAccess) {
+      // Use accessLink if available, otherwise fallback to downloadLink for backward compatibility
+      const linkToOpen = accessLink || downloadLink;
+      if (linkToOpen) {
+        setIsClicked(true);
+        window.open(linkToOpen, '_blank');
+        
+        setTimeout(() => setIsClicked(false), 2000);
+      }
     }
   };
 
   const handleDemoClick = () => {
-    window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank');
+    // Use demoLink if available, otherwise fallback to default
+    const demoUrl = demoLink || 'https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view';
+    window.open(demoUrl, '_blank');
   };
 
   const handlePurchaseClick = () => {
@@ -62,7 +72,7 @@ const ProductAccessButton = ({
               ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 scale-105' 
               : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-[1.02]'
           }`}
-          disabled={!downloadLink}
+          disabled={!accessLink && !downloadLink}
         >
           {isClicked ? (
             <>
@@ -119,7 +129,7 @@ const ProductAccessButton = ({
         variant="outline"
         className="w-full border-2 border-gray-300 text-gray-500 font-semibold py-3 md:py-4 text-sm md:text-lg rounded-xl cursor-not-allowed opacity-50"
       >
-        <Lock className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+        <ExternalLink className="w-4 h-4 md:w-5 md:h-5 mr-2" />
         <span className="hidden md:inline">Full Access</span>
         <span className="md:hidden">🔗</span>
         <Badge className="ml-2 bg-gray-200 text-gray-600 text-xs">

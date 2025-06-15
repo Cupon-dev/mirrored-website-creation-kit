@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
@@ -7,12 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { initializePayment } from '@/services/payment/paymentInitialization';
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import RazorpayLoader from '@/components/RazorpayLoader';
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -21,7 +17,16 @@ const Cart = () => {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (isRazorpayLoaded: boolean) => {
+    if (!isRazorpayLoaded) {
+      toast({
+        title: "Payment System Loading",
+        description: "Please wait for the payment system to load",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!user) {
       toast({
         title: "Login Required",
@@ -151,124 +156,133 @@ const Cart = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="mb-6 p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Continue Shopping
-        </Button>
+    <RazorpayLoader>
+      {(isRazorpayLoaded) => (
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-4xl mx-auto px-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="mb-6 p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Continue Shopping
+            </Button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Your Cart ({cart.length})</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearAll}
-                  className="text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {cart.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
-                    <img 
-                      src={item.products.image_url} 
-                      alt={item.products.name}
-                      className="w-16 h-16 object-cover rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{item.products.name}</h3>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="font-bold text-green-600">
-                          ₹{Number(item.products.price).toLocaleString('en-IN')}
-                        </span>
-                        {item.products.original_price && (
-                          <>
-                            <span className="text-sm text-gray-500 line-through">
-                              ₹{Number(item.products.original_price).toLocaleString('en-IN')}
-                            </span>
-                            <Badge className="bg-red-100 text-red-800">
-                              {item.products.discount_percentage}% OFF
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Cart Items */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900">Your Cart ({cart.length})</h2>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => clearAllItems()}
                       className="text-red-600 hover:bg-red-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Clear All
                     </Button>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-6 shadow-sm sticky top-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>₹{cartTotal.toLocaleString('en-IN')}</span>
-                </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
+                  <div className="space-y-4">
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                        <img 
+                          src={item.products.image_url} 
+                          alt={item.products.name}
+                          className="w-16 h-16 object-cover rounded-lg"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900">{item.products.name}</h3>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="font-bold text-green-600">
+                              ₹{Number(item.products.price).toLocaleString('en-IN')}
+                            </span>
+                            {item.products.original_price && (
+                              <>
+                                <span className="text-sm text-gray-500 line-through">
+                                  ₹{Number(item.products.original_price).toLocaleString('en-IN')}
+                                </span>
+                                <Badge className="bg-red-100 text-red-800">
+                                  {item.products.discount_percentage}% OFF
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <div className="border-t pt-2">
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total</span>
-                    <span>₹{finalAmount.toLocaleString('en-IN')}</span>
-                  </div>
                 </div>
               </div>
 
-              <Button
-                onClick={handleCheckout}
-                disabled={isProcessing}
-                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingBag className="w-4 h-4 mr-2" />
-                    Proceed to Pay
-                  </>
-                )}
-              </Button>
+              {/* Order Summary */}
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-xl p-6 shadow-sm sticky top-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Subtotal</span>
+                      <span>₹{cartTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount</span>
+                        <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    <div className="border-t pt-2">
+                      <div className="flex justify-between font-semibold text-lg">
+                        <span>Total</span>
+                        <span>₹{finalAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                  </div>
 
-              <p className="text-xs text-gray-500 text-center mt-3">
-                Secure payment powered by Razorpay
-              </p>
+                  <Button
+                    onClick={() => handleCheckout(isRazorpayLoaded)}
+                    disabled={isProcessing || !isRazorpayLoaded}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : !isRazorpayLoaded ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading Payment...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="w-4 h-4 mr-2" />
+                        Proceed to Pay
+                      </>
+                    )}
+                  </Button>
+
+                  <p className="text-xs text-gray-500 text-center mt-3">
+                    Secure payment powered by Razorpay
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </RazorpayLoader>
   );
 };
 

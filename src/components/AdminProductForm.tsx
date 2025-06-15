@@ -6,14 +6,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Upload, X, Plus, Save, Link, ImageIcon } from 'lucide-react';
+import { Plus, Save, Link as LinkIcon, Play } from 'lucide-react';
 import { useCategories } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import MediaUpload from './MediaUpload';
 
 interface AdminProductFormProps {
   onProductAdded: () => void;
+}
+
+interface MediaFile {
+  id: string;
+  url: string;
+  type: 'image' | 'video';
+  name: string;
+  isPrimary?: boolean;
 }
 
 const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
@@ -29,82 +37,15 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
     category_id: "",
     stock_quantity: "",
     brand: "",
-    image_url: "",
     razorpay_link: "",
-    download_link: "",
+    demo_link: "",
+    access_link: "",
     tags: "",
     rating: "",
     review_count: ""
   });
 
-  const [dragActive, setDragActive] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload an image file",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
-
-      if (error) throw error;
-
-      const { data } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
-
-      setProductForm(prev => ({ ...prev, image_url: data.publicUrl }));
-      
-      toast({
-        title: "Image uploaded!",
-        description: "Product image has been uploaded successfully."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileUpload(e.target.files[0]);
-    }
-  };
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
 
   const handleAddProduct = async () => {
     try {
@@ -118,6 +59,7 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
       }
 
       const tagsArray = productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [];
+      const primaryImage = mediaFiles.find(file => file.isPrimary && file.type === 'image');
 
       const { error } = await supabase
         .from('products')
@@ -130,9 +72,11 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
           category_id: productForm.category_id || null,
           stock_quantity: parseInt(productForm.stock_quantity) || 100,
           brand: productForm.brand,
-          image_url: productForm.image_url,
+          image_url: primaryImage?.url || '',
           razorpay_link: productForm.razorpay_link,
-          download_link: productForm.download_link,
+          demo_link: productForm.demo_link,
+          access_link: productForm.access_link,
+          download_link: productForm.access_link, // Backward compatibility
           tags: tagsArray,
           rating: productForm.rating ? parseFloat(productForm.rating) : 4.5,
           review_count: productForm.review_count ? parseInt(productForm.review_count) : 0
@@ -155,14 +99,15 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
         category_id: "",
         stock_quantity: "",
         brand: "",
-        image_url: "",
         razorpay_link: "",
-        download_link: "",
+        demo_link: "",
+        access_link: "",
         tags: "",
         rating: "",
         review_count: ""
       });
 
+      setMediaFiles([]);
       onProductAdded();
     } catch (error: any) {
       toast({
@@ -306,7 +251,10 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
             </div>
 
             <div>
-              <Label htmlFor="razorpay_link">Razorpay Payment Link *</Label>
+              <Label htmlFor="razorpay_link">
+                <LinkIcon className="w-4 h-4 inline mr-1" />
+                Razorpay Payment Link *
+              </Label>
               <Input
                 id="razorpay_link"
                 value={productForm.razorpay_link}
@@ -317,11 +265,28 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
             </div>
 
             <div>
-              <Label htmlFor="download_link">Access/Download Link</Label>
+              <Label htmlFor="demo_link">
+                <Play className="w-4 h-4 inline mr-1" />
+                Demo Link
+              </Label>
               <Input
-                id="download_link"
-                value={productForm.download_link}
-                onChange={(e) => setProductForm({...productForm, download_link: e.target.value})}
+                id="demo_link"
+                value={productForm.demo_link}
+                onChange={(e) => setProductForm({...productForm, demo_link: e.target.value})}
+                placeholder="https://youtube.com/watch?v=..."
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="access_link">
+                <LinkIcon className="w-4 h-4 inline mr-1" />
+                Access/Download Link
+              </Label>
+              <Input
+                id="access_link"
+                value={productForm.access_link}
+                onChange={(e) => setProductForm({...productForm, access_link: e.target.value})}
                 placeholder="https://drive.google.com/..."
                 className="mt-1"
               />
@@ -353,70 +318,15 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
           />
         </div>
 
-        {/* Image Upload */}
+        {/* Media Upload */}
         <div>
-          <Label>Product Image</Label>
-          <div
-            className={`mt-2 border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-              dragActive
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-300 hover:border-gray-400'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            {productForm.image_url ? (
-              <div className="space-y-3">
-                <img
-                  src={productForm.image_url}
-                  alt="Product preview"
-                  className="w-32 h-32 object-cover rounded-lg mx-auto"
-                />
-                <div className="flex items-center justify-center space-x-2">
-                  <Badge className="bg-green-100 text-green-800">
-                    Image uploaded successfully
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setProductForm(prev => ({ ...prev, image_url: '' }))}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {uploading ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                ) : (
-                  <ImageIcon className="w-12 h-12 text-gray-400 mx-auto" />
-                )}
-                <div>
-                  <p className="text-lg font-medium text-gray-900">
-                    {uploading ? 'Uploading...' : 'Drop image here or click to upload'}
-                  </p>
-                  <p className="text-sm text-gray-500">PNG, JPG up to 10MB</p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="file-upload"
-                  disabled={uploading}
-                />
-                <label htmlFor="file-upload">
-                  <Button variant="outline" className="cursor-pointer" disabled={uploading}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Choose File
-                  </Button>
-                </label>
-              </div>
-            )}
-          </div>
+          <Label>Product Media (Images & Videos)</Label>
+          <MediaUpload
+            onMediaUpload={setMediaFiles}
+            currentMedia={mediaFiles}
+            maxFiles={10}
+            className="mt-2"
+          />
         </div>
 
         <Button onClick={handleAddProduct} className="w-full bg-green-600 hover:bg-green-700">

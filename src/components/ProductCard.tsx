@@ -1,5 +1,5 @@
 
-import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle, Play, Lock } from "lucide-react";
+import { Heart, ShoppingBag, Star, ExternalLink, CheckCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,9 @@ interface Product {
   rating: number;
   review_count: number;
   stock_quantity: number;
-  download_link?: string;
+  demo_link?: string;
+  access_link?: string;
+  download_link?: string; // Keep for backward compatibility
 }
 
 interface ProductCardProps {
@@ -45,12 +47,18 @@ const ProductCard = ({
   const userHasAccess = user && hasAccess(product.id);
 
   const handleDemoClick = () => {
-    window.open('https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view', '_blank');
+    // Use demo_link if available, otherwise fallback to default
+    const demoUrl = product.demo_link || 'https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view';
+    window.open(demoUrl, '_blank');
   };
 
   const handleAccessClick = () => {
-    if (userHasAccess && product.download_link) {
-      window.open(product.download_link, '_blank');
+    if (userHasAccess) {
+      // Use access_link if available, otherwise fallback to download_link for backward compatibility
+      const accessUrl = product.access_link || product.download_link;
+      if (accessUrl) {
+        window.open(accessUrl, '_blank');
+      }
     }
   };
 
@@ -174,7 +182,7 @@ const ProductCard = ({
               <Button
                 onClick={handleAccessClick}
                 className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-1.5 sm:py-2 text-xs rounded-lg"
-                disabled={!product.download_link}
+                disabled={!product.access_link && !product.download_link}
               >
                 <ExternalLink className="w-3 h-3 mr-1" />
                 <span className="hidden sm:inline">Access Content</span>
@@ -203,16 +211,16 @@ const ProductCard = ({
                 <span className="sm:hidden">BUY</span>
               </Button>
               
-              {/* Access and Demo in single line */}
+              {/* Cart and Demo in single line */}
               <div className="flex gap-1">
                 <Button
                   variant="outline"
                   onClick={handleAddToCartClick}
                   className="flex-1 border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-700 hover:text-green-700 py-1 text-xs rounded-lg"
                 >
-                  <Lock className="w-3 h-3 mr-1" />
-                  <span className="hidden sm:inline">Access</span>
-                  <span className="sm:hidden">🔒</span>
+                  <ShoppingBag className="w-3 h-3 mr-1" />
+                  <span className="hidden sm:inline">Cart</span>
+                  <span className="sm:hidden">🛒</span>
                 </Button>
                 
                 <Button
