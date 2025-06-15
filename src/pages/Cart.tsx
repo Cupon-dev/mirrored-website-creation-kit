@@ -18,7 +18,7 @@ declare global {
 const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cart, removeFromCart, clearAllItems, totalAmount, discountAmount, finalAmount } = useCart();
+  const { cart, removeFromCart, clearAllItems, cartTotal, discountAmount, finalAmount } = useCart();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -118,6 +118,10 @@ const Cart = () => {
     }
   };
 
+  const handleClearAll = () => {
+    clearAllItems();
+  };
+
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -168,7 +172,7 @@ const Cart = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={clearAllItems}
+                  onClick={handleClearAll}
                   className="text-red-600 hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -224,7 +228,7 @@ const Cart = () => {
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>₹{totalAmount.toLocaleString('en-IN')}</span>
+                  <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">

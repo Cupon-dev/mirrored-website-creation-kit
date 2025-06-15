@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreditCard, CheckCircle, Loader2, User, Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { initializePayment } from "@/services/paymentService";
+import { initializePayment } from "@/services/payment/paymentInitialization";
 
 interface WhatsAppDeliveryProps {
   cartTotal: number;
@@ -161,9 +162,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         razorpayUrl.searchParams.set('cancel_url', cancelUrl);
         
         // Add order details for webhook processing
-        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId!);
+        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId || '');
         razorpayUrl.searchParams.set('notes[customer_email]', userEmail);
-        razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId!);
+        razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId || '');
         razorpayUrl.searchParams.set('notes[phone]', userPhone.replace(/^\+91/, ''));
         
         toast({
