@@ -23,9 +23,14 @@ serve(async (req) => {
       notes
     })
 
-    // Use Razorpay test credentials for now - user should add their real ones
-    const razorpayKeyId = 'rzp_test_your_key_id' // User should replace with their actual key
-    const razorpayKeySecret = 'your_secret_key' // User should replace with their actual secret
+    // Get Razorpay credentials from environment variables
+    const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID')
+    const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')
+    
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error('[CREATE-RAZORPAY-ORDER] Missing Razorpay credentials')
+      throw new Error('Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in edge function secrets.')
+    }
     
     const orderData = {
       amount: amount,

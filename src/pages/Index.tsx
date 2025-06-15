@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Library, Bell, User } from "lucide-react";
