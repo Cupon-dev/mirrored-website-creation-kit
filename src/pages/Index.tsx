@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ShoppingBag, Heart, Home, Library, Bell, User } from "lucide-react";
@@ -9,14 +10,16 @@ import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/hooks/useNotifications";
 import FlashOfferBanner from "@/components/FlashOfferBanner";
 import ProductCard from "@/components/ProductCard";
 import ProfilePage from "@/components/ProfilePage";
+import UpdatesPage from "@/components/UpdatesPage";
 
 const Index = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [currentView, setCurrentView] = useState<'home' | 'library' | 'profile'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'library' | 'profile' | 'updates'>('home');
   const [wishlist, setWishlist] = useState<string[]>([]);
   
   const { data: categories = [] } = useCategories();
@@ -25,6 +28,7 @@ const Index = () => {
   const { user } = useAuth();
   const { userAccess, hasAccess } = useUserAccess();
   const { toast } = useToast();
+  const { unreadCount, markAsRead } = useNotifications();
 
   // Filter products for library view - only products user actually has access to
   const ownedProducts = products.filter(product => user && hasAccess(product.id));
@@ -71,6 +75,11 @@ const Index = () => {
     addToCart({ productId });
   };
 
+  const handleUpdatesClick = () => {
+    markAsRead();
+    setCurrentView('updates');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -85,6 +94,11 @@ const Index = () => {
   // Show profile page
   if (currentView === 'profile') {
     return <ProfilePage onBack={() => setCurrentView('home')} />;
+  }
+
+  // Show updates page
+  if (currentView === 'updates') {
+    return <UpdatesPage onBack={() => setCurrentView('home')} />;
   }
 
   const displayProducts = currentView === 'library' ? ownedProducts : availableProducts;
@@ -271,9 +285,21 @@ const Index = () => {
             {currentView === 'library' && <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>}
           </Button>
           
-          <Button variant="ghost" className="flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all">
-            <Bell className="w-5 h-5 text-gray-400" />
-            <span className="text-xs text-gray-400">Updates</span>
+          <Button 
+            variant="ghost" 
+            className={`flex flex-col items-center space-y-1 py-2 active:scale-95 transition-all relative ${
+              currentView === 'updates' ? 'text-gray-800' : 'text-gray-400'
+            }`}
+            onClick={handleUpdatesClick}
+          >
+            <Bell className="w-5 h-5" />
+            <span className="text-xs font-medium">Updates</span>
+            {unreadCount > 0 && (
+              <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Badge>
+            )}
+            {currentView === 'updates' && <div className="w-6 h-0.5 bg-gray-800 rounded-full"></div>}
           </Button>
           
           {user ? (
