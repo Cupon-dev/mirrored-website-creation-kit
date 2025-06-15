@@ -80,6 +80,8 @@ export const initializePayment = async (
       currency: 'INR',
       name: 'PremiumLeaks',
       description: 'Digital Product Purchase',
+      paymentId: payment.id,
+      razorpayOrderId: orderResponse.order.id,
       prefill: {
         email: email,
         contact: phoneNumber

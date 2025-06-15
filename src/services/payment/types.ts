@@ -7,6 +7,8 @@ export interface PaymentInitializationResult {
   currency?: string;
   name?: string;
   description?: string;
+  paymentId?: string;
+  razorpayOrderId?: string;
   prefill?: {
     email: string;
     contact: string;
@@ -21,4 +23,11 @@ export interface PaymentVerificationResult {
   driveLink?: string;
   whatsappGroup?: string;
   debugInfo?: any;
+}
+
+export interface StuckPaymentsResult {
+  success: boolean;
+  error?: string;
+  message?: string;
+  fixedCount?: number;
 }

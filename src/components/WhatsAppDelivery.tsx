@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,8 +113,11 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
 
       console.log('Initiating payment for:', { userEmail, userPhone, cartTotal });
 
+      // For simplicity, use the first product for payment initialization
+      const firstProduct = cartItems[0];
+      
       // Initialize payment record
-      const paymentResult = await initializePayment(userEmail, userPhone, cartTotal);
+      const paymentResult = await initializePayment(userEmail, userPhone, cartTotal, firstProduct.product_id);
       
       if (!paymentResult.success) {
         throw new Error(paymentResult.error || "Failed to initialize payment");
@@ -159,9 +161,9 @@ const WhatsAppDelivery = ({ cartTotal, cartItems, onOrderComplete }: WhatsAppDel
         razorpayUrl.searchParams.set('cancel_url', cancelUrl);
         
         // Add order details for webhook processing
-        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId);
+        razorpayUrl.searchParams.set('notes[order_id]', paymentResult.razorpayOrderId!);
         razorpayUrl.searchParams.set('notes[customer_email]', userEmail);
-        razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId);
+        razorpayUrl.searchParams.set('notes[payment_id]', paymentResult.paymentId!);
         razorpayUrl.searchParams.set('notes[phone]', userPhone.replace(/^\+91/, ''));
         
         toast({

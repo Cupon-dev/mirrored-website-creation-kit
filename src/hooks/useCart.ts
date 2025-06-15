@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -130,9 +131,32 @@ export const useCart = () => {
     },
   });
 
+  const clearAllItemsMutation = useMutation({
+    mutationFn: async () => {
+      const sessionId = getSessionId();
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('session_id', sessionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      toast({
+        title: "Cart cleared",
+        description: "All items have been removed from your cart.",
+      });
+    },
+  });
+
   const isProductInCart = (productId: string) => {
     return cartQuery.data?.some(item => item.product_id === productId) || false;
   };
+
+  // Calculate totals
+  const cartTotal = cartQuery.data?.reduce((total, item) => total + (item.products?.price || 0) * item.quantity, 0) || 0;
+  const originalTotal = cartQuery.data?.reduce((total, item) => total + (item.products?.original_price || item.products?.price || 0) * item.quantity, 0) || 0;
+  const discountAmount = originalTotal - cartTotal;
 
   return {
     cart: cartQuery.data || [],
@@ -140,9 +164,13 @@ export const useCart = () => {
     addToCart: addToCartMutation.mutate,
     removeFromCart: removeFromCartMutation.mutate,
     updateQuantity: updateQuantityMutation.mutate,
+    clearAllItems: clearAllItemsMutation.mutate,
     isProductInCart,
-    cartTotal: cartQuery.data?.reduce((total, item) => total + (item.products?.price || 0) * item.quantity, 0) || 0,
+    cartTotal,
+    totalAmount: cartTotal,
+    discountAmount,
+    finalAmount: cartTotal,
     cartCount: cartQuery.data?.reduce((total, item) => total + item.quantity, 0) || 0,
-    originalTotal: cartQuery.data?.reduce((total, item) => total + (item.products?.original_price || item.products?.price || 0) * item.quantity, 0) || 0,
+    originalTotal,
   };
 };
