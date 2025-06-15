@@ -28,6 +28,11 @@ const Index = () => {
 
   // Filter products for library view - only products user actually has access to
   const ownedProducts = products.filter(product => user && hasAccess(product.id));
+  
+  // Filter products for home view - exclude owned products to avoid showing duplicates
+  const availableProducts = currentView === 'home' 
+    ? products.filter(product => !user || !hasAccess(product.id))
+    : products;
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -77,7 +82,7 @@ const Index = () => {
     );
   }
 
-  const displayProducts = currentView === 'library' ? ownedProducts : products;
+  const displayProducts = currentView === 'library' ? ownedProducts : availableProducts;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
@@ -166,7 +171,7 @@ const Index = () => {
         {/* Flash Offer Banner - Only show in home view */}
         {currentView === 'home' && <FlashOfferBanner />}
 
-        {/* User Profile - Only show when logged in */}
+        {/* User Profile - Only show when logged in and in home view */}
         {user && currentView === 'home' && (
           <div className="mb-4">
             <UserProfile />

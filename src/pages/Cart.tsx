@@ -1,14 +1,12 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, ShoppingBag, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useCart } from '@/hooks/useCart';
-import { useProducts } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useCart } from '@/hooks/useCart';
 import { initializePayment } from '@/services/payment/paymentInitialization';
 
 declare global {
@@ -19,54 +17,27 @@ declare global {
 
 const Cart = () => {
   const navigate = useNavigate();
-  const { cartItems, removeFromCart, clearCart, cartCount } = useCart();
-  const { data: allProducts = [] } = useProducts();
+  const { user } = useAuth();
+  const { cart, removeFromCart, clearAllItems, totalAmount, discountAmount, finalAmount } = useCart();
   const { toast } = useToast();
-  
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    email: '',
-    phone: ''
-  });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Load Razorpay script
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-    
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  // Get products in cart
-  const cartProducts = cartItems.map(item => {
-    const product = allProducts.find(p => p.id === item.productId);
-    return product ? { ...product, quantity: item.quantity } : null;
-  }).filter(Boolean);
-
-  const totalAmount = cartProducts.reduce((sum, product) => {
-    return sum + (product?.price || 0) * (product?.quantity || 1);
-  }, 0);
-
-  const handlePayment = async () => {
-    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
+  const handleCheckout = async () => {
+    if (!user) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all customer details",
-        variant: "destructive"
+        title: "Login Required",
+        description: "Please login to complete your purchase",
+        variant: "destructive",
       });
+      navigate('/login');
       return;
     }
 
-    if (cartProducts.length === 0) {
+    if (cart.length === 0) {
       toast({
         title: "Empty Cart",
-        description: "Please add items to cart before checkout",
-        variant: "destructive"
+        description: "Please add items to your cart before checkout",
+        variant: "destructive",
       });
       return;
     }
@@ -74,61 +45,60 @@ const Cart = () => {
     setIsProcessing(true);
 
     try {
-      // For now, we'll handle single product payments
-      const firstProduct = cartProducts[0];
-      
-      const paymentData = await initializePayment(
-        customerInfo.email,
-        customerInfo.phone,
-        firstProduct.price,
-        firstProduct.id
+      // For simplicity, use the first product for payment initialization
+      const firstProduct = cart[0];
+      const productPrice = firstProduct.products.price;
+
+      console.log('Initializing payment for:', {
+        email: user.email,
+        phone: user.mobile_number || '1234567890',
+        amount: productPrice,
+        productId: firstProduct.product_id
+      });
+
+      const paymentResult = await initializePayment(
+        user.email,
+        user.mobile_number || '1234567890',
+        productPrice,
+        firstProduct.product_id
       );
 
-      if (!paymentData.success) {
-        throw new Error(paymentData.error || 'Payment initialization failed');
-      }
+      console.log('Payment initialization result:', paymentResult);
 
-      console.log('Payment data:', paymentData);
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Payment initialization failed');
+      }
 
       // Initialize Razorpay
       const options = {
-        key: 'rzp_test_your_key_id', // User should replace with their actual key
-        amount: paymentData.amount * 100,
-        currency: paymentData.currency,
-        name: paymentData.name,
-        description: paymentData.description,
-        order_id: paymentData.orderId,
-        prefill: {
-          name: customerInfo.name,
-          email: customerInfo.email,
-          contact: customerInfo.phone
-        },
-        notes: paymentData.notes,
-        theme: {
-          color: '#10B981'
-        },
-        handler: function (response: any) {
+        key: 'rzp_test_your_key_id', // Replace with your actual key
+        amount: paymentResult.amount! * 100,
+        currency: paymentResult.currency,
+        name: paymentResult.name,
+        description: paymentResult.description,
+        order_id: paymentResult.orderId,
+        handler: function(response: any) {
           console.log('Payment successful:', response);
           
-          // Store payment success info
-          localStorage.setItem('payment_success', JSON.stringify({
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_signature: response.razorpay_signature,
-            email: customerInfo.email
-          }));
+          // Clear cart after successful payment
+          clearAllItems();
           
-          // Clear cart and redirect
-          clearCart();
-          navigate(`/payment-success?payment_id=${response.razorpay_payment_id}&email=${customerInfo.email}&status=success`);
+          // Redirect to success page
+          const successUrl = `/payment-success?payment_id=${response.razorpay_payment_id}&order_id=${response.razorpay_order_id}&signature=${response.razorpay_signature}&email=${user.email}`;
+          window.location.href = successUrl;
+        },
+        prefill: paymentResult.prefill,
+        notes: paymentResult.notes,
+        theme: {
+          color: '#10B981'
         },
         modal: {
           ondismiss: function() {
             setIsProcessing(false);
             toast({
               title: "Payment Cancelled",
-              description: "Payment was cancelled by user",
-              variant: "destructive"
+              description: "You can continue shopping and try again",
+              variant: "default",
             });
           }
         }
@@ -138,159 +108,160 @@ const Cart = () => {
       rzp.open();
 
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('Checkout error:', error);
       toast({
-        title: "Payment Error",
-        description: error.message || "Failed to initialize payment",
-        variant: "destructive"
+        title: "Checkout Failed",
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: "destructive",
       });
-    } finally {
       setIsProcessing(false);
     }
   };
 
-  if (cartCount === 0) {
+  if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="p-6">
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            className="mb-6 p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Continue Shopping
+          </Button>
+
+          <div className="bg-white rounded-xl p-8 shadow-sm text-center">
             <ShoppingBag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
-            <p className="text-gray-600 mb-4">Start shopping to add items to your cart!</p>
-            <Button onClick={() => navigate('/')} className="w-full">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Continue Shopping
+            <p className="text-gray-500 mb-6">Start shopping to add products to your cart!</p>
+            <Button 
+              onClick={() => navigate('/')}
+              className="bg-green-500 hover:bg-green-600"
+            >
+              Browse Products
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="flex items-center space-x-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Continue Shopping</span>
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
-        </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="mb-6 p-2 hover:bg-gray-100 rounded-lg"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Continue Shopping
+        </Button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {cartProducts.map((product) => (
-              <Card key={product.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-4">
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-20 h-20 object-cover rounded-lg"
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Your Cart ({cart.length})</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllItems}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Clear All
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {cart.map((item) => (
+                  <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                    <img 
+                      src={item.products.image_url} 
+                      alt={item.products.name}
+                      className="w-16 h-16 object-cover rounded-lg"
                     />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                      <p className="text-gray-600">{product.brand}</p>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className="text-lg font-bold text-gray-900">
-                          ₹{Number(product.price).toLocaleString('en-IN')}
+                      <h3 className="font-medium text-gray-900">{item.products.name}</h3>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <span className="font-bold text-green-600">
+                          ₹{Number(item.products.price).toLocaleString('en-IN')}
                         </span>
-                        {product.original_price && (
-                          <span className="text-sm text-gray-500 line-through">
-                            ₹{Number(product.original_price).toLocaleString('en-IN')}
-                          </span>
+                        {item.products.original_price && (
+                          <>
+                            <span className="text-sm text-gray-500 line-through">
+                              ₹{Number(item.products.original_price).toLocaleString('en-IN')}
+                            </span>
+                            <Badge className="bg-red-100 text-red-800">
+                              {item.products.discount_percentage}% OFF
+                            </Badge>
+                          </>
                         )}
                       </div>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeFromCart(product.id)}
-                      className="text-red-600 hover:text-red-700"
+                      onClick={() => removeFromCart(item.id)}
+                      className="text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Checkout */}
-          <div className="space-y-4">
-            {/* Customer Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Full Name"
-                  value={customerInfo.name}
-                  onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                />
-                <Input
-                  placeholder="Email Address"
-                  type="email"
-                  value={customerInfo.email}
-                  onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
-                />
-                <Input
-                  placeholder="Phone Number"
-                  type="tel"
-                  value={customerInfo.phone}
-                  onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Order Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl p-6 shadow-sm sticky top-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
+              
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
                   <span>₹{totalAmount.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span>₹{totalAmount.toLocaleString('en-IN')}</span>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="border-t pt-2">
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total</span>
+                    <span>₹{finalAmount.toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
-                
-                <Button 
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Pay ₹{totalAmount.toLocaleString('en-IN')}
-                    </>
-                  )}
-                </Button>
-                
-                <div className="text-center">
-                  <Badge variant="outline" className="text-xs">
-                    🔒 Secure Payment via Razorpay
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              <Button
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 rounded-xl"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-4 h-4 mr-2" />
+                    Proceed to Pay
+                  </>
+                )}
+              </Button>
+
+              <p className="text-xs text-gray-500 text-center mt-3">
+                Secure payment powered by Razorpay
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { User, Download, ShoppingBag, CheckCircle, ExternalLink, RefreshCw, AlertCircle, Wrench } from 'lucide-react';
+import { User, Download, ShoppingBag, CheckCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { verifyPaymentAndGrantAccess, fixStuckPayments } from '@/services/paymentService';
+import { verifyPaymentAndGrantAccess } from '@/services/paymentService';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,14 +24,10 @@ const UserProfile = () => {
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [paymentStats, setPaymentStats] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
-      fetchPaymentStats();
       verifyUserPayments();
     } else {
       setIsLoading(false);
@@ -46,34 +42,6 @@ const UserProfile = () => {
     }
   }, [userAccess, accessLoading, user]);
 
-  const fetchPaymentStats = async () => {
-    if (!user?.email) return;
-    
-    try {
-      const { data: payments, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('email', user.email)
-        .order('created_at', { ascending: false });
-
-      if (!error && payments) {
-        const stats = {
-          total: payments.length,
-          completed: payments.filter(p => p.status === 'completed').length,
-          pending: payments.filter(p => p.status === 'pending').length,
-          failed: payments.filter(p => p.status === 'failed').length,
-          withRazorpayId: payments.filter(p => p.razorpay_payment_id).length,
-          stuckPayments: payments.filter(p => p.status === 'pending' && p.razorpay_payment_id).length,
-          latestPayment: payments[0]
-        };
-        setPaymentStats(stats);
-        console.log('Payment stats:', stats);
-      }
-    } catch (error) {
-      console.error('Error fetching payment stats:', error);
-    }
-  };
-
   const verifyUserPayments = async () => {
     if (!user?.email) return;
     
@@ -82,67 +50,21 @@ const UserProfile = () => {
       console.log('Verifying payments for user:', user.email);
       const result = await verifyPaymentAndGrantAccess(user.email, user.id);
       
-      setDebugInfo(result.debugInfo);
-      
       if (result.success) {
         console.log('Payment verification successful');
         await refreshAccess();
-        await fetchPaymentStats();
         toast({
           title: "Access Granted! 🎉",
           description: "Your purchase has been verified and access granted.",
         });
       } else {
         console.log('Payment verification failed:', result.error);
-        toast({
-          title: "Payment Check",
-          description: result.error || "No completed payments found",
-          variant: "default",
-        });
       }
     } catch (error) {
       console.error('Payment verification error:', error);
-      toast({
-        title: "Verification Error",
-        description: "Failed to check payment status. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsVerifying(false);
       setIsLoading(false);
-    }
-  };
-
-  const handleFixStuckPayments = async () => {
-    if (!user?.email) return;
-    
-    setIsFixing(true);
-    try {
-      const result = await fixStuckPayments(user.email);
-      
-      if (result.success) {
-        toast({
-          title: "Payments Fixed! ✅",
-          description: result.message,
-        });
-        await fetchPaymentStats();
-        await verifyUserPayments();
-      } else {
-        toast({
-          title: "Fix Failed",
-          description: result.error,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Fix stuck payments error:', error);
-      toast({
-        title: "Fix Error",
-        description: "Failed to fix stuck payments",
-        variant: "destructive",
-      });
-    } finally {
-      setIsFixing(false);
     }
   };
 
@@ -180,18 +102,7 @@ const UserProfile = () => {
 
   const handleRefresh = async () => {
     setIsLoading(true);
-    await fetchPaymentStats();
     await verifyUserPayments();
-  };
-
-  const handleDebugToggle = () => {
-    if (debugInfo || paymentStats) {
-      console.log('=== DEBUG INFO ===', { debugInfo, paymentStats });
-      toast({
-        title: "Debug Info",
-        description: "Check console for detailed payment information",
-      });
-    }
   };
 
   if (!user) {
@@ -228,65 +139,17 @@ const UserProfile = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          {paymentStats?.stuckPayments > 0 && (
-            <Button
-              onClick={handleFixStuckPayments}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-              disabled={isFixing}
-            >
-              <Wrench className={`w-4 h-4 ${isFixing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Fix ({paymentStats.stuckPayments})</span>
-            </Button>
-          )}
-          
-          {(debugInfo || paymentStats) && (
-            <Button
-              onClick={handleDebugToggle}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <AlertCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Debug</span>
-            </Button>
-          )}
-          
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-        </div>
+        <Button
+          onClick={handleRefresh}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+          disabled={isLoading}
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
       </div>
-
-      {/* Payment Status Info */}
-      {paymentStats && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-blue-800">Payment Status</p>
-              <p className="text-xs text-blue-700">
-                Total: {paymentStats.total} | Completed: {paymentStats.completed} | 
-                Pending: {paymentStats.pending} | Failed: {paymentStats.failed}
-              </p>
-              {paymentStats.stuckPayments > 0 && (
-                <p className="text-xs text-orange-700 font-medium">
-                  ⚠️ {paymentStats.stuckPayments} stuck payment(s) detected - click Fix button
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Purchased Products */}
       {purchasedProducts.length > 0 && (
