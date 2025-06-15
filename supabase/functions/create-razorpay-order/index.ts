@@ -27,6 +27,9 @@ serve(async (req) => {
     const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID')
     const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')
     
+    console.log('[CREATE-RAZORPAY-ORDER] Using Key ID:', razorpayKeyId ? 'Set' : 'Not set')
+    console.log('[CREATE-RAZORPAY-ORDER] Using Key Secret:', razorpayKeySecret ? 'Set' : 'Not set')
+    
     if (!razorpayKeyId || !razorpayKeySecret) {
       console.error('[CREATE-RAZORPAY-ORDER] Missing Razorpay credentials')
       throw new Error('Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in edge function secrets.')
@@ -51,13 +54,16 @@ serve(async (req) => {
       body: JSON.stringify(orderData)
     })
 
+    const responseText = await response.text()
+    console.log('[CREATE-RAZORPAY-ORDER] Razorpay response status:', response.status)
+    console.log('[CREATE-RAZORPAY-ORDER] Razorpay response:', responseText)
+
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[CREATE-RAZORPAY-ORDER] Razorpay API error:', errorText)
-      throw new Error(`Razorpay API error: ${response.status}`)
+      console.error('[CREATE-RAZORPAY-ORDER] Razorpay API error:', responseText)
+      throw new Error(`Razorpay API error: ${response.status} - ${responseText}`)
     }
 
-    const order = await response.json()
+    const order = JSON.parse(responseText)
     console.log('[CREATE-RAZORPAY-ORDER] Order created successfully:', order.id)
 
     return new Response(

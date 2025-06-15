@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
@@ -71,7 +70,7 @@ const Cart = () => {
 
       // Initialize Razorpay
       const options = {
-        key: 'rzp_test_your_key_id', // Replace with your actual key
+        key: 'rzp_test_j8dM9o0nm37IEo', // Your test key ID
         amount: paymentResult.amount! * 100,
         currency: paymentResult.currency,
         name: paymentResult.name,
