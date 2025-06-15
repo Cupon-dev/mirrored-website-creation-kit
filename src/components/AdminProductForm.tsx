@@ -76,7 +76,6 @@ const AdminProductForm = ({ onProductAdded }: AdminProductFormProps) => {
           razorpay_link: productForm.razorpay_link,
           demo_link: productForm.demo_link,
           access_link: productForm.access_link,
-          download_link: productForm.access_link, // Backward compatibility
           tags: tagsArray,
           rating: productForm.rating ? parseFloat(productForm.rating) : 4.5,
           review_count: productForm.review_count ? parseInt(productForm.review_count) : 0

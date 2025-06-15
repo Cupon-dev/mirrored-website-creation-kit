@@ -21,7 +21,6 @@ interface Product {
   stock_quantity: number;
   demo_link?: string;
   access_link?: string;
-  download_link?: string; // Keep for backward compatibility
 }
 
 interface ProductCardProps {
@@ -47,18 +46,13 @@ const ProductCard = ({
   const userHasAccess = user && hasAccess(product.id);
 
   const handleDemoClick = () => {
-    // Use demo_link if available, otherwise fallback to default
     const demoUrl = product.demo_link || 'https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view';
     window.open(demoUrl, '_blank');
   };
 
   const handleAccessClick = () => {
-    if (userHasAccess) {
-      // Use access_link if available, otherwise fallback to download_link for backward compatibility
-      const accessUrl = product.access_link || product.download_link;
-      if (accessUrl) {
-        window.open(accessUrl, '_blank');
-      }
+    if (userHasAccess && product.access_link) {
+      window.open(product.access_link, '_blank');
     }
   };
 
@@ -182,7 +176,7 @@ const ProductCard = ({
               <Button
                 onClick={handleAccessClick}
                 className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-1.5 sm:py-2 text-xs rounded-lg"
-                disabled={!product.access_link && !product.download_link}
+                disabled={!product.access_link}
               >
                 <ExternalLink className="w-3 h-3 mr-1" />
                 <span className="hidden sm:inline">Access Content</span>
