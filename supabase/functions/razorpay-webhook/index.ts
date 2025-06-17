@@ -14,34 +14,36 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[RAZORPAY-WEBHOOK] === WEBHOOK REQUEST RECEIVED ===')
+    console.log('[RAZORPAY-WEBHOOK] === STRICT WEBHOOK PROCESSING ===')
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get webhook secret
-    const webhookSecret = "Check@123#" // Using the provided secret
-    
-    // Verify webhook signature
+    // STRICT: Verify webhook signature
+    const webhookSecret = "Check@123#"
     const signature = req.headers.get('x-razorpay-signature')
     const body = await req.text()
     
-    if (signature && webhookSecret) {
-      const expectedSignature = createHmac('sha256', webhookSecret)
-        .update(body)
-        .digest('hex')
-      
-      if (signature !== expectedSignature) {
-        console.log('[RAZORPAY-WEBHOOK] Invalid signature')
-        return new Response('Invalid signature', { status: 400, headers: corsHeaders })
-      }
+    if (!signature || !webhookSecret) {
+      console.log('[RAZORPAY-WEBHOOK] Missing signature or secret')
+      return new Response('Signature verification failed', { status: 400, headers: corsHeaders })
+    }
+
+    const expectedSignature = createHmac('sha256', webhookSecret)
+      .update(body)
+      .digest('hex')
+    
+    if (signature !== expectedSignature) {
+      console.log('[RAZORPAY-WEBHOOK] Invalid signature - webhook rejected')
+      return new Response('Invalid signature', { status: 400, headers: corsHeaders })
     }
 
     const payload = JSON.parse(body)
-    console.log('[RAZORPAY-WEBHOOK] Webhook payload received:', JSON.stringify(payload, null, 2))
+    console.log('[RAZORPAY-WEBHOOK] Verified webhook payload:', JSON.stringify(payload, null, 2))
 
+    // STRICT: Only process captured payments
     if (payload.event !== 'payment.captured') {
       console.log('[RAZORPAY-WEBHOOK] Event not payment.captured, ignoring')
       return new Response('Event not handled', { status: 200, headers: corsHeaders })
@@ -56,7 +58,7 @@ serve(async (req) => {
     const email = paymentEntity.email || paymentEntity.notes?.email
     const phone = paymentEntity.contact || paymentEntity.notes?.phone
 
-    console.log('[RAZORPAY-WEBHOOK] Processing payment:', {
+    console.log('[RAZORPAY-WEBHOOK] Processing payment with strict validation:', {
       paymentId,
       orderId,
       status,
@@ -66,65 +68,27 @@ serve(async (req) => {
       phone
     })
 
-    if (!email) {
-      console.log('[RAZORPAY-WEBHOOK] No email found in payment data')
-      return new Response('No email found', { status: 400, headers: corsHeaders })
+    // STRICT: Validate all required fields
+    if (!email || !paymentId || !orderId || !captured || status !== 'captured') {
+      console.log('[RAZORPAY-WEBHOOK] Payment validation failed - missing required fields')
+      return new Response('Payment validation failed', { status: 400, headers: corsHeaders })
     }
 
-    if (status !== 'captured' || !captured) {
-      console.log('[RAZORPAY-WEBHOOK] Payment not captured, skipping')
-      return new Response('Payment not captured', { status: 200, headers: corsHeaders })
-    }
-
-    // Find payment record by order ID
+    // Find and update payment record with strict matching
     let { data: existingPayment, error: paymentError } = await supabase
       .from('payments')
       .select('*')
       .eq('razorpay_order_id', orderId)
+      .eq('email', email)
       .single()
 
     if (paymentError || !existingPayment) {
-      console.log('[RAZORPAY-WEBHOOK] No payment found by order ID, searching by email')
-      
-      const { data: pendingPayments, error: pendingError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('email', email)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (pendingError || !pendingPayments || pendingPayments.length === 0) {
-        console.log('[RAZORPAY-WEBHOOK] No pending payment found, creating new record')
-        
-        const { data: newPayment, error: createError } = await supabase
-          .from('payments')
-          .insert({
-            email: email,
-            mobile_number: phone,
-            amount: amount,
-            razorpay_payment_id: paymentId,
-            razorpay_order_id: orderId,
-            status: 'completed',
-            verified_at: new Date().toISOString(),
-            google_drive_link: "https://drive.google.com/file/d/1vehhvqFLGcaBANR1qYJ4hzzKwASm_zH3/view?usp=share_link"
-          })
-          .select()
-          .single()
-
-        if (createError) {
-          console.error('[RAZORPAY-WEBHOOK] Error creating payment record:', createError)
-          return new Response('Database error', { status: 500, headers: corsHeaders })
-        }
-
-        existingPayment = newPayment
-      } else {
-        existingPayment = pendingPayments[0]
-      }
+      console.log('[RAZORPAY-WEBHOOK] No matching payment found by order ID and email')
+      return new Response('Payment record not found', { status: 404, headers: corsHeaders })
     }
 
-    // Update payment record
-    console.log('[RAZORPAY-WEBHOOK] Updating payment record:', existingPayment.id)
+    // STRICT: Update payment with verification timestamp
+    console.log('[RAZORPAY-WEBHOOK] Updating payment record with verification:', existingPayment.id)
 
     const { error: updateError } = await supabase
       .from('payments')
@@ -138,11 +102,11 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('[RAZORPAY-WEBHOOK] Error updating payment:', updateError)
-      return new Response('Update failed', { status: 500, headers: corsHeaders })
+      return new Response('Payment update failed', { status: 500, headers: corsHeaders })
     }
 
-    // Grant product access
-    console.log('[RAZORPAY-WEBHOOK] Granting product access for email:', email)
+    // STRICT: Grant access only for verified user and exact product match
+    console.log('[RAZORPAY-WEBHOOK] Granting product access with strict validation')
 
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -151,65 +115,73 @@ serve(async (req) => {
       .single()
 
     if (userError || !userData) {
-      console.log('[RAZORPAY-WEBHOOK] No user found, access will be granted when user logs in')
+      console.log('[RAZORPAY-WEBHOOK] User not found - access will be granted when user logs in')
     } else {
-      console.log('[RAZORPAY-WEBHOOK] Found user:', userData.id)
+      console.log('[RAZORPAY-WEBHOOK] Found user for access grant:', userData.id)
 
-      // Get all active products
+      // Get products that exactly match payment amount
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('id, price, name')
         .eq('is_active', true)
-        .order('created_at', { ascending: true })
 
       if (productsError || !productsData || productsData.length === 0) {
         console.log('[RAZORPAY-WEBHOOK] No active products found')
       } else {
-        // Find matching products by amount
-        const matchingProducts = productsData.filter(product => {
+        // STRICT: Only grant access to products that exactly match payment amount
+        const exactMatchProducts = productsData.filter(product => {
           const productPrice = Number(product.price || 0)
-          return Math.abs(productPrice - amount) < 0.01
+          const exactMatch = Math.abs(productPrice - amount) < 0.01
+          console.log('[RAZORPAY-WEBHOOK] Product price match check:', {
+            productId: product.id,
+            productPrice,
+            paymentAmount: amount,
+            exactMatch
+          })
+          return exactMatch
         })
 
-        const productsToGrant = matchingProducts.length > 0 ? matchingProducts : [productsData[0]]
+        if (exactMatchProducts.length === 0) {
+          console.log('[RAZORPAY-WEBHOOK] No products match payment amount exactly')
+        } else {
+          for (const product of exactMatchProducts) {
+            // Check if access already exists
+            const { data: existingAccess } = await supabase
+              .from('user_product_access')
+              .select('id')
+              .eq('user_id', userData.id)
+              .eq('product_id', product.id)
+              .maybeSingle()
 
-        for (const product of productsToGrant) {
-          // Check if access already exists
-          const { data: existingAccess } = await supabase
-            .from('user_product_access')
-            .select('id')
-            .eq('user_id', userData.id)
-            .eq('product_id', product.id)
-            .maybeSingle()
+            if (existingAccess) {
+              console.log('[RAZORPAY-WEBHOOK] Access already exists for product:', product.id)
+              continue
+            }
 
-          if (existingAccess) {
-            console.log('[RAZORPAY-WEBHOOK] Access already exists for product:', product.id)
-            continue
-          }
+            // Grant access with payment reference
+            const { error: accessError } = await supabase
+              .from('user_product_access')
+              .insert({
+                user_id: userData.id,
+                product_id: product.id,
+                payment_id: existingPayment.id
+              })
 
-          // Grant access
-          const { error: accessError } = await supabase
-            .from('user_product_access')
-            .insert({
-              user_id: userData.id,
-              product_id: product.id,
-              payment_id: existingPayment.id
-            })
-
-          if (accessError) {
-            console.error('[RAZORPAY-WEBHOOK] Error granting access:', accessError)
-          } else {
-            console.log('[RAZORPAY-WEBHOOK] Access granted for product:', product.id)
+            if (accessError) {
+              console.error('[RAZORPAY-WEBHOOK] Error granting access:', accessError)
+            } else {
+              console.log('[RAZORPAY-WEBHOOK] Access granted for product:', product.id, 'amount:', product.price)
+            }
           }
         }
       }
     }
 
-    console.log('[RAZORPAY-WEBHOOK] === WEBHOOK PROCESSING COMPLETED ===')
+    console.log('[RAZORPAY-WEBHOOK] === STRICT WEBHOOK PROCESSING COMPLETED ===')
     return new Response('Success', { status: 200, headers: corsHeaders })
 
   } catch (error) {
-    console.error('[RAZORPAY-WEBHOOK] ERROR:', error)
+    console.error('[RAZORPAY-WEBHOOK] CRITICAL ERROR:', error)
     return new Response('Server error', { status: 500, headers: corsHeaders })
   }
 })

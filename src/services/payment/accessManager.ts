@@ -6,16 +6,31 @@ export const grantProductAccess = async (
   userId: string, 
   latestPayment: any
 ): Promise<Partial<PaymentVerificationResult>> => {
+  console.log('=== STRICT ACCESS GRANTING ===');
   console.log('Granting access to user:', userId, 'for payment:', latestPayment.id, 'amount:', latestPayment.amount);
   
-  // Get active products to potentially grant access to
+  // CRITICAL: Verify payment is actually completed and verified
+  if (!latestPayment.razorpay_payment_id || !latestPayment.verified_at) {
+    console.log('Payment not properly verified - access denied');
+    return {
+      success: false,
+      error: 'Payment not properly verified through gateway',
+      debugInfo: { 
+        paymentId: latestPayment.id,
+        hasRazorpayId: !!latestPayment.razorpay_payment_id,
+        hasVerifiedAt: !!latestPayment.verified_at
+      }
+    };
+  }
+
+  // Get active products for matching
   const { productsData, error: productsError } = await getActiveProducts();
 
   if (productsError || !productsData || productsData.length === 0) {
     console.error('No active products found:', productsError);
     return { 
       success: false, 
-      error: 'No active products found to grant access to',
+      error: 'No active products available for access grant',
       debugInfo: { productsError, userId, paymentId: latestPayment.id }
     };
   }
@@ -25,34 +40,44 @@ export const grantProductAccess = async (
     price: p.price 
   })));
 
-  // Find products that match the payment amount
+  // STRICT: Only grant access to products that exactly match payment amount
   const paymentAmount = Number(latestPayment.amount || 0);
   const matchingProducts = productsData.filter(product => {
     const productPrice = Number(product.price || 0);
-    const matches = Math.abs(productPrice - paymentAmount) < 0.01; // Allow for small floating point differences
-    console.log('Checking product price match:', {
+    const exactMatch = Math.abs(productPrice - paymentAmount) < 0.01;
+    console.log('Product price matching:', {
+      productId: product.id,
       productPrice,
       paymentAmount,
-      matches
+      exactMatch
     });
-    return matches;
+    return exactMatch;
   });
 
-  console.log('Found matching products for payment amount:', paymentAmount, 'products:', matchingProducts.length);
+  if (matchingProducts.length === 0) {
+    console.log('No products match payment amount - access denied');
+    return {
+      success: false,
+      error: `No products found matching payment amount of ₹${paymentAmount}`,
+      debugInfo: {
+        paymentAmount,
+        availableProducts: productsData.map(p => ({ id: p.id, price: p.price })),
+        noExactMatch: true
+      }
+    };
+  }
 
-  // If no exact match, grant access to the first product (fallback for backward compatibility)
-  const productsToGrant = matchingProducts.length > 0 ? matchingProducts : [productsData[0]];
-
-  console.log('Products to grant access to:', productsToGrant.map(p => ({ 
+  console.log('Products matching payment amount:', matchingProducts.map(p => ({ 
     id: p.id, 
     price: p.price 
   })));
 
-  for (const product of productsToGrant) {
+  // Grant access only to matching products
+  for (const product of matchingProducts) {
     const productId = product.id;
-    console.log('Processing access grant for product:', productId, 'price:', product.price);
+    console.log('Processing access grant for exact match product:', productId, 'price:', product.price);
     
-    // Check if access already exists for this specific product
+    // Check if access already exists
     const { existingAccess, error: accessCheckError } = await checkExistingAccess(userId, productId);
 
     if (accessCheckError) {
@@ -62,7 +87,7 @@ export const grantProductAccess = async (
 
     if (!existingAccess) {
       // Grant access to the specific product that matches the payment
-      console.log('Granting new access for product:', productId);
+      console.log('Granting new access for verified payment to product:', productId);
       const { error: accessError } = await grantUserAccess(userId, productId, latestPayment.id);
 
       if (accessError) {
@@ -75,9 +100,10 @@ export const grantProductAccess = async (
       }
       console.log('Access granted successfully to product:', productId);
     } else {
-      console.log('Access already exists for product:', productId);
+      console.log('Access already exists for product:', productId, 'granted at:', existingAccess.created_at);
     }
   }
 
+  console.log('=== ACCESS GRANTING COMPLETED ===');
   return { success: true };
 };

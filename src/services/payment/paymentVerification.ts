@@ -10,10 +10,19 @@ export const verifyPaymentAndGrantAccess = async (
   userId?: string
 ): Promise<PaymentVerificationResult> => {
   try {
-    console.log('=== PAYMENT VERIFICATION STARTED ===');
+    console.log('=== STRICT PAYMENT VERIFICATION STARTED ===');
     console.log('Email:', email, 'User ID:', userId);
 
-    // Enhanced payment query with better filtering
+    if (!email || !userId) {
+      console.log('Missing required parameters for verification');
+      return { 
+        success: false, 
+        error: 'Invalid verification parameters - email and userId required',
+        debugInfo: { email: !!email, userId: !!userId }
+      };
+    }
+
+    // Get payments with strict filtering
     const { payments, error: paymentError } = await getPaymentsByEmail(email);
 
     console.log('Payment query result:', { 
@@ -24,7 +33,6 @@ export const verifyPaymentAndGrantAccess = async (
         status: p.status,
         amount: p.amount,
         razorpay_payment_id: p.razorpay_payment_id,
-        razorpay_order_id: p.razorpay_order_id,
         verified_at: p.verified_at,
         created_at: p.created_at
       }))
@@ -40,52 +48,67 @@ export const verifyPaymentAndGrantAccess = async (
     }
 
     if (!payments || payments.length === 0) {
-      console.log('No payment records found');
+      console.log('No payment records found - access denied');
       return { 
         success: false, 
-        error: 'No payment records found',
+        error: 'No payment records found for this email',
         debugInfo: { email, totalPayments: 0 }
       };
     }
 
-    // Analyze payment statuses
-    const { completedPayments, pendingPayments, failedPayments, stats } = analyzePayments(payments);
+    // STRICT: Only allow verified and completed payments
+    const verifiedPayments = payments.filter(p => 
+      p.status === 'completed' && 
+      p.verified_at && 
+      p.razorpay_payment_id
+    );
 
-    console.log('Payment analysis:', stats);
+    console.log('Verified payments after strict filtering:', {
+      totalPayments: payments.length,
+      verifiedPayments: verifiedPayments.length,
+      verifiedIds: verifiedPayments.map(p => p.id)
+    });
 
-    // Try to auto-complete pending payments with Razorpay IDs
-    const autoCompletedPayments = await autoCompleteStuckPayments(pendingPayments);
-    completedPayments.push(...autoCompletedPayments);
+    if (verifiedPayments.length === 0) {
+      // Check for stuck payments that can be auto-completed
+      const pendingPayments = payments.filter(p => 
+        p.status === 'pending' && 
+        p.razorpay_payment_id
+      );
 
-    if (completedPayments.length === 0) {
-      const errorInfo = generateErrorMessage(completedPayments, pendingPayments, failedPayments);
-      
-      if (errorInfo) {
+      if (pendingPayments.length > 0) {
+        console.log('Found pending payments with Razorpay IDs, attempting auto-completion');
+        const autoCompletedPayments = await autoCompleteStuckPayments(pendingPayments);
+        verifiedPayments.push(...autoCompletedPayments);
+      }
+
+      if (verifiedPayments.length === 0) {
+        console.log('No verified payments found - access denied');
         return { 
           success: false, 
-          error: errorInfo.errorMessage,
+          error: 'No verified payments found. Payment verification required.',
           debugInfo: { 
             email,
             totalPayments: payments.length,
-            completedPayments: 0,
             pendingPayments: pendingPayments.length,
-            failedPayments: failedPayments.length,
-            suggestion: errorInfo.suggestion,
-            latestPayment: payments[0]
+            suggestion: 'Complete payment verification through proper payment gateway'
           }
         };
       }
     }
 
-    const latestPayment = completedPayments[0];
-    console.log('Using latest completed payment:', latestPayment.id);
+    // Use the most recent verified payment
+    const latestPayment = verifiedPayments[0];
+    console.log('Using latest verified payment:', {
+      id: latestPayment.id,
+      amount: latestPayment.amount,
+      verified_at: latestPayment.verified_at
+    });
 
-    // Grant access if user is logged in
-    if (userId) {
-      const accessResult = await grantProductAccess(userId, latestPayment);
-      if (!accessResult.success) {
-        return accessResult as PaymentVerificationResult;
-      }
+    // Grant access only for verified payments
+    const accessResult = await grantProductAccess(userId, latestPayment);
+    if (!accessResult.success) {
+      return accessResult as PaymentVerificationResult;
     }
 
     console.log('=== PAYMENT VERIFICATION SUCCESSFUL ===');
@@ -98,8 +121,8 @@ export const verifyPaymentAndGrantAccess = async (
         paymentId: latestPayment.id,
         razorpayPaymentId: latestPayment.razorpay_payment_id,
         paymentAmount: latestPayment.amount,
-        totalPaymentsChecked: payments.length,
-        completedPayments: completedPayments.length
+        verifiedAt: latestPayment.verified_at,
+        strictVerification: true
       }
     };
 

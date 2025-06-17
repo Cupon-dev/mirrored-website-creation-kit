@@ -26,12 +26,22 @@ export const useUserAccess = () => {
 
     try {
       setIsLoading(true);
+      console.log('=== STRICT ACCESS CHECK ===');
       console.log('Fetching user access for user:', user.id);
       
-      // Query user_product_access table directly - this is the authoritative source
+      // STRICT: Only query verified access through user_product_access table
       const { data: accessData, error: accessError } = await supabase
         .from('user_product_access')
-        .select('product_id')
+        .select(`
+          product_id,
+          created_at,
+          payment_id,
+          payments!inner(
+            status,
+            verified_at,
+            razorpay_payment_id
+          )
+        `)
         .eq('user_id', user.id);
 
       if (accessError) {
@@ -41,16 +51,33 @@ export const useUserAccess = () => {
       }
 
       if (accessData && accessData.length > 0) {
-        const productIds = accessData.map(item => item.product_id);
-        console.log('User has direct access to products:', productIds);
-        setUserAccess(productIds);
-        return;
-      }
+        // STRICT: Only include access with verified payments
+        const verifiedAccess = accessData.filter(item => {
+          const payment = item.payments;
+          const isVerified = payment && 
+            payment.status === 'completed' && 
+            payment.verified_at && 
+            payment.razorpay_payment_id;
+          
+          console.log('Access verification check:', {
+            productId: item.product_id,
+            paymentId: item.payment_id,
+            isVerified,
+            paymentStatus: payment?.status,
+            hasVerifiedAt: !!payment?.verified_at,
+            hasRazorpayId: !!payment?.razorpay_payment_id
+          });
+          
+          return isVerified;
+        });
 
-      // If no direct access found, don't automatically grant anything
-      // Access should only be granted through proper payment flow
-      console.log('No existing access found for user');
-      setUserAccess([]);
+        const productIds = verifiedAccess.map(item => item.product_id);
+        console.log('User has verified access to products:', productIds);
+        setUserAccess(productIds);
+      } else {
+        console.log('No verified access found for user');
+        setUserAccess([]);
+      }
       
     } catch (error) {
       console.error('Error in fetchUserAccess:', error);
@@ -62,36 +89,17 @@ export const useUserAccess = () => {
 
   const hasAccess = (productId: string) => {
     const access = userAccess.includes(productId);
-    console.log(`Checking access for product ${productId}:`, access, 'User access list:', userAccess);
+    console.log(`Strict access check for product ${productId}:`, access, 'Verified access list:', userAccess);
     return access;
   };
 
   const grantAccess = async (productId: string) => {
-    if (!user) {
-      console.log('No user logged in, cannot grant access');
-      return;
-    }
-
-    try {
-      // Check if access already exists
-      if (userAccess.includes(productId)) {
-        console.log('User already has access to product:', productId);
-        return;
-      }
-
-      console.log('Attempting to grant access to product:', productId, 'for user:', user.id);
-
-      // This should only be called after verified payment
-      // Don't automatically grant access just because user logged in
-      console.log('Manual access grant not allowed - must go through payment verification');
-      
-    } catch (error) {
-      console.error('Error in grantAccess:', error);
-    }
+    console.log('Manual access grant blocked - must go through verified payment flow');
+    return false;
   };
 
   const refreshAccess = async () => {
-    console.log('Refreshing user access...');
+    console.log('Refreshing user access with strict verification...');
     await fetchUserAccess();
   };
 
