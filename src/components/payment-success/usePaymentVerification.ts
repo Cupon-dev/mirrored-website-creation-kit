@@ -69,6 +69,9 @@ export const usePaymentVerification = () => {
         return;
       }
 
+      // Reduced delay for production
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       await processPaymentVerification(userEmail, paymentId);
     };
 

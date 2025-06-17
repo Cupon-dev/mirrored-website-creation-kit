@@ -26,10 +26,10 @@ export const useUserAccess = () => {
 
     try {
       setIsLoading(true);
-      console.log('=== STRICT ACCESS CHECK ===');
+      console.log('=== USER ACCESS CHECK ===');
       console.log('Fetching user access for user:', user.id);
       
-      // STRICT: Only query verified access through user_product_access table
+      // Query user_product_access with payment verification
       const { data: accessData, error: accessError } = await supabase
         .from('user_product_access')
         .select(`
@@ -39,7 +39,8 @@ export const useUserAccess = () => {
           payments!inner(
             status,
             verified_at,
-            razorpay_payment_id
+            razorpay_payment_id,
+            amount
           )
         `)
         .eq('user_id', user.id);
@@ -51,31 +52,32 @@ export const useUserAccess = () => {
       }
 
       if (accessData && accessData.length > 0) {
-        // STRICT: Only include access with verified payments
-        const verifiedAccess = accessData.filter(item => {
+        // Include access with verified payments OR completed status
+        const validAccess = accessData.filter(item => {
           const payment = item.payments;
-          const isVerified = payment && 
-            payment.status === 'completed' && 
-            payment.verified_at && 
-            payment.razorpay_payment_id;
+          const isValid = payment && (
+            (payment.status === 'completed' && payment.verified_at) ||
+            (payment.status === 'completed' && payment.razorpay_payment_id)
+          );
           
           console.log('Access verification check:', {
             productId: item.product_id,
             paymentId: item.payment_id,
-            isVerified,
+            isValid,
             paymentStatus: payment?.status,
             hasVerifiedAt: !!payment?.verified_at,
-            hasRazorpayId: !!payment?.razorpay_payment_id
+            hasRazorpayId: !!payment?.razorpay_payment_id,
+            amount: payment?.amount
           });
           
-          return isVerified;
+          return isValid;
         });
 
-        const productIds = verifiedAccess.map(item => item.product_id);
-        console.log('User has verified access to products:', productIds);
+        const productIds = validAccess.map(item => item.product_id);
+        console.log('User has valid access to products:', productIds);
         setUserAccess(productIds);
       } else {
-        console.log('No verified access found for user');
+        console.log('No access found for user');
         setUserAccess([]);
       }
       
@@ -89,17 +91,17 @@ export const useUserAccess = () => {
 
   const hasAccess = (productId: string) => {
     const access = userAccess.includes(productId);
-    console.log(`Strict access check for product ${productId}:`, access, 'Verified access list:', userAccess);
+    console.log(`Access check for product ${productId}:`, access, 'Access list:', userAccess);
     return access;
   };
 
   const grantAccess = async (productId: string) => {
-    console.log('Manual access grant blocked - must go through verified payment flow');
+    console.log('Direct access grant not allowed - must go through payment flow');
     return false;
   };
 
   const refreshAccess = async () => {
-    console.log('Refreshing user access with strict verification...');
+    console.log('Refreshing user access...');
     await fetchUserAccess();
   };
 

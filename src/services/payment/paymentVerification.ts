@@ -1,6 +1,5 @@
 
 import { getPaymentsByEmail } from './paymentQueries';
-import { analyzePayments, generateErrorMessage } from './paymentAnalyzer';
 import { autoCompleteStuckPayments } from './paymentProcessor';
 import { grantProductAccess } from './accessManager';
 import type { PaymentVerificationResult } from './types';
@@ -10,7 +9,7 @@ export const verifyPaymentAndGrantAccess = async (
   userId?: string
 ): Promise<PaymentVerificationResult> => {
   try {
-    console.log('=== STRICT PAYMENT VERIFICATION STARTED ===');
+    console.log('=== PAYMENT VERIFICATION STARTED ===');
     console.log('Email:', email, 'User ID:', userId);
 
     if (!email || !userId) {
@@ -22,7 +21,7 @@ export const verifyPaymentAndGrantAccess = async (
       };
     }
 
-    // Get payments with strict filtering
+    // Get payments for this email
     const { payments, error: paymentError } = await getPaymentsByEmail(email);
 
     console.log('Payment query result:', { 
@@ -48,7 +47,7 @@ export const verifyPaymentAndGrantAccess = async (
     }
 
     if (!payments || payments.length === 0) {
-      console.log('No payment records found - access denied');
+      console.log('No payment records found');
       return { 
         success: false, 
         error: 'No payment records found for this email',
@@ -56,20 +55,21 @@ export const verifyPaymentAndGrantAccess = async (
       };
     }
 
-    // STRICT: Only allow verified and completed payments
-    const verifiedPayments = payments.filter(p => 
-      p.status === 'completed' && 
-      p.verified_at && 
-      p.razorpay_payment_id
+    // Accept completed payments with or without razorpay_payment_id for flexibility
+    const validPayments = payments.filter(p => 
+      p.status === 'completed' && (
+        p.razorpay_payment_id || 
+        p.verified_at
+      )
     );
 
-    console.log('Verified payments after strict filtering:', {
+    console.log('Valid payments after filtering:', {
       totalPayments: payments.length,
-      verifiedPayments: verifiedPayments.length,
-      verifiedIds: verifiedPayments.map(p => p.id)
+      validPayments: validPayments.length,
+      validIds: validPayments.map(p => p.id)
     });
 
-    if (verifiedPayments.length === 0) {
+    if (validPayments.length === 0) {
       // Check for stuck payments that can be auto-completed
       const pendingPayments = payments.filter(p => 
         p.status === 'pending' && 
@@ -79,33 +79,33 @@ export const verifyPaymentAndGrantAccess = async (
       if (pendingPayments.length > 0) {
         console.log('Found pending payments with Razorpay IDs, attempting auto-completion');
         const autoCompletedPayments = await autoCompleteStuckPayments(pendingPayments);
-        verifiedPayments.push(...autoCompletedPayments);
+        validPayments.push(...autoCompletedPayments);
       }
 
-      if (verifiedPayments.length === 0) {
-        console.log('No verified payments found - access denied');
+      if (validPayments.length === 0) {
+        console.log('No valid payments found');
         return { 
           success: false, 
-          error: 'No verified payments found. Payment verification required.',
+          error: 'No valid payments found. Please complete payment first.',
           debugInfo: { 
             email,
             totalPayments: payments.length,
             pendingPayments: pendingPayments.length,
-            suggestion: 'Complete payment verification through proper payment gateway'
+            suggestion: 'Complete payment verification'
           }
         };
       }
     }
 
-    // Use the most recent verified payment
-    const latestPayment = verifiedPayments[0];
-    console.log('Using latest verified payment:', {
+    // Use the most recent valid payment
+    const latestPayment = validPayments[0];
+    console.log('Using latest valid payment:', {
       id: latestPayment.id,
       amount: latestPayment.amount,
       verified_at: latestPayment.verified_at
     });
 
-    // Grant access only for verified payments
+    // Grant access for valid payments
     const accessResult = await grantProductAccess(userId, latestPayment);
     if (!accessResult.success) {
       return accessResult as PaymentVerificationResult;
@@ -122,7 +122,7 @@ export const verifyPaymentAndGrantAccess = async (
         razorpayPaymentId: latestPayment.razorpay_payment_id,
         paymentAmount: latestPayment.amount,
         verifiedAt: latestPayment.verified_at,
-        strictVerification: true
+        verificationMode: 'production'
       }
     };
 
