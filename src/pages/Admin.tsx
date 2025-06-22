@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shield, CreditCard, Package, BarChart3, LogOut, User, Clock } from 'lucide-react';
 import AdminLogin from '@/components/AdminLogin';
+import PaymentVerificationPanel from '@/components/admin/PaymentVerificationPanel';
 
 const ADMIN_EMAIL = 'ikeralaklicks@gmail.com';
 const SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
@@ -177,6 +178,9 @@ const Admin = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Payment Verification Panel</CardTitle>
+                <TabsContent value="payments">
+                  <PaymentVerificationPanel />
+                </TabsContent>
                 <CardDescription>
                   Verify pending payments and grant user access
                 </CardDescription>
