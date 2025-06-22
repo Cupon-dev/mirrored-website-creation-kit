@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -16,10 +17,13 @@ import {
   User,
   Calendar,
   ExternalLink,
-  Mail
+  Mail,
+  Zap,
+  Robot,
+  AlertTriangle
 } from 'lucide-react';
 
-interface PendingPayment {
+interface Payment {
   id: string;
   user_id?: string;
   email: string;
@@ -33,6 +37,8 @@ interface PendingPayment {
   whatsapp_group?: string;
   created_at: string;
   status: string;
+  verified_at?: string;
+  notes?: string;
   users?: {
     name: string;
     email: string;
@@ -40,23 +46,25 @@ interface PendingPayment {
 }
 
 const PaymentVerificationPanel = () => {
-  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<Payment[]>([]);
+  const [completedPayments, setCompletedPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('pending');
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPendingPayments();
+    fetchPayments();
     
     // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchPendingPayments, 30000);
+    const interval = setInterval(fetchPayments, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchPendingPayments = async () => {
+  const fetchPayments = async () => {
     try {
-      // Get payments that need verification
-      const { data, error } = await supabase
+      // Get pending payments (manual verification needed)
+      const { data: pendingData, error: pendingError } = await supabase
         .from('payments')
         .select(`
           *,
@@ -65,10 +73,31 @@ const PaymentVerificationPanel = () => {
         .eq('status', 'pending_verification')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (pendingError) throw pendingError;
+
+      // Get recently completed payments (for monitoring)
+      const { data: completedData, error: completedError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          users!payments_user_id_fkey (name, email)
+        `)
+        .eq('status', 'completed')
+        .gte('verified_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+        .order('verified_at', { ascending: false });
+
+      if (completedError) throw completedError;
       
-      // Transform data to match component expectations
-      const transformedData = data?.map(payment => ({
+      // Transform data
+      const transformPendingData = pendingData?.map(payment => ({
+        ...payment,
+        users: payment.users || { 
+          name: payment.email?.split('@')[0] || 'Unknown',
+          email: payment.email || 'No email'
+        }
+      })) || [];
+
+      const transformCompletedData = completedData?.map(payment => ({
         ...payment,
         users: payment.users || { 
           name: payment.email?.split('@')[0] || 'Unknown',
@@ -76,12 +105,42 @@ const PaymentVerificationPanel = () => {
         }
       })) || [];
       
-      setPendingPayments(transformedData);
+      setPendingPayments(transformPendingData);
+      setCompletedPayments(transformCompletedData);
     } catch (error: any) {
       console.error('Error fetching payments:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch pending payments",
+        description: "Failed to fetch payments",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const runAutoVerification = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.rpc('auto_verify_razorpay_payments');
+      
+      if (error) throw error;
+
+      toast({
+        title: "Auto-Verification Complete! 🤖",
+        description: `Processed ${data || 0} payments automatically`,
+        duration: 4000,
+      });
+
+      // Refresh the data
+      fetchPayments();
+
+    } catch (error: any) {
+      console.error('Error running auto-verification:', error);
+      toast({
+        title: "Auto-Verification Failed",
+        description: error.message || "Failed to run automatic verification",
         variant: "destructive",
       });
     } finally {
@@ -96,7 +155,8 @@ const PaymentVerificationPanel = () => {
         .from('payments')
         .update({
           status: 'completed',
-          verified_at: new Date().toISOString()
+          verified_at: new Date().toISOString(),
+          notes: 'Manually verified by admin'
         })
         .eq('id', paymentId);
 
@@ -108,25 +168,23 @@ const PaymentVerificationPanel = () => {
           .from('user_product_access')
           .insert({
             user_id: userId,
-            product_id: 'manual-verification', // Generic product ID for manual verification
+            product_id: 'manual-verification',
             payment_id: paymentId,
             granted_at: new Date().toISOString()
           });
 
         if (accessError && !accessError.message.includes('duplicate')) {
           console.warn('Could not create access record:', accessError);
-          // Don't throw error - payment is still verified
         }
       }
 
       toast({
         title: "Payment Verified ✅",
-        description: "Payment has been verified and access granted",
+        description: "Payment manually verified and access granted",
         duration: 4000,
       });
 
-      // Refresh the list
-      fetchPendingPayments();
+      fetchPayments();
 
     } catch (error: any) {
       console.error('Error verifying payment:', error);
@@ -144,7 +202,8 @@ const PaymentVerificationPanel = () => {
         .from('payments')
         .update({
           status: 'rejected',
-          verified_at: new Date().toISOString()
+          verified_at: new Date().toISOString(),
+          notes: 'Manually rejected by admin'
         })
         .eq('id', paymentId);
 
@@ -156,7 +215,7 @@ const PaymentVerificationPanel = () => {
         duration: 4000,
       });
 
-      fetchPendingPayments();
+      fetchPayments();
 
     } catch (error: any) {
       console.error('Error rejecting payment:', error);
@@ -168,7 +227,14 @@ const PaymentVerificationPanel = () => {
     }
   };
 
-  const filteredPayments = pendingPayments.filter(payment =>
+  const filteredPendingPayments = pendingPayments.filter(payment =>
+    (payment.users?.email || payment.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.users?.name || payment.email?.split('@')[0] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.transaction_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.razorpay_payment_id || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredCompletedPayments = completedPayments.filter(payment =>
     (payment.users?.email || payment.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (payment.users?.name || payment.email?.split('@')[0] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (payment.transaction_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -202,19 +268,143 @@ const PaymentVerificationPanel = () => {
     );
   };
 
+  const getVerificationBadge = (payment: Payment) => {
+    if (payment.razorpay_payment_id && payment.notes?.includes('admin')) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800">
+          <User className="w-3 h-3 mr-1" />
+          Manual
+        </Badge>
+      );
+    } else if (payment.razorpay_payment_id) {
+      return (
+        <Badge className="bg-green-100 text-green-800">
+          <Robot className="w-3 h-3 mr-1" />
+          Auto
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-orange-100 text-orange-800">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Manual Review
+        </Badge>
+      );
+    }
+  };
+
+  const renderPaymentCard = (payment: Payment, showVerificationActions = true) => (
+    <Card key={payment.id} className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div>
+              <CardTitle className="text-lg">
+                {payment.users?.name || payment.email?.split('@')[0] || 'Unknown User'}
+              </CardTitle>
+              <div className="flex items-center space-x-2 mt-1">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <p className="text-sm text-gray-600">{payment.users?.email || payment.email}</p>
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-green-600">
+              ₹{payment.amount.toLocaleString('en-IN')}
+            </p>
+            <div className="flex space-x-2 mt-1">
+              {getMethodBadge(payment.payment_method)}
+              {payment.status === 'completed' && getVerificationBadge(payment)}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium text-gray-700">Payment Date</Label>
+            <p className="text-sm flex items-center">
+              <Calendar className="w-4 h-4 mr-1" />
+              {formatDate(payment.created_at)}
+            </p>
+          </div>
+          
+          {payment.verified_at && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Verified Date</Label>
+              <p className="text-sm flex items-center">
+                <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                {formatDate(payment.verified_at)}
+              </p>
+            </div>
+          )}
+          
+          {payment.transaction_id && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Transaction ID</Label>
+              <p className="text-sm font-mono bg-gray-50 p-2 rounded">{payment.transaction_id}</p>
+            </div>
+          )}
+          
+          {payment.razorpay_payment_id && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Razorpay Payment ID</Label>
+              <p className="text-sm font-mono bg-purple-50 p-2 rounded">{payment.razorpay_payment_id}</p>
+            </div>
+          )}
+        </div>
+
+        {payment.notes && (
+          <div>
+            <Label className="text-sm font-medium text-gray-700">Notes</Label>
+            <p className="text-sm bg-yellow-50 p-2 rounded border border-yellow-200">{payment.notes}</p>
+          </div>
+        )}
+
+        {showVerificationActions && payment.status === 'pending_verification' && (
+          <div className="flex space-x-3 pt-2">
+            <Button
+              onClick={() => verifyPayment(payment.id, payment.user_id)}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Verify & Grant Access
+            </Button>
+            
+            <Button
+              onClick={() => rejectPayment(payment.id)}
+              variant="destructive"
+              className="flex-1"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Reject Payment
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Payment Verification</h2>
           <p className="text-gray-600">
-            {pendingPayments.length} payments pending verification
+            Automatic processing with manual review backup
           </p>
         </div>
-        <Button onClick={fetchPendingPayments} variant="outline" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={runAutoVerification} variant="outline" size="sm" className="bg-blue-50 border-blue-300 text-blue-700">
+            <Robot className="w-4 h-4 mr-2" />
+            Run Auto-Verification
+          </Button>
+          <Button onClick={fetchPayments} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -229,13 +419,13 @@ const PaymentVerificationPanel = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
               <Clock className="w-5 h-5 text-orange-500" />
               <div>
-                <p className="text-sm font-medium">Pending</p>
+                <p className="text-sm font-medium">Manual Review</p>
                 <p className="text-2xl font-bold">{pendingPayments.length}</p>
               </div>
             </div>
@@ -245,9 +435,21 @@ const PaymentVerificationPanel = () => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <DollarSign className="w-5 h-5 text-green-500" />
+              <Robot className="w-5 h-5 text-green-500" />
               <div>
-                <p className="text-sm font-medium">Total Amount</p>
+                <p className="text-sm font-medium">Auto-Verified (24h)</p>
+                <p className="text-2xl font-bold">{completedPayments.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <DollarSign className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium">Pending Amount</p>
                 <p className="text-2xl font-bold">
                   ₹{pendingPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
                 </p>
@@ -259,11 +461,11 @@ const PaymentVerificationPanel = () => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <User className="w-5 h-5 text-blue-500" />
+              <Zap className="w-5 h-5 text-purple-500" />
               <div>
-                <p className="text-sm font-medium">Unique Users</p>
+                <p className="text-sm font-medium">Auto Rate</p>
                 <p className="text-2xl font-bold">
-                  {new Set(pendingPayments.map(p => p.user_id || p.email)).size}
+                  {completedPayments.length > 0 ? Math.round((completedPayments.filter(p => p.razorpay_payment_id).length / completedPayments.length) * 100) : 0}%
                 </p>
               </div>
             </div>
@@ -271,147 +473,60 @@ const PaymentVerificationPanel = () => {
         </Card>
       </div>
 
-      {/* Payments List */}
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="text-center py-8">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-600">Loading pending payments...</p>
-          </div>
-        ) : filteredPayments.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
-              <h3 className="text-lg font-semibold mb-2">No Pending Payments</h3>
-              <p className="text-gray-600">
-                {searchTerm ? 'No payments match your search criteria.' : 'All payments have been verified!'}
-              </p>
-              {searchTerm && (
-                <Button
-                  onClick={() => setSearchTerm('')}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  Clear Search
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          filteredPayments.map((payment) => (
-            <Card key={payment.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div>
-                      <CardTitle className="text-lg">
-                        {payment.users?.name || payment.email?.split('@')[0] || 'Unknown User'}
-                      </CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <p className="text-sm text-gray-600">{payment.users?.email || payment.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-green-600">
-                      ₹{payment.amount.toLocaleString('en-IN')}
-                    </p>
-                    {getMethodBadge(payment.payment_method)}
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Payment Date</Label>
-                    <p className="text-sm flex items-center">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      {formatDate(payment.created_at)}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
-                    <p className="text-sm">{payment.payment_method || 'Razorpay'}</p>
-                  </div>
-                  
-                  {payment.transaction_id && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700">Transaction ID</Label>
-                      <p className="text-sm font-mono bg-gray-50 p-2 rounded">{payment.transaction_id}</p>
-                    </div>
-                  )}
-                  
-                  {payment.razorpay_payment_id && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700">Razorpay Payment ID</Label>
-                      <p className="text-sm font-mono bg-purple-50 p-2 rounded">{payment.razorpay_payment_id}</p>
-                    </div>
-                  )}
-                  
-                  {payment.upi_reference_id && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700">UPI Reference</Label>
-                      <p className="text-sm font-mono bg-blue-50 p-2 rounded">{payment.upi_reference_id}</p>
-                    </div>
-                  )}
+      {/* Tabs for different payment statuses */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="pending" className="flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>Manual Review ({pendingPayments.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4" />
+            <span>Recent Completions ({completedPayments.length})</span>
+          </TabsTrigger>
+        </TabsList>
 
-                  {payment.google_drive_link && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700">Drive Link</Label>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(payment.google_drive_link, '_blank')}
-                        className="mt-1"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        View Drive Link
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {payment.payment_proof_url && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Payment Proof</Label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(payment.payment_proof_url, '_blank')}
-                      className="mt-1"
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      View Payment Proof
-                    </Button>
-                  </div>
-                )}
-
-                <div className="flex space-x-3 pt-2">
-                  <Button
-                    onClick={() => verifyPayment(payment.id, payment.user_id)}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Verify & Grant Access
-                  </Button>
-                  
-                  <Button
-                    onClick={() => rejectPayment(payment.id)}
-                    variant="destructive"
-                    className="flex-1"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject Payment
-                  </Button>
+        <TabsContent value="pending" className="space-y-4">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600">Loading pending payments...</p>
+            </div>
+          ) : filteredPendingPayments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Robot className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                <h3 className="text-lg font-semibold mb-2">All Caught Up! 🤖</h3>
+                <p className="text-gray-600">
+                  {searchTerm ? 'No payments match your search criteria.' : 'All payments have been automatically verified!'}
+                </p>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                  <p className="text-green-800 text-sm">
+                    💡 Payments with valid Razorpay IDs are verified automatically.<br/>
+                    Only edge cases require manual review.
+                  </p>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ) : (
+            filteredPendingPayments.map(payment => renderPaymentCard(payment, true))
+          )}
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          {filteredCompletedPayments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-semibold mb-2">No Recent Completions</h3>
+                <p className="text-gray-600">No payments completed in the last 24 hours.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredCompletedPayments.map(payment => renderPaymentCard(payment, false))
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
