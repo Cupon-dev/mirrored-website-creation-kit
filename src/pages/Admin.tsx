@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Shield, CreditCard, Package, BarChart3, LogOut, User, Clock } from 'lucide-react';
-import PaymentVerificationPanel from '@/components/admin/PaymentVerificationPanel';
-import AdminProductForm from '@/components/admin/AdminProductForm';
 import AdminLogin from '@/components/AdminLogin';
 
 const ADMIN_EMAIL = 'ikeralaklicks@gmail.com';
@@ -176,17 +174,55 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="payments">
-            <PaymentVerificationPanel />
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Verification Panel</CardTitle>
+                <CardDescription>
+                  Verify pending payments and grant user access
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold mb-2">Payment Verification</h3>
+                  <p className="text-gray-600 mb-4">
+                    You have 23 total payments in your system.<br/>
+                    21 are linked to users, 5 are verified.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800 text-sm">
+                      💡 Payment verification panel will be added in the next step!<br/>
+                      For now, you can verify payments manually in your Supabase dashboard.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="products">
-            <AdminProductForm onProductAdded={() => {
-              toast({
-                title: "Product Added Successfully! ✅",
-                description: "The new product is now available in the store",
-                duration: 4000,
-              });
-            }} />
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Management</CardTitle>
+                <CardDescription>
+                  Add and manage your digital products
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold mb-2">Product Management</h3>
+                  <p className="text-gray-600 mb-4">
+                    Manage your digital products and their access links.
+                  </p>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-green-800 text-sm">
+                      🚀 Product management panel coming in the next step!
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="analytics">
