@@ -560,9 +560,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      payment_status_summary: {
+        Row: {
+          count: number | null
+          earliest_payment: string | null
+          latest_payment: string | null
+          payment_method: string | null
+          status: string | null
+          total_amount: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      auto_verify_razorpay_payments: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       increment_product_purchase: {
         Args: { product_uuid: string }
         Returns: undefined
