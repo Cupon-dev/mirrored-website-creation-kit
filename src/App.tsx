@@ -29,9 +29,9 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/payment-success" element={<PaymentSuccessHandler />} />
-              <Route path="/admin" element={<Admin />} />
               <Route path="/admin/whatsapp" element={<AdminWhatsApp />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
