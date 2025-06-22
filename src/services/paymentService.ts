@@ -6,6 +6,7 @@ export interface PaymentVerificationResult {
   driveLink?: string;
   whatsappGroup?: string;
   error?: string;
+  message?: string;
 }
 
 export const verifyPaymentAndGrantAccess = async (
@@ -63,11 +64,68 @@ export const verifyPaymentAndGrantAccess = async (
       success: data.success,
       accessGranted: data.accessGranted,
       driveLink: data.driveLink,
+      message: data.message,
       error: data.error
     };
 
   } catch (error: any) {
     console.error('❌ Payment verification failed:', error);
+    return {
+      success: false,
+      accessGranted: false,
+      error: error.message
+    };
+  }
+};
+
+// New function for multi-method payments
+export const initiateMultiPayment = async (
+  userEmail: string,
+  productId: string,
+  amount: number,
+  paymentMethod: 'razorpay' | 'upi' | 'manual_verification',
+  additionalData?: {
+    transactionId?: string;
+    upiRefId?: string;
+    paymentProofUrl?: string;
+  }
+): Promise<PaymentVerificationResult> => {
+  try {
+    console.log('🔒 Initiating multi-method payment:', { userEmail, productId, amount, paymentMethod });
+
+    const { data, error } = await supabase.functions.invoke('verify-payment', {
+      body: {
+        user_email: userEmail,
+        product_id: productId,
+        amount: amount,
+        payment_method: paymentMethod,
+        transaction_id: additionalData?.transactionId,
+        upi_ref_id: additionalData?.upiRefId,
+        payment_proof_url: additionalData?.paymentProofUrl,
+      }
+    });
+
+    if (error) {
+      console.error('Payment initiation error:', error);
+      return {
+        success: false,
+        accessGranted: false,
+        error: error.message
+      };
+    }
+
+    console.log('✅ Payment initiated successfully:', data);
+
+    return {
+      success: data.success,
+      accessGranted: data.accessGranted,
+      driveLink: data.driveLink,
+      message: data.message,
+      error: data.error
+    };
+
+  } catch (error: any) {
+    console.error('❌ Payment initiation failed:', error);
     return {
       success: false,
       accessGranted: false,
