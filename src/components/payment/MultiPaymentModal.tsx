@@ -35,6 +35,56 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
   const UPI_ID = "creativevibes1993-1@okaxis";
   const QR_CODE_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="; // Replace with actual QR code
 
+  // Show login requirement if user is not logged in
+  if (!user?.email) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <CreditCard className="w-5 h-5" />
+              <span>Login Required</span>
+            </DialogTitle>
+            <DialogDescription>
+              Please login to purchase <strong>{product.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="font-semibold text-red-800 mb-2">🔐 Login Required</h4>
+              <p className="text-red-700 text-sm">
+                You must be logged in to make a purchase. This ensures we can:
+              </p>
+              <ul className="text-red-700 text-sm mt-2 space-y-1">
+                <li>• Grant you access to the product</li>
+                <li>• Track your purchases</li>
+                <li>• Provide customer support</li>
+                <li>• Send you access links</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => window.location.href = '/login'} 
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                Go to Login
+              </Button>
+              <Button 
+                onClick={onClose} 
+                variant="outline" 
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -45,6 +95,16 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
   };
 
   const handleRazorpayPayment = () => {
+    if (!user?.email) {
+      toast({
+        title: "Please Login First! 🔐",
+        description: "You must be logged in to make a purchase. This ensures we can grant you access.",
+        variant: "destructive",
+        duration: 6000,
+      });
+      return;
+    }
+
     if (!product.razorpay_link) {
       toast({
         title: "Payment Link Unavailable",
@@ -57,19 +117,23 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
     // Store payment info before redirect
     localStorage.setItem('pending_payment', JSON.stringify({
       productId: product.id,
-      email: user?.email,
+      email: user.email,
       amount: product.price,
-      method: 'razorpay'
+      method: 'razorpay',
+      timestamp: Date.now()
     }));
 
     // Open Razorpay payment link
     window.open(product.razorpay_link, '_blank');
     
     toast({
-      title: "Payment Window Opened",
+      title: "Payment Window Opened 💳",
       description: "Complete your payment and return here. Access will be granted automatically!",
-      duration: 5000,
+      duration: 8000,
     });
+
+    // Close modal so user sees the main page when they return
+    onClose();
   };
 
   const handleUPIPayment = async () => {
