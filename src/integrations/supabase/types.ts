@@ -558,6 +558,33 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_logs: {
+        Row: {
+          event_type: string
+          id: string
+          payload: Json
+          payment_id: string | null
+          processed_at: string | null
+          signature: string | null
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          payload: Json
+          payment_id?: string | null
+          processed_at?: string | null
+          signature?: string | null
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          processed_at?: string | null
+          signature?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       payment_status_summary: {
@@ -576,6 +603,16 @@ export type Database = {
       auto_verify_razorpay_payments: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_verification_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total_payments: number
+          completed_payments: number
+          pending_manual: number
+          auto_verified_today: number
+          total_revenue: number
+        }[]
       }
       increment_product_purchase: {
         Args: { product_uuid: string }
