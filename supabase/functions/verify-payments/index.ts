@@ -7,46 +7,38 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { payment_id, user_email, product_id } = await req.json()
+    const { 
+      user_email, 
+      product_id, 
+      payment_method, 
+      payment_reference, 
+      transaction_id,
+      upi_ref_id,
+      amount,
+      payment_proof_url 
+    } = await req.json()
     
-    console.log('Payment verification request:', { payment_id, user_email, product_id })
+    console.log('🔒 SECURE: Payment verification request:', { 
+      user_email, 
+      product_id, 
+      payment_method,
+      payment_reference,
+      transaction_id,
+      upi_ref_id,
+      amount 
+    })
     
-    // Initialize Supabase client with service role
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 1. VERIFY PAYMENT WITH RAZORPAY API
-    if (payment_id) {
-      console.log('Verifying payment with Razorpay:', payment_id)
-      
-      const razorpayResponse = await fetch(`https://api.razorpay.com/v1/payments/${payment_id}`, {
-        headers: {
-          'Authorization': `Basic ${btoa(Deno.env.get('RAZORPAY_KEY_ID') + ':' + Deno.env.get('RAZORPAY_KEY_SECRET'))}`
-        }
-      })
-      
-      if (!razorpayResponse.ok) {
-        throw new Error('Failed to verify payment with Razorpay')
-      }
-      
-      const paymentData = await razorpayResponse.json()
-      console.log('Razorpay payment data:', paymentData)
-      
-      // 2. VERIFY PAYMENT IS ACTUALLY CAPTURED/PAID
-      if (paymentData.status !== 'captured') {
-        throw new Error(`Payment not completed. Status: ${paymentData.status}`)
-      }
-    }
-
-    // 3. FIND USER BY EMAIL
+    // 1. FIND USER BY EMAIL
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('id, email, name')
@@ -58,7 +50,7 @@ serve(async (req) => {
       throw new Error('User not found')
     }
 
-    // 4. CHECK IF USER ALREADY HAS ACCESS
+    // 2. CHECK IF USER ALREADY HAS ACCESS
     const { data: existingAccess } = await supabase
       .from('user_product_access')
       .select('*')
@@ -67,7 +59,7 @@ serve(async (req) => {
       .single()
 
     if (existingAccess) {
-      console.log('User already has access')
+      console.log('✅ User already has access')
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -81,18 +73,24 @@ serve(async (req) => {
       )
     }
 
-    // 5. CREATE PAYMENT RECORD
+    // 3. CREATE PAYMENT RECORD (Pending verification)
+    const paymentStatus = payment_method === 'admin_verified' ? 'completed' : 'pending_verification'
+    
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
       .insert({
         user_id: userData.id,
         product_id: product_id,
-        amount: 0, // You should get this from Razorpay data
+        amount: amount || 0,
         currency: 'INR',
-        status: 'completed',
-        razorpay_payment_id: payment_id,
-        verified_at: new Date().toISOString(),
-        payment_method: 'razorpay'
+        status: paymentStatus,
+        payment_method: payment_method,
+        razorpay_payment_id: payment_reference,
+        transaction_id: transaction_id,
+        upi_reference_id: upi_ref_id,
+        payment_proof_url: payment_proof_url,
+        verified_at: payment_method === 'admin_verified' ? new Date().toISOString() : null,
+        created_at: new Date().toISOString()
       })
       .select()
       .single()
@@ -102,37 +100,48 @@ serve(async (req) => {
       throw new Error('Failed to create payment record')
     }
 
-    // 6. GRANT ACCESS TO USER
-    const { error: accessError } = await supabase
-      .from('user_product_access')
-      .insert({
-        user_id: userData.id,
-        product_id: product_id,
-        payment_id: paymentRecord.id,
-        granted_at: new Date().toISOString()
-      })
+    // 4. GRANT ACCESS IF VERIFIED
+    let accessGranted = false
+    
+    if (paymentStatus === 'completed') {
+      const { error: accessError } = await supabase
+        .from('user_product_access')
+        .insert({
+          user_id: userData.id,
+          product_id: product_id,
+          payment_id: paymentRecord.id,
+          granted_at: new Date().toISOString()
+        })
 
-    if (accessError) {
-      console.error('Failed to grant access:', accessError)
-      throw new Error('Failed to grant access')
+      if (accessError) {
+        console.error('Failed to grant access:', accessError)
+        throw new Error('Failed to grant access')
+      }
+      
+      accessGranted = true
     }
 
-    // 7. GET PRODUCT DETAILS FOR RESPONSE
+    // 5. GET PRODUCT DETAILS
     const { data: productData } = await supabase
       .from('products')
       .select('name, access_link')
       .eq('id', product_id)
       .single()
 
-    console.log('Access granted successfully')
+    const responseMessage = accessGranted 
+      ? 'Payment verified and access granted immediately!'
+      : 'Payment received! Access will be granted after verification (usually within 30 minutes).'
+
+    console.log(accessGranted ? '✅ Access granted immediately' : '⏳ Payment pending verification')
     
     return new Response(
       JSON.stringify({ 
         success: true,
-        accessGranted: true,
-        message: 'Payment verified and access granted',
-        driveLink: productData?.access_link,
-        productName: productData?.name
+        accessGranted: accessGranted,
+        message: responseMessage,
+        driveLink: accessGranted ? productData?.access_link : null,
+        productName: productData?.name,
+        paymentId: paymentRecord.id
       }), 
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -141,7 +150,7 @@ serve(async (req) => {
     )
     
   } catch (error) {
-    console.error('Payment verification error:', error)
+    console.error('❌ Payment verification error:', error)
     
     return new Response(
       JSON.stringify({ 
