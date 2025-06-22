@@ -1,5 +1,5 @@
 
-import { verifyPaymentAndGrantAccess } from '@/services/paymentService';
+import { verifyPaymentAndGrantAccess } from '@/services/payment/paymentVerification';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { clearPendingPayment } from '@/utils/paymentVerificationHelpers';
@@ -40,8 +40,8 @@ export const usePaymentVerificationLogic = ({
       if (result.success && result.accessGranted) {
         setPaymentData({
           email: userEmail,
-          driveLink: result.driveLink,
-          whatsappGroup: result.whatsappGroup
+          driveLink: result.driveLink || '',
+          whatsappGroup: result.whatsappGroup || "https://chat.whatsapp.com/IBcU8C5J1S6707J9rDdF0X"
         });
 
         // Refresh access to get the latest product access

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const ManualPaymentEntry = () => {
           .insert({
             email: formData.userEmail,
             name: formData.userEmail.split('@')[0],
+            mobile_number: '0000000000', // Default mobile number
             is_verified: true
           })
           .select()
@@ -59,8 +61,7 @@ const ManualPaymentEntry = () => {
           payment_method: 'razorpay',
           razorpay_payment_id: formData.razorpayPaymentId,
           verified_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          notes: 'Manually added by admin - Razorpay payment'
+          created_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -73,8 +74,7 @@ const ManualPaymentEntry = () => {
         .insert({
           user_id: userData.id,
           product_id: formData.productId || 'manual-product-access',
-          payment_id: paymentRecord.id,
-          granted_at: new Date().toISOString()
+          payment_id: paymentRecord.id
         });
 
       if (accessError && !accessError.message.includes('duplicate')) {

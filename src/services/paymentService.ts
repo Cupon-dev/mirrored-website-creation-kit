@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PaymentResult {
@@ -6,6 +7,8 @@ export interface PaymentResult {
   message: string;
   error?: string;
   paymentId?: string;
+  driveLink?: string;
+  whatsappGroup?: string;
 }
 
 // Record payment attempt in database (will be auto-verified if has Razorpay ID)
@@ -39,6 +42,7 @@ export const recordPayment = async (
         .insert({
           email: userEmail,
           name: userEmail.split('@')[0],
+          mobile_number: '0000000000', // Default mobile number
           is_verified: true
         })
         .select()

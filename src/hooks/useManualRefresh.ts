@@ -42,7 +42,7 @@ export const useManualRefresh = ({
       try {
         const result = await verifyPaymentAndGrantAccess(userEmail, user?.id);
         
-        if (result.success) {
+        if (result.success && result.accessGranted) {
           await refreshAccess();
           showAccessGranted();
         } else {

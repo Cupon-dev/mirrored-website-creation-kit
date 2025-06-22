@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,7 +34,6 @@ export const useUserAccess = () => {
         .select(`
           product_id,
           created_at,
-          granted_at,
           payment_id,
           payments!inner(
             status,
