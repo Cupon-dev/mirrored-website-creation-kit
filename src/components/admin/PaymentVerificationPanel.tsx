@@ -19,7 +19,7 @@ import {
   ExternalLink,
   Mail,
   Zap,
-  Robot,
+  Bot,
   AlertTriangle
 } from 'lucide-react';
 
@@ -279,7 +279,7 @@ const PaymentVerificationPanel = () => {
     } else if (payment.razorpay_payment_id) {
       return (
         <Badge className="bg-green-100 text-green-800">
-          <Robot className="w-3 h-3 mr-1" />
+          <Bot className="w-3 h-3 mr-1" />
           Auto
         </Badge>
       );
@@ -397,7 +397,7 @@ const PaymentVerificationPanel = () => {
         </div>
         <div className="flex space-x-2">
           <Button onClick={runAutoVerification} variant="outline" size="sm" className="bg-blue-50 border-blue-300 text-blue-700">
-            <Robot className="w-4 h-4 mr-2" />
+            <Bot className="w-4 h-4 mr-2" />
             Run Auto-Verification
           </Button>
           <Button onClick={fetchPayments} variant="outline" size="sm">
@@ -435,7 +435,7 @@ const PaymentVerificationPanel = () => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Robot className="w-5 h-5 text-green-500" />
+              <Bot className="w-5 h-5 text-green-500" />
               <div>
                 <p className="text-sm font-medium">Auto-Verified (24h)</p>
                 <p className="text-2xl font-bold">{completedPayments.length}</p>
@@ -495,7 +495,7 @@ const PaymentVerificationPanel = () => {
           ) : filteredPendingPayments.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Robot className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                <Bot className="w-12 h-12 mx-auto mb-4 text-green-500" />
                 <h3 className="text-lg font-semibold mb-2">All Caught Up! 🤖</h3>
                 <p className="text-gray-600">
                   {searchTerm ? 'No payments match your search criteria.' : 'All payments have been automatically verified!'}
