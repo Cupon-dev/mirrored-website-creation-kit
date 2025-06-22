@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Copy, CreditCard, Smartphone, QrCode, Upload, CheckCircle, Clock, Zap } from 'lucide-react';
+import { recordPayment } from '@/services/paymentService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MultiPaymentModalProps {
@@ -66,7 +67,7 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
     
     toast({
       title: "Payment Window Opened",
-      description: "Complete your payment and return here for verification",
+      description: "Complete your payment and return here. Access will be granted automatically!",
       duration: 5000,
     });
   };
@@ -84,28 +85,30 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
     setIsProcessing(true);
 
     try {
-      // Record UPI payment attempt
-      const { data, error } = await supabase.functions.invoke('verify-payment', {
-        body: {
-          user_email: user.email,
-          product_id: product.id,
-          payment_method: 'upi',
-          amount: product.price,
-          upi_ref_id: transactionId || 'manual_upi_payment',
-          transaction_id: transactionId
+      // Record UPI payment attempt using new service
+      const result = await recordPayment(
+        user.email,
+        product.id,
+        product.price,
+        'upi',
+        {
+          transactionId: transactionId || 'upi_payment_' + Date.now(),
+          upiRefId: transactionId
         }
-      });
+      );
 
-      if (error) throw error;
+      if (result.success) {
+        toast({
+          title: "Payment Recorded! ✅",
+          description: result.message,
+          duration: 6000,
+        });
 
-      toast({
-        title: "Payment Recorded!",
-        description: "Your payment will be verified within 30 minutes. You'll receive access automatically.",
-        duration: 6000,
-      });
-
-      onPaymentSuccess();
-      onClose();
+        onPaymentSuccess();
+        onClose();
+      } else {
+        throw new Error(result.error || 'Payment recording failed');
+      }
 
     } catch (error: any) {
       toast({
@@ -143,28 +146,30 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
         .from('payment-proofs')
         .getPublicUrl(fileName);
 
-      // Record payment with proof
-      const { error } = await supabase.functions.invoke('verify-payment', {
-        body: {
-          user_email: user.email,
-          product_id: product.id,
-          payment_method: 'manual_verification',
-          amount: product.price,
-          payment_proof_url: publicUrl,
-          transaction_id: transactionId
+      // Record payment with proof using new service
+      const result = await recordPayment(
+        user.email,
+        product.id,
+        product.price,
+        'manual_verification',
+        {
+          transactionId: transactionId,
+          paymentProofUrl: publicUrl
         }
-      });
+      );
 
-      if (error) throw error;
+      if (result.success) {
+        toast({
+          title: "Payment Proof Uploaded! ✅",
+          description: result.message,
+          duration: 6000,
+        });
 
-      toast({
-        title: "Payment Proof Uploaded!",
-        description: "Your payment will be verified manually within 2 hours.",
-        duration: 6000,
-      });
-
-      onPaymentSuccess();
-      onClose();
+        onPaymentSuccess();
+        onClose();
+      } else {
+        throw new Error(result.error || 'Payment recording failed');
+      }
 
     } catch (error: any) {
       toast({
@@ -314,7 +319,7 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
                     <li>2. Open your UPI app (GPay, PhonePe, Paytm)</li>
                     <li>3. Send ₹{product.price} to the copied UPI ID</li>
                     <li>4. Click "Confirm Payment" below</li>
-                    <li>5. Access granted within 30 minutes!</li>
+                    <li>5. Access granted automatically within 30 minutes!</li>
                   </ol>
                 </div>
 
@@ -374,8 +379,8 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
                     <li>1. Make payment via any method (UPI/Bank Transfer)</li>
                     <li>2. Take screenshot of successful payment</li>
                     <li>3. Upload the screenshot here</li>
-                    <li>4. Our team will verify within 2 hours</li>
-                    <li>5. Access granted after verification</li>
+                    <li>4. Our automated system will verify within 2 hours</li>
+                    <li>5. Access granted automatically after verification</li>
                   </ol>
                 </div>
 
@@ -395,7 +400,7 @@ const MultiPaymentModal = ({ isOpen, onClose, product, onPaymentSuccess }: Multi
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-600 text-center">
-            🔒 Secure payment processing • 💯 100% money-back guarantee • 📞 24/7 support
+            🤖 Automated verification system • 🔒 Secure payment processing • 💯 100% money-back guarantee • 📞 24/7 support
           </p>
         </div>
       </DialogContent>
