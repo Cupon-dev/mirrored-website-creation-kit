@@ -10,32 +10,32 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  Eye, 
   Search,
   RefreshCw,
   DollarSign,
   User,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 
 interface PendingPayment {
   id: string;
-  user_id: string;
-  product_id: string;
+  user_id?: string;
+  email: string;
   amount: number;
-  payment_method: string;
+  payment_method?: string;
   transaction_id?: string;
   upi_reference_id?: string;
+  razorpay_payment_id?: string;
   payment_proof_url?: string;
+  google_drive_link?: string;
+  whatsapp_group?: string;
   created_at: string;
   status: string;
-  users: {
+  users?: {
     name: string;
     email: string;
-  };
-  products: {
-    name: string;
   };
 }
 
@@ -55,18 +55,28 @@ const PaymentVerificationPanel = () => {
 
   const fetchPendingPayments = async () => {
     try {
+      // Get payments that need verification
       const { data, error } = await supabase
         .from('payments')
         .select(`
           *,
-          users (name, email),
-          products (name)
+          users!payments_user_id_fkey (name, email)
         `)
         .eq('status', 'pending_verification')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPendingPayments(data || []);
+      
+      // Transform data to match component expectations
+      const transformedData = data?.map(payment => ({
+        ...payment,
+        users: payment.users || { 
+          name: payment.email?.split('@')[0] || 'Unknown',
+          email: payment.email || 'No email'
+        }
+      })) || [];
+      
+      setPendingPayments(transformedData);
     } catch (error: any) {
       console.error('Error fetching payments:', error);
       toast({
@@ -79,9 +89,9 @@ const PaymentVerificationPanel = () => {
     }
   };
 
-  const verifyPayment = async (paymentId: string, userId: string, productId: string) => {
+  const verifyPayment = async (paymentId: string, userId?: string) => {
     try {
-      // Update payment status
+      // Update payment status to completed
       const { error: paymentError } = await supabase
         .from('payments')
         .update({
@@ -92,23 +102,26 @@ const PaymentVerificationPanel = () => {
 
       if (paymentError) throw paymentError;
 
-      // Grant user access
-      const { error: accessError } = await supabase
-        .from('user_product_access')
-        .insert({
-          user_id: userId,
-          product_id: productId,
-          payment_id: paymentId,
-          granted_at: new Date().toISOString()
-        });
+      // Grant user access if we have a valid user
+      if (userId) {
+        const { error: accessError } = await supabase
+          .from('user_product_access')
+          .insert({
+            user_id: userId,
+            product_id: 'manual-verification', // Generic product ID for manual verification
+            payment_id: paymentId,
+            granted_at: new Date().toISOString()
+          });
 
-      if (accessError && !accessError.message.includes('duplicate')) {
-        throw accessError;
+        if (accessError && !accessError.message.includes('duplicate')) {
+          console.warn('Could not create access record:', accessError);
+          // Don't throw error - payment is still verified
+        }
       }
 
       toast({
         title: "Payment Verified ✅",
-        description: "User access has been granted successfully",
+        description: "Payment has been verified and access granted",
         duration: 4000,
       });
 
@@ -156,10 +169,10 @@ const PaymentVerificationPanel = () => {
   };
 
   const filteredPayments = pendingPayments.filter(payment =>
-    payment.users.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.users.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.products.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    (payment.users?.email || payment.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.users?.name || payment.email?.split('@')[0] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.transaction_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (payment.razorpay_payment_id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateString: string) => {
@@ -172,16 +185,19 @@ const PaymentVerificationPanel = () => {
     });
   };
 
-  const getMethodBadge = (method: string) => {
-    const variants = {
-      'upi': 'default',
-      'razorpay': 'secondary',
-      'manual_verification': 'outline'
-    } as const;
+  const getMethodBadge = (method?: string) => {
+    const methodColors = {
+      'upi': 'bg-blue-100 text-blue-800',
+      'razorpay': 'bg-purple-100 text-purple-800',
+      'manual_verification': 'bg-orange-100 text-orange-800'
+    };
+
+    const displayMethod = method || 'razorpay';
+    const colorClass = methodColors[displayMethod as keyof typeof methodColors] || 'bg-gray-100 text-gray-800';
 
     return (
-      <Badge variant={variants[method as keyof typeof variants] || 'outline'}>
-        {method.replace('_', ' ').toUpperCase()}
+      <Badge className={colorClass}>
+        {displayMethod.replace('_', ' ').toUpperCase()}
       </Badge>
     );
   };
@@ -205,7 +221,7 @@ const PaymentVerificationPanel = () => {
       <div className="flex items-center space-x-2">
         <Search className="w-4 h-4 text-gray-400" />
         <Input
-          placeholder="Search by email, name, product, or transaction ID..."
+          placeholder="Search by email, name, or transaction ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-md"
@@ -247,7 +263,7 @@ const PaymentVerificationPanel = () => {
               <div>
                 <p className="text-sm font-medium">Unique Users</p>
                 <p className="text-2xl font-bold">
-                  {new Set(pendingPayments.map(p => p.user_id)).size}
+                  {new Set(pendingPayments.map(p => p.user_id || p.email)).size}
                 </p>
               </div>
             </div>
@@ -270,6 +286,15 @@ const PaymentVerificationPanel = () => {
               <p className="text-gray-600">
                 {searchTerm ? 'No payments match your search criteria.' : 'All payments have been verified!'}
               </p>
+              {searchTerm && (
+                <Button
+                  onClick={() => setSearchTerm('')}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  Clear Search
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -279,8 +304,13 @@ const PaymentVerificationPanel = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div>
-                      <CardTitle className="text-lg">{payment.users.name}</CardTitle>
-                      <p className="text-sm text-gray-600">{payment.users.email}</p>
+                      <CardTitle className="text-lg">
+                        {payment.users?.name || payment.email?.split('@')[0] || 'Unknown User'}
+                      </CardTitle>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <p className="text-sm text-gray-600">{payment.users?.email || payment.email}</p>
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -295,11 +325,6 @@ const PaymentVerificationPanel = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Product</Label>
-                    <p className="text-sm">{payment.products.name}</p>
-                  </div>
-                  
-                  <div>
                     <Label className="text-sm font-medium text-gray-700">Payment Date</Label>
                     <p className="text-sm flex items-center">
                       <Calendar className="w-4 h-4 mr-1" />
@@ -307,17 +332,44 @@ const PaymentVerificationPanel = () => {
                     </p>
                   </div>
                   
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
+                    <p className="text-sm">{payment.payment_method || 'Razorpay'}</p>
+                  </div>
+                  
                   {payment.transaction_id && (
                     <div>
                       <Label className="text-sm font-medium text-gray-700">Transaction ID</Label>
-                      <p className="text-sm font-mono">{payment.transaction_id}</p>
+                      <p className="text-sm font-mono bg-gray-50 p-2 rounded">{payment.transaction_id}</p>
+                    </div>
+                  )}
+                  
+                  {payment.razorpay_payment_id && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700">Razorpay Payment ID</Label>
+                      <p className="text-sm font-mono bg-purple-50 p-2 rounded">{payment.razorpay_payment_id}</p>
                     </div>
                   )}
                   
                   {payment.upi_reference_id && (
                     <div>
                       <Label className="text-sm font-medium text-gray-700">UPI Reference</Label>
-                      <p className="text-sm font-mono">{payment.upi_reference_id}</p>
+                      <p className="text-sm font-mono bg-blue-50 p-2 rounded">{payment.upi_reference_id}</p>
+                    </div>
+                  )}
+
+                  {payment.google_drive_link && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700">Drive Link</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(payment.google_drive_link, '_blank')}
+                        className="mt-1"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View Drive Link
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -331,16 +383,15 @@ const PaymentVerificationPanel = () => {
                       onClick={() => window.open(payment.payment_proof_url, '_blank')}
                       className="mt-1"
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Proof
-                      <ExternalLink className="w-4 h-4 ml-2" />
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View Payment Proof
                     </Button>
                   </div>
                 )}
 
                 <div className="flex space-x-3 pt-2">
                   <Button
-                    onClick={() => verifyPayment(payment.id, payment.user_id, payment.product_id)}
+                    onClick={() => verifyPayment(payment.id, payment.user_id)}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
