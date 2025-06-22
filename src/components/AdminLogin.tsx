@@ -1,3 +1,68 @@
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Shield, Eye, EyeOff, User, LogOut } from 'lucide-react';
+
+const ADMIN_EMAIL = 'ikeralaklicks@gmail.com';
+const ADMIN_PASSWORD = 'Arya@2904#';
+
+interface AdminLoginProps {
+  onAdminLogin: () => void;
+  currentUserEmail?: string;
+}
+
+const AdminLogin = ({ onAdminLogin, currentUserEmail }: AdminLoginProps) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    // Simulate loading delay for security
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      localStorage.setItem('admin_session', 'true');
+      localStorage.setItem('admin_login_time', Date.now().toString());
+      
+      toast({
+        title: "Admin Access Granted! 🔓",
+        description: "Welcome to the admin dashboard",
+        duration: 3000,
+      });
+      
+      onAdminLogin();
+    } else {
+      toast({
+        title: "Access Denied ❌",
+        description: "Invalid admin credentials",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
+    
+    setIsLoading(false);
+  };
+
+  const switchToUserMode = () => {
+    // Clear admin session but keep user session
+    localStorage.removeItem('admin_session');
+    toast({
+      title: "Switched to User Mode 👤",
+      description: "You're now viewing as a regular user",
+      duration: 3000,
+    });
+    window.location.href = '/';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl border-0">
