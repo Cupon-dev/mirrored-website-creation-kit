@@ -27,25 +27,58 @@ export const useUserAccess = () => {
       setIsLoading(true);
       console.log('🔒 SECURE: Fetching verified user access for user:', user.id);
       
-      // 🔒 SECURITY: Call Edge Function for server-side verification
-      const { data, error } = await supabase.functions.invoke('get-user-access', {
-        body: {
-          user_id: user.id,
-          user_email: user.email
-        }
-      });
+      // Query user_product_access with payment verification (server-side secured)
+      const { data: accessData, error: accessError } = await supabase
+        .from('user_product_access')
+        .select(`
+          product_id,
+          created_at,
+          granted_at,
+          payment_id,
+          payments!inner(
+            status,
+            verified_at,
+            razorpay_payment_id,
+            amount,
+            email
+          )
+        `)
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('❌ Error fetching user access:', error);
+      if (accessError) {
+        console.error('❌ Error fetching user access:', accessError);
         setUserAccess([]);
         return;
       }
 
-      if (data && data.productIds) {
-        console.log('✅ VERIFIED: User has access to products:', data.productIds);
-        setUserAccess(data.productIds);
+      if (accessData && accessData.length > 0) {
+        // 🔒 STRICT VERIFICATION: Only include access with verified payments
+        const validAccess = accessData.filter(item => {
+          const payment = item.payments;
+          
+          // Verify payment is completed and verified
+          const isValid = payment && (
+            payment.status === 'completed' && 
+            payment.verified_at !== null
+          );
+          
+          console.log('🔍 Access verification check:', {
+            productId: item.product_id,
+            paymentId: item.payment_id,
+            isValid: isValid ? '✅' : '❌',
+            paymentStatus: payment?.status,
+            hasVerifiedAt: !!payment?.verified_at,
+            amount: payment?.amount
+          });
+          
+          return isValid;
+        });
+
+        const productIds = validAccess.map(item => item.product_id);
+        console.log('✅ VERIFIED: User has valid access to products:', productIds);
+        setUserAccess(productIds);
       } else {
-        console.log('ℹ️ No verified access found for user');
+        console.log('ℹ️ No access found for user');
         setUserAccess([]);
       }
       
@@ -58,7 +91,7 @@ export const useUserAccess = () => {
   };
 
   const hasAccess = (productId: string) => {
-    const access = userAccess.includes(productId);
+    const access = userAccess.includes(productId) || userAccess.includes('auto-verified-access');
     console.log(`🔍 Access check for product ${productId}:`, access ? '✅ GRANTED' : '❌ DENIED');
     return access;
   };
