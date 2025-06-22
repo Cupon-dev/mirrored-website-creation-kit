@@ -258,9 +258,14 @@ export type Database = {
           google_drive_link: string | null
           id: string
           mobile_number: string | null
+          payment_method: string | null
+          payment_proof_url: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           status: string | null
+          transaction_id: string | null
+          upi_reference_id: string | null
+          user_id: string | null
           verified_at: string | null
           whatsapp_sent: boolean | null
           whatsapp_url: string | null
@@ -273,9 +278,14 @@ export type Database = {
           google_drive_link?: string | null
           id?: string
           mobile_number?: string | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           status?: string | null
+          transaction_id?: string | null
+          upi_reference_id?: string | null
+          user_id?: string | null
           verified_at?: string | null
           whatsapp_sent?: boolean | null
           whatsapp_url?: string | null
@@ -288,14 +298,27 @@ export type Database = {
           google_drive_link?: string | null
           id?: string
           mobile_number?: string | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           status?: string | null
+          transaction_id?: string | null
+          upi_reference_id?: string | null
+          user_id?: string | null
           verified_at?: string | null
           whatsapp_sent?: boolean | null
           whatsapp_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_analytics: {
         Row: {

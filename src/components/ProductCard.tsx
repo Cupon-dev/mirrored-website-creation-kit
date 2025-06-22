@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import FOMOCounter from "./FOMOCounter";
-import MultiPaymentModal from "../payment/MultiPaymentModal";
+import MultiPaymentModal from "./payment/MultiPaymentModal";
 
 interface Product {
   id: string;
